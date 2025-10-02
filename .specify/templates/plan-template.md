@@ -47,7 +47,35 @@
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### Type Safety (Principle I)
+- [ ] All new types added to lib/supabase.ts with TypeScript definitions
+- [ ] No `any` types used without explicit justification
+- [ ] Components have proper type imports from lib/supabase.ts
+
+### Static Export Compatibility (Principle II)
+- [ ] No server-side rendering (SSR) patterns introduced
+- [ ] No API routes requiring Node.js server
+- [ ] All data fetching uses client-side Supabase calls
+- [ ] No dynamic image optimization dependencies
+
+### Client-Side Auth (Principle III)
+- [ ] Auth flows use AuthContext pattern
+- [ ] No server-side session management
+- [ ] Protected routes verify auth before rendering
+
+### RLS Security (Principle IV)
+- [ ] New database tables have RLS policies defined
+- [ ] Migrations include RLS policy definitions
+- [ ] Access patterns respect user role hierarchy
+
+### Component Architecture (Principle V)
+- [ ] Interactive components use 'use client' directive
+- [ ] shadcn/ui patterns followed for UI components
+- [ ] Path aliases (@/*) used consistently
+
+### Pre-Commit Discipline (Principle VI)
+- [ ] TypeScript compilation verified (npm run typecheck)
+- [ ] Static export build tested (npm run build)
 
 ## Project Structure
 
@@ -216,4 +244,4 @@ directories captured above]
 - [ ] Complexity deviations documented
 
 ---
-*Based on Constitution v2.1.1 - See `/memory/constitution.md`*
+*Based on Constitution v1.0.0 - See `.specify/memory/constitution.md`*
