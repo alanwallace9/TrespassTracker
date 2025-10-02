@@ -1,0 +1,389 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { Upload, FileText, CircleAlert as AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+type CSVUploadDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onRecordsUploaded: () => void;
+};
+
+type CSVRecord = {
+  first_name: string;
+  last_name: string;
+  date_of_birth?: string;
+  incident_date: string;
+  location: string;
+  description: string;
+  status: string;
+  is_former_student?: boolean;
+  expiration_date?: string;
+};
+
+type UserCSVRecord = {
+  email: string;
+  password: string;
+  role: string;
+  display_name?: string;
+};
+
+export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUploadDialogProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<CSVRecord[]>([]);
+  const [userPreviewData, setUserPreviewData] = useState<UserCSVRecord[]>([]);
+  const [error, setError] = useState<string>('');
+  const [uploadType, setUploadType] = useState<'records' | 'users'>('records');
+  const [userRole, setUserRole] = useState<string>('user');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (user) {
+      fetchUserRole();
+    }
+  }, [user]);
+
+  const fetchUserRole = async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (data?.role) {
+      setUserRole(data.role);
+    }
+  };
+
+  const parseUserCSV = (text: string): UserCSVRecord[] => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      throw new Error('CSV file must contain headers and at least one user');
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const records: UserCSVRecord[] = [];
+
+    const requiredFields = ['email', 'password'];
+    const missingFields = requiredFields.filter(field => !headers.includes(field));
+
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required columns: ${missingFields.join(', ')}`);
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      const record: any = {};
+
+      headers.forEach((header, index) => {
+        record[header] = values[index] || '';
+      });
+
+      if (record.email && record.password) {
+        records.push({
+          email: record.email,
+          password: record.password,
+          role: record.role || 'user',
+          display_name: record.display_name || undefined,
+        });
+      }
+    }
+
+    return records;
+  };
+
+  const parseCSV = (text: string): CSVRecord[] => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      throw new Error('CSV file must contain headers and at least one record');
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const records: CSVRecord[] = [];
+
+    const requiredFields = ['first_name', 'last_name', 'incident_date', 'location', 'description'];
+    const missingFields = requiredFields.filter(field => !headers.includes(field));
+
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required columns: ${missingFields.join(', ')}`);
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      const record: any = {};
+
+      headers.forEach((header, index) => {
+        record[header] = values[index] || '';
+      });
+
+      if (record.first_name && record.last_name && record.incident_date && record.location && record.description) {
+        records.push({
+          first_name: record.first_name,
+          last_name: record.last_name,
+          date_of_birth: record.date_of_birth || undefined,
+          incident_date: record.incident_date,
+          location: record.location,
+          description: record.description,
+          status: record.status || 'active',
+          is_former_student: record.is_former_student === 'true' || record.is_former_student === '1',
+          expiration_date: record.expiration_date || undefined,
+        });
+      }
+    }
+
+    return records;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError('');
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (uploadType === 'users') {
+          const users = parseUserCSV(text);
+          setUserPreviewData(users);
+          setPreviewData([]);
+        } else {
+          const records = parseCSV(text);
+          setPreviewData(records);
+          setUserPreviewData([]);
+        }
+      } catch (err: any) {
+        setError(err.message);
+        setPreviewData([]);
+        setUserPreviewData([]);
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleUpload = async () => {
+    if (!user || (previewData.length === 0 && userPreviewData.length === 0)) return;
+
+    setIsLoading(true);
+    try {
+      if (uploadType === 'users') {
+        let successCount = 0;
+        for (const userRecord of userPreviewData) {
+          try {
+            const { data: authData, error: signUpError } = await supabase.auth.signUp({
+              email: userRecord.email,
+              password: userRecord.password,
+            });
+
+            if (signUpError) throw signUpError;
+
+            if (authData.user) {
+              await supabase.from('user_profiles').insert({
+                id: authData.user.id,
+                role: userRecord.role,
+                display_name: userRecord.display_name || null,
+              });
+              successCount++;
+            }
+          } catch (err: any) {
+            console.error(`Failed to create user ${userRecord.email}:`, err.message);
+          }
+        }
+
+        toast({
+          title: 'Success',
+          description: `Successfully created ${successCount} of ${userPreviewData.length} users`,
+        });
+      } else {
+        const recordsToInsert = previewData.map(record => ({
+          user_id: user.id,
+          first_name: record.first_name,
+          last_name: record.last_name,
+          date_of_birth: record.date_of_birth || null,
+          incident_date: record.incident_date,
+          location: record.location,
+          description: record.description,
+          status: record.status,
+          is_former_student: record.is_former_student || false,
+          expiration_date: record.expiration_date || null,
+        }));
+
+        const { error } = await supabase.from('trespass_records').insert(recordsToInsert);
+
+        if (error) throw error;
+
+        toast({
+          title: 'Success',
+          description: `Successfully uploaded ${previewData.length} records`,
+        });
+      }
+
+      setPreviewData([]);
+      setUserPreviewData([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      onRecordsUploaded();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Upload CSV File</DialogTitle>
+          <DialogDescription>
+            {uploadType === 'records'
+              ? 'Upload a CSV file with trespass records. Required columns: first_name, last_name, incident_date, location, description'
+              : 'Upload a CSV file with user accounts. Required columns: email, password. Optional: role, display_name'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {(userRole === 'district_admin' || userRole === 'master_admin') && (
+            <div className="flex gap-2 border-b pb-4">
+              <Button
+                type="button"
+                variant={uploadType === 'records' ? 'default' : 'outline'}
+                onClick={() => {
+                  setUploadType('records');
+                  setPreviewData([]);
+                  setUserPreviewData([]);
+                  setError('');
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+              >
+                Trespass Records
+              </Button>
+              <Button
+                type="button"
+                variant={uploadType === 'users' ? 'default' : 'outline'}
+                onClick={() => {
+                  setUploadType('users');
+                  setPreviewData([]);
+                  setUserPreviewData([]);
+                  setError('');
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+              >
+                User Accounts
+              </Button>
+            </div>
+          )}
+          <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-slate-400 transition-colors">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleFileChange}
+              className="hidden"
+              id="csv-upload"
+            />
+            <label htmlFor="csv-upload" className="cursor-pointer">
+              <div className="flex flex-col items-center space-y-2">
+                <Upload className="w-12 h-12 text-slate-400" />
+                <div className="text-sm font-medium">Click to upload CSV file</div>
+                <div className="text-xs text-slate-500">CSV format with required columns</div>
+              </div>
+            </label>
+          </div>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {uploadType === 'users' && userPreviewData.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-sm text-slate-600">
+                <FileText className="w-4 h-4" />
+                <span>{userPreviewData.length} users ready to create</span>
+              </div>
+              <div className="max-h-60 overflow-y-auto border rounded-lg p-4 bg-slate-50">
+                <div className="space-y-2 text-sm">
+                  {userPreviewData.slice(0, 5).map((userRecord, index) => (
+                    <div key={index} className="p-2 bg-white rounded border">
+                      <div className="font-medium">{userRecord.email}</div>
+                      <div className="text-xs text-slate-500">Role: {userRecord.role}</div>
+                    </div>
+                  ))}
+                  {userPreviewData.length > 5 && (
+                    <div className="text-xs text-slate-500 text-center pt-2">
+                      And {userPreviewData.length - 5} more users...
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {uploadType === 'records' && previewData.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-sm text-slate-600">
+                <FileText className="w-4 h-4" />
+                <span>{previewData.length} records ready to upload</span>
+              </div>
+              <div className="max-h-60 overflow-y-auto border rounded-lg p-4 bg-slate-50">
+                <div className="space-y-2 text-sm">
+                  {previewData.slice(0, 5).map((record, index) => (
+                    <div key={index} className="p-2 bg-white rounded border">
+                      <div className="font-medium">
+                        {record.first_name} {record.last_name}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {record.location} - {record.incident_date}
+                      </div>
+                    </div>
+                  ))}
+                  {previewData.length > 5 && (
+                    <div className="text-xs text-slate-500 text-center pt-2">
+                      And {previewData.length - 5} more records...
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpload} disabled={isLoading || (previewData.length === 0 && userPreviewData.length === 0)}>
+              {isLoading
+                ? uploadType === 'users'
+                  ? 'Creating...'
+                  : 'Uploading...'
+                : uploadType === 'users'
+                ? `Create ${userPreviewData.length} Users`
+                : `Upload ${previewData.length} Records`}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
