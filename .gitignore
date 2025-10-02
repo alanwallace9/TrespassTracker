@@ -27,6 +27,8 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+.env.development
+.env.production
 
 # vercel
 .vercel
@@ -34,3 +36,42 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDEs and editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea
+.cursor
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.log
+*.tmp
+*.temp
+.cache
+.temp
+
+# Supabase local
+.supabase
+
+# Testing
+coverage/
+.nyc_output/
+
+# Bolt/MVP temporary files
+/Temp/
+*.bolt.backup
