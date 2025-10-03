@@ -10,6 +10,7 @@ export const mockUserProfile: UserProfile = {
   email: 'test@example.com',
   display_name: 'Test Admin',
   role: 'master_admin',
+  campus_id: null,
   theme: 'system',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),

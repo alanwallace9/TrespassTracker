@@ -3,7 +3,7 @@ import { DashboardClient } from '@/components/DashboardClient';
 import { revalidatePath } from 'next/cache';
 
 export default async function DashboardPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   // Fetch records server-side
   const { data: records, error } = await supabase

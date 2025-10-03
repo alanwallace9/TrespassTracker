@@ -1,11 +1,19 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { useUser, useClerk } from '@clerk/nextjs';
+
+// Clerk user type for compatibility
+type ClerkUser = {
+  id: string;
+  email: string | null;
+  user_metadata: {
+    role: string;
+  };
+};
 
 type AuthContextType = {
-  user: User | null;
+  user: ClerkUser | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -15,56 +23,43 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user: clerkUser, isLoaded } = useUser();
+  const { signOut: clerkSignOut } = useClerk();
+  const [user, setUser] = useState<ClerkUser | null>(null);
 
   useEffect(() => {
-    // TESTING MODE: Bypass authentication with master_admin role
-    // TODO: Remove this before production - replace with Clerk
-    const mockUser = {
-      id: 'test-user-id',
-      email: 'test@example.com',
-      user_metadata: {
-        role: 'master_admin'
+    if (isLoaded) {
+      if (clerkUser) {
+        // Map Clerk user to our auth context format
+        setUser({
+          id: clerkUser.id,
+          email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
+          user_metadata: {
+            role: (clerkUser.publicMetadata.role as string) || 'viewer',
+          },
+        });
+      } else {
+        setUser(null);
       }
-    } as unknown as User;
+    }
+  }, [clerkUser, isLoaded]);
 
-    setUser(mockUser);
-    setLoading(false);
-
-    /* // Original Supabase auth (commented out for testing)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      (() => {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      })();
-    });
-
-    return () => subscription.unsubscribe();
-    */
-  }, []);
-
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error };
+  const signUp = async (_email: string, _password: string) => {
+    // Clerk handles sign-up through its UI components
+    return { error: new Error('Use Clerk sign-up page') };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+  const signIn = async (_email: string, _password: string) => {
+    // Clerk handles sign-in through its UI components
+    return { error: new Error('Use Clerk sign-in page') };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await clerkSignOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading: !isLoaded, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

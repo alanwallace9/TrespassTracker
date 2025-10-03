@@ -7,13 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Shield, LogOut, Settings, User, ChevronDown, Search, Plus, Upload, LayoutGrid, List, FileText } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { AddRecordDialog } from '@/components/AddRecordDialog';
 import { CSVUploadDialog } from '@/components/CSVUploadDialog';
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { StatsDropdown } from '@/components/StatsDropdown';
-import { supabase } from '@/lib/supabase';
+import { getDisplayName } from '@/app/actions/users';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -42,47 +42,72 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [csvDialogOpen, setCSVDialogOpen] = useState(false);
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('viewer');
+  const initializingRef = useRef(false);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.push('/sign-in');
     }
   }, [user, loading, router]);
 
+  // Auto-sync user to Supabase on first load, then fetch display name (truly only once)
   useEffect(() => {
-    if (user) {
-      fetchDisplayName();
-    }
+    const syncAndFetch = async () => {
+      // Skip if already initialized or currently initializing
+      if (!user || initializedRef.current || initializingRef.current) {
+        return;
+      }
+
+      // Mark as initializing to prevent duplicate calls
+      initializingRef.current = true;
+
+      try {
+        // Auto-sync (for development without webhooks)
+        const { syncCurrentUser } = await import('@/app/actions/sync-user');
+        await syncCurrentUser();
+        console.log('User auto-synced to Supabase');
+      } catch (error) {
+        console.error('Error auto-syncing user:', error);
+      }
+
+      // Fetch display name (only once per user load)
+      await fetchDisplayName();
+
+      // Mark as fully initialized
+      initializedRef.current = true;
+    };
+
+    syncAndFetch();
   }, [user]);
 
   const fetchDisplayName = async () => {
     if (!user) return;
 
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('display_name, role')
-      .eq('id', user.id)
-      .maybeSingle();
+    // Set role from Clerk public metadata (source of truth)
+    setUserRole(user.user_metadata.role || 'viewer');
 
-    if (data?.display_name) {
-      setDisplayName(data.display_name);
-    }
-    if (data?.role) {
-      setUserRole(data.role);
-    } else {
-      setUserRole('viewer');
+    // Fetch display name from Supabase using server action (with Clerk auth)
+    try {
+      const name = await getDisplayName(user.id);
+      console.log('Fetch display name:', { userId: user.id, name });
+      setDisplayName(name);
+    } catch (error) {
+      console.error('Error fetching display name:', error);
+      setDisplayName(null);
     }
   };
 
   const handleSignOut = async () => {
     await signOut();
-    router.push('/login');
+    router.push('/sign-in');
   };
 
   if (loading) {
@@ -118,7 +143,7 @@ export function DashboardLayout({
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <DropdownMenu>
+              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2">
                     <User className="w-4 h-4" />
@@ -157,22 +182,38 @@ export function DashboardLayout({
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  <DropdownMenuItem onClick={() => setCSVDialogOpen(true)}>
+                  <DropdownMenuItem onSelect={(e) => {
+                    e.preventDefault();
+                    setDropdownOpen(false);
+                    setTimeout(() => setCSVDialogOpen(true), 150);
+                  }}>
                     <Upload className="w-4 h-4 mr-2" />
                     Upload CSV
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setAddDialogOpen(true)}>
+                  <DropdownMenuItem onSelect={(e) => {
+                    e.preventDefault();
+                    setDropdownOpen(false);
+                    setTimeout(() => setAddDialogOpen(true), 150);
+                  }}>
                     <Plus className="w-4 h-4 mr-2" />
                     Add Record
                   </DropdownMenuItem>
-                  {(userRole === 'master_admin' || userRole === 'district_admin') && (
-                    <DropdownMenuItem onClick={() => setAddUserDialogOpen(true)}>
+                  {(userRole === 'district_admin' || userRole === 'master_admin') && (
+                    <DropdownMenuItem onSelect={(e) => {
+                      e.preventDefault();
+                      setDropdownOpen(false);
+                      setTimeout(() => setAddUserDialogOpen(true), 150);
+                    }}>
                       <User className="w-4 h-4 mr-2" />
-                      Add User
+                      Invite User (Email)
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                  <DropdownMenuItem onSelect={(e) => {
+                    e.preventDefault();
+                    setDropdownOpen(false);
+                    setTimeout(() => setSettingsOpen(true), 150);
+                  }}>
                     <Settings className="w-4 h-4 mr-2" />
                     Settings
                   </DropdownMenuItem>
@@ -238,7 +279,11 @@ export function DashboardLayout({
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onSettingsSaved={fetchDisplayName}
+      />
       <AddRecordDialog
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}

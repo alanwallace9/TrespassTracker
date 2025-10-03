@@ -37,7 +37,8 @@ export type UserProfile = {
   id: string;                                          // Clerk user ID (e.g., "user_2abc...")
   email: string | null;                                // User email from Clerk
   display_name: string | null;
-  role: 'user' | 'district_admin' | 'master_admin';
+  role: 'viewer' | 'campus_admin' | 'district_admin' | 'master_admin';
+  campus_id: string | null;                            // Campus ID for campus_admin users
   theme: 'light' | 'dark' | 'system';
   created_at: string;
   updated_at: string;

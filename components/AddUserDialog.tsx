@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { inviteUser } from '@/app/actions/invitations';
 
 type AddUserDialogProps = {
   open: boolean;
@@ -20,15 +20,14 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     email: '',
-    display_name: '',
-    role: 'viewer' as 'master_admin' | 'district_admin' | 'campus_admin' | 'viewer',
-    campus: '',
+    role: 'viewer' as 'viewer' | 'campus_admin' | 'district_admin' | 'master_admin',
+    campus_id: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.email || !formData.display_name || !formData.role) {
+    if (!formData.email || !formData.role) {
       toast({
         title: 'Error',
         description: 'Please fill in all required fields',
@@ -37,10 +36,11 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
       return;
     }
 
-    if (formData.role === 'campus_admin' && !formData.campus) {
+    // Validate campus_id for campus_admin
+    if (formData.role === 'campus_admin' && !formData.campus_id) {
       toast({
         title: 'Error',
-        description: 'Please select a campus for Campus Admin role',
+        description: 'Campus ID is required for Campus Admin role',
         variant: 'destructive',
       });
       return;
@@ -49,40 +49,24 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
     setLoading(true);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      await inviteUser({
         email: formData.email,
-        password: Math.random().toString(36).slice(-12),
-        options: {
-          emailRedirectTo: `${window.location.origin}/login`,
-        },
+        role: formData.role,
+        campus_id: formData.campus_id || null,
       });
-
-      if (authError) throw authError;
-
-      if (authData.user) {
-        const { error: profileError } = await supabase.from('user_profiles').insert({
-          id: authData.user.id,
-          email: formData.email,
-          display_name: formData.display_name,
-          role: formData.role,
-          campus: formData.role === 'campus_admin' ? formData.campus : null,
-        });
-
-        if (profileError) throw profileError;
-      }
 
       toast({
         title: 'Success',
-        description: 'User invited successfully. They will receive an email to set their password.',
+        description: `Invitation sent to ${formData.email}. They will receive an email to create their account.`,
       });
 
-      setFormData({ email: '', display_name: '', role: 'viewer', campus: '' });
+      setFormData({ email: '', role: 'viewer', campus_id: '' });
       onOpenChange(false);
       if (onUserAdded) onUserAdded();
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create user',
+        description: error.message || 'Failed to send invitation',
         variant: 'destructive',
       });
     } finally {
@@ -94,12 +78,12 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New User</DialogTitle>
-          <DialogDescription>Invite a new user to the system</DialogDescription>
+          <DialogTitle>Invite New User</DialogTitle>
+          <DialogDescription>Send an email invitation to add a new user to the system</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email">Email Address *</Label>
             <Input
               id="email"
               type="email"
@@ -112,51 +96,39 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="display_name">Display Name *</Label>
-            <Input
-              id="display_name"
-              value={formData.display_name}
-              onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-              placeholder="John Doe"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="role">Role *</Label>
             <Select
               value={formData.role}
-              onValueChange={(value: any) => setFormData({ ...formData, role: value, campus: '' })}
+              onValueChange={(value: any) => setFormData({ ...formData, role: value })}
               disabled={loading}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="viewer">Viewer</SelectItem>
-                <SelectItem value="campus_admin">Campus Admin</SelectItem>
-                <SelectItem value="district_admin">District Admin</SelectItem>
-                <SelectItem value="master_admin">Master Admin</SelectItem>
+                <SelectItem value="viewer">Viewer (Read Only)</SelectItem>
+                <SelectItem value="campus_admin">Campus Admin (Create & Update)</SelectItem>
+                <SelectItem value="district_admin">District Admin (Full Access)</SelectItem>
+                <SelectItem value="master_admin">Master Admin (System Admin)</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {formData.role === 'campus_admin' && (
             <div className="space-y-2">
-              <Label htmlFor="campus">Campus *</Label>
-              <Select
-                value={formData.campus}
-                onValueChange={(value) => setFormData({ ...formData, campus: value })}
+              <Label htmlFor="campus_id">Campus ID *</Label>
+              <Input
+                id="campus_id"
+                type="text"
+                value={formData.campus_id}
+                onChange={(e) => setFormData({ ...formData, campus_id: e.target.value })}
+                placeholder="e.g., campus_123"
+                required
                 disabled={loading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a campus" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="placeholder">Select Campus (To be added)</SelectItem>
-                </SelectContent>
-              </Select>
+              />
+              <p className="text-sm text-muted-foreground">
+                Required for campus administrators. Enter the campus identifier.
+              </p>
             </div>
           )}
 
