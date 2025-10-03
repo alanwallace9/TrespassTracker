@@ -34,48 +34,67 @@
 [Extract from feature spec: primary requirement + technical approach from research]
 
 ## Technical Context
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Framework**: Next.js 15.5+ with App Router (Server Components + Server Actions)
+**Language/Version**: TypeScript 5.7+ (strict mode)
+**UI Stack**: Tailwind CSS v4 + shadcn/ui (React 19 compatible)
+**Authentication**: Clerk (@clerk/nextjs v6+)
+**Database**: Supabase (Postgres with RLS)
+**Deployment**: Vercel (edge runtime where applicable)
+**Testing**: [e.g., Vitest, Playwright, or NEEDS CLARIFICATION]
+**Project Type**: web (Next.js App Router structure)
+**Performance Goals**: [domain-specific, e.g., Core Web Vitals, <200ms TTFB or NEEDS CLARIFICATION]
+**Constraints**: [domain-specific, e.g., mobile-first, offline support or NEEDS CLARIFICATION]
+**Scale/Scope**: [domain-specific, e.g., 10k users, 50 routes, 100 DB tables or NEEDS CLARIFICATION]
 
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+*Based on Constitution v2.0.0 - Modern Stack (Next.js 15+, Clerk, Vercel)*
 
-### Type Safety (Principle I)
-- [ ] All new types added to lib/supabase.ts with TypeScript definitions
-- [ ] No `any` types used without explicit justification
-- [ ] Components have proper type imports from lib/supabase.ts
+### Type Safety First (Principle I)
+- [ ] TypeScript 5.7+ with strict mode enabled
+- [ ] All components, Server Actions, and utilities have explicit types
+- [ ] Database types auto-generated from Supabase schema (`supabase gen types`)
+- [ ] No `any` types used without JSDoc justification
+- [ ] Server Component props properly typed
 
-### Static Export Compatibility (Principle II)
-- [ ] No server-side rendering (SSR) patterns introduced
-- [ ] No API routes requiring Node.js server
-- [ ] All data fetching uses client-side Supabase calls
-- [ ] No dynamic image optimization dependencies
+### Modern Next.js Architecture (Principle II)
+- [ ] Next.js 15.5+ with App Router used
+- [ ] Server Components by default (not 'use client' everywhere)
+- [ ] Server Actions used for data mutations (not API routes)
+- [ ] Client Components only when necessary (interactivity, hooks, browser APIs)
+- [ ] Optimized for Vercel deployment (edge runtime where beneficial)
+- [ ] Image optimization via Next.js Image component
 
-### Client-Side Auth (Principle III)
-- [ ] Auth flows use AuthContext pattern
-- [ ] No server-side session management
-- [ ] Protected routes verify auth before rendering
+### Clerk Authentication (Principle III)
+- [ ] Clerk (@clerk/nextjs v6+) installed and configured
+- [ ] clerkMiddleware() protecting routes in middleware.ts
+- [ ] Server Components use `await auth()` for auth checks
+- [ ] Client Components use `useUser()` or `useAuth()` hooks
+- [ ] No custom auth implementation (use Clerk's built-in components)
+- [ ] JWT template configured for Supabase integration
 
 ### RLS Security (Principle IV)
 - [ ] New database tables have RLS policies defined
 - [ ] Migrations include RLS policy definitions
+- [ ] RLS policies use Clerk user ID from JWT (`auth.jwt() ->> 'sub'`)
 - [ ] Access patterns respect user role hierarchy
+- [ ] Server Actions fetch auth before database queries
 
-### Component Architecture (Principle V)
-- [ ] Interactive components use 'use client' directive
+### Modern UI Stack (Principle V)
+- [ ] Tailwind CSS v4+ with zero-config setup (@import "tailwindcss")
 - [ ] shadcn/ui patterns followed for UI components
+- [ ] Server Components default, 'use client' only when needed
 - [ ] Path aliases (@/*) used consistently
+- [ ] CSS-in-JS avoided (use Tailwind utilities)
+- [ ] Theme variables in app/globals.css
 
-### Pre-Commit Discipline (Principle VI)
-- [ ] TypeScript compilation verified (npm run typecheck)
-- [ ] Static export build tested (npm run build)
+### Deployment & Quality Gates (Principle VI)
+- [ ] TypeScript compilation verified (npm run typecheck) - MUST PASS
+- [ ] Production build successful (npm run build)
+- [ ] Vercel preview deployment configured
+- [ ] Environment variables documented for Vercel
+- [ ] ESLint passes (recommended, not blocking)
+- [ ] Clerk auth flows tested in development
 
 ## Project Structure
 
@@ -91,50 +110,62 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
+**Next.js 15 App Router Structure** (Modern, Server Components First)
+
 ```
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+app/
+├── (auth)/                      # Route group for auth pages
+│   ├── sign-in/[[...sign-in]]/page.tsx
+│   └── sign-up/[[...sign-up]]/page.tsx
+├── (dashboard)/                 # Route group for protected pages
+│   ├── layout.tsx              # Dashboard layout (Server Component)
+│   ├── page.tsx                # Dashboard home (Server Component)
+│   └── [feature]/              # Feature-specific routes
+│       ├── page.tsx            # Server Component
+│       ├── loading.tsx         # Loading UI
+│       ├── error.tsx           # Error boundary
+│       └── _components/        # Private components (not routes)
+│           ├── feature-table.tsx      # Client Component
+│           └── feature-form.tsx       # Client Component
+├── actions/                    # Server Actions (data mutations)
+│   ├── records.ts
+│   └── users.ts
+├── api/                        # API routes (only if absolutely needed)
+│   └── webhooks/
+├── layout.tsx                  # Root layout with ClerkProvider
+├── globals.css                 # Tailwind v4 (@import "tailwindcss")
+└── error.tsx                   # Global error boundary
 
-tests/
-├── contract/
-├── integration/
-└── unit/
+components/
+├── ui/                         # shadcn/ui components
+│   ├── button.tsx
+│   ├── dialog.tsx
+│   └── ...
+└── [shared]/                   # Shared feature components
+    ├── header.tsx              # Can be Server Component
+    └── footer.tsx              # Can be Server Component
 
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
+lib/
+├── supabase/
+│   ├── client.ts               # Client-side Supabase
+│   ├── server.ts               # Server-side Supabase with Clerk JWT
+│   └── types.ts                # Auto-generated types
+└── utils.ts                    # Utilities (cn, formatters, etc.)
 
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
+supabase/
+└── migrations/                 # Database migrations
+    └── YYYYMMDDHHMMSS_*.sql
 
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+middleware.ts                   # Clerk middleware (route protection)
+next.config.mjs                 # Next.js configuration
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Key Patterns**:
+- **Server Components by Default**: All components in `app/` unless 'use client'
+- **Server Actions**: Mutations in `app/actions/` directory
+- **Route Groups**: Use `(group)` for layout organization without affecting URLs
+- **Private Components**: `_components/` prefix prevents routing
+- **Colocation**: Keep related code close (actions, components, routes)
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:
@@ -165,14 +196,16 @@ directories captured above]
    - Validation rules from requirements
    - State transitions if applicable
 
-2. **Generate API contracts** from functional requirements:
-   - For each user action → endpoint
-   - Use standard REST/GraphQL patterns
-   - Output OpenAPI/GraphQL schema to `/contracts/`
+2. **Design Server Actions** from functional requirements:
+   - For each user mutation → Server Action in `app/actions/`
+   - Define TypeScript types for inputs/outputs
+   - Document in `/contracts/` as TypeScript interfaces
+   - Use Zod schemas for validation
 
-3. **Generate contract tests** from contracts:
-   - One test file per endpoint
-   - Assert request/response schemas
+3. **Generate Server Action tests** from contracts:
+   - One test file per action
+   - Assert input validation and output types
+   - Mock Clerk auth and Supabase calls
    - Tests must fail (no implementation yet)
 
 4. **Extract test scenarios** from user stories:
@@ -188,7 +221,7 @@ directories captured above]
    - Keep under 150 lines for token efficiency
    - Output to repository root
 
-**Output**: data-model.md, /contracts/*, failing tests, quickstart.md, agent-specific file
+**Output**: data-model.md, /contracts/* (TypeScript interfaces), failing tests, quickstart.md, CLAUDE.md updates
 
 ## Phase 2: Task Planning Approach
 *This section describes what the /tasks command will do - DO NOT execute during /plan*
@@ -244,4 +277,4 @@ directories captured above]
 - [ ] Complexity deviations documented
 
 ---
-*Based on Constitution v1.0.0 - See `.specify/memory/constitution.md`*
+*Based on Constitution v2.0.0 - See `.specify/memory/constitution.md`*

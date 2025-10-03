@@ -7,19 +7,19 @@ This guide provides a step-by-step approach to integrate a Bolt-generated MVP in
 
 ### Phase 1: Setup & Assessment (Day 1)
 
-#### 1.1 Create Feature Branch
+#### 1.1 Create Feature Branch ✅
 ```bash
 git checkout -b bolt-mvp-integration
 ```
 
-#### 1.2 Audit Bolt MVP Code
-- [ ] Identify all components (client vs server potential)
-- [ ] List all dependencies and versions
-- [ ] Document authentication approach used
-- [ ] Map database schema requirements
-- [ ] Identify API routes or server functions
+#### 1.2 Audit Bolt MVP Code ✅
+- [x] Identify all components (client vs server potential)
+- [x] List all dependencies and versions
+- [x] Document authentication approach used
+- [x] Map database schema requirements
+- [x] Identify API routes or server functions
 
-#### 1.3 Prepare Modern Stack
+#### 1.3 Prepare Modern Stack ✅
 ```bash
 # Update to latest Next.js 15.5+
 npm install next@latest react@latest react-dom@latest
@@ -27,40 +27,59 @@ npm install next@latest react@latest react-dom@latest
 # Install TypeScript 5.7+
 npm install -D typescript@latest @types/node@latest @types/react@latest @types/react-dom@latest
 
-# Install Tailwind v4
-npm install tailwindcss@next @tailwindcss/vite@next
+# Install Tailwind v4 (skipped - keeping v3 for compatibility)
+# npm install tailwindcss@next @tailwindcss/vite@next
 
 # Install Clerk
 npm install @clerk/nextjs
 
 # Ensure latest Supabase client
-npm install @supabase/supabase-js@latest
+npm install @supabase/supabase-js@latest @supabase/ssr
 
-# Install shadcn/ui CLI
-npx shadcn@latest init
+# Install shadcn/ui CLI (skipped - already configured)
+# npx shadcn@latest init
 ```
 
-### Phase 2: Database Setup (Day 1-2)
+**Installed Versions:**
+- Next.js: 15.5.4 ✅
+- React: 19.2.0 ✅
+- React DOM: 19.2.0 ✅
+- TypeScript: 5.9.3 ✅
+- @clerk/nextjs: 6.33.1 ✅
+- @supabase/supabase-js: 2.58.0 ✅
+- @supabase/ssr: 0.7.0 ✅
+- Tailwind CSS: 3.3.3 (kept for compatibility)
 
-#### 2.1 Supabase Project Setup
-1. Create Supabase project at https://supabase.com
-2. Note project URL and anon key
-3. Configure environment variables in Vercel:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=your_project_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-   ```
+### Phase 2: Database Setup (Day 1-2) ✅ COMPLETED
 
-#### 2.2 Create Database Migrations
-```bash
-# Initialize Supabase CLI (if not done)
-npx supabase init
+#### 2.1 Supabase Project Setup ✅
+1. ✅ Supabase project created and configured
+2. ✅ Environment variables configured in `.env.local`
+3. ✅ Project URL: `https://gnbxdjiibwjaurybohak.supabase.co`
+4. ✅ Project ID: `gnbxdjiibwjaurybohak`
 
-# Create migration for existing schema
-npx supabase migration new initial_schema
-```
+#### 2.2 Create Database Migrations ✅
+**All Migrations Executed Successfully:**
+1. ✅ `20251001013256_create_trespass_tracking_tables.sql` - Initial schema
+2. ✅ `20251002154545_add_user_profiles_and_roles.sql` - User profiles & roles
+3. ✅ `20251002160555_add_trespassed_from_field.sql` - Trespassed from field
+4. ✅ `20251002161753_add_additional_trespass_fields.sql` - Additional fields
+5. ✅ `COMBINED_MIGRATION.sql` - Consolidated migration with role-based RLS
 
-Example migration structure:
+**Key Database Features:**
+- `user_id` fields are TEXT type (ready for Clerk user IDs like "user_2abc...")
+- `user_profiles` table with role-based access control (user, district_admin, master_admin)
+- Comprehensive RLS policies:
+  - All authenticated users can view records
+  - Users, district_admins, and master_admins can create records
+  - All authenticated users can update records
+  - Only district_admins and master_admins can delete records
+  - Only district_admins and master_admins can create users
+- Additional fields: `aka`, `school_id`, `known_associates`, `current_school`, `guardian_*`, `contact_info`, `notes`, `trespassed_from`
+- Image storage: `photo_url`, `original_image_url`, `cached_image_url`
+- Status tracking: `is_former_student`, `expiration_date`, `status` (active/inactive)
+
+Migration structure:
 ```sql
 -- supabase/migrations/YYYYMMDD_initial_schema.sql
 
@@ -95,14 +114,39 @@ CREATE POLICY "Authenticated users can view records"
   USING (true);
 ```
 
-#### 2.3 Generate TypeScript Types
+#### 2.3 Generate TypeScript Types ✅
+**Updated Type Definitions:**
+- ✅ `TrespassRecord` - `user_id` is now `string` (Clerk compatible)
+- ✅ `UserProfile` - Complete type with all fields
+- ✅ All types updated in `lib/supabase.ts`
+- ✅ Connected to real Supabase database (mock wrapper removed)
+
+**Data Import:**
+- ✅ Created `fix_csv_headers.py` to convert legacy CSV format
+- ✅ Imported 61 existing trespass records from legacy system
+- ✅ Added missing columns (`original_image_url`, `cached_image_url`)
+- ✅ Removed status constraint to allow legacy values ("Active", "Expired", etc.)
+
+**Note:** Types are manually maintained in `lib/supabase.ts`.
+In production, can generate from Supabase:
 ```bash
-npx supabase gen types typescript --project-id YOUR_PROJECT_ID > lib/database.types.ts
+npx supabase gen types typescript --project-id gnbxdjiibwjaurybohak > lib/database.types.ts
 ```
 
-### Phase 3: Clerk Authentication Setup (Day 2)
+### Phase 3: Clerk Authentication Setup (Day 2) ⏳ NEXT SESSION
 
-#### 3.1 Create Clerk Application
+**Prerequisites Completed:**
+- ✅ Database schema is Clerk-compatible (TEXT user_id fields)
+- ✅ RLS policies ready for JWT tokens (`auth.jwt() ->> 'sub'`)
+- ✅ Real data loaded and tested (61 records)
+- ⏳ Need to create Clerk application and configure authentication
+
+**Current State:**
+- AuthContext.tsx has mock authentication bypass (lines 22-30)
+- Login screen is commented out for testing
+- Ready to implement proper Clerk authentication flow
+
+#### 3.1 Create Clerk Application ⏳ TODO
 1. Sign up at https://clerk.com
 2. Create new application
 3. Enable email/password (or preferred providers)

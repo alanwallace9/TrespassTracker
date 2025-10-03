@@ -2,28 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * TrespassTracker Design System
+ *
+ * CENTRALIZED THEMING:
+ * All colors, spacing, and design tokens are defined here as CSS variables.
+ * To change the app's appearance, modify the values in this file only.
+ *
+ * All components reference these variables via Tailwind classes like:
+ * - bg-primary (uses --primary)
+ * - text-foreground (uses --foreground)
+ * - border-border (uses --border)
+ *
+ * DO NOT hardcode colors in components - always use these variables.
+ */
+
 @layer base {
   :root {
-    --background: 217 33% 17%;
-    --foreground: 0 0% 100%;
-    --card: 217 33% 20%;
-    --card-foreground: 0 0% 100%;
-    --popover: 217 33% 20%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 142 71% 45%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 217 33% 24%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 217 20% 28%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 142 71% 45%;
-    --accent-foreground: 0 0% 0%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 217 20% 25%;
-    --input: 217 33% 15%;
-    --ring: 142 71% 45%;
-    --radius: 0.5rem;
+    /* ==================== BRAND COLORS ==================== */
+    /* Primary: Main brand color - used for active states, primary buttons */
+    --primary: 142 71% 45%;              /* #22c45d - Green */
+    --primary-foreground: 0 0% 0%;       /* Black text on primary */
+
+    /* ==================== BACKGROUND COLORS ==================== */
+    /* Main backgrounds */
+    --background: 217 33% 17%;           /* #1a1f2e - Dark blue-gray (main bg) */
+    --foreground: 0 0% 100%;             /* White text */
+
+    /* Card/Panel backgrounds */
+    --card: 217 33% 20%;                 /* #232c3f - Slightly lighter than background */
+    --card-foreground: 0 0% 100%;        /* White text on cards */
+
+    /* Popover/Dropdown backgrounds */
+    --popover: 217 33% 20%;              /* Same as card for consistency */
+    --popover-foreground: 0 0% 100%;     /* White text in popovers */
+
+    /* ==================== SECONDARY COLORS ==================== */
+    /* Secondary buttons, less prominent elements */
+    --secondary: 217 33% 24%;            /* #2a3647 - Lighter blue-gray */
+    --secondary-foreground: 0 0% 100%;   /* White text on secondary */
+
+    /* Accent: Highlights, hover states */
+    --accent: 142 71% 45%;               /* Same as primary for consistency */
+    --accent-foreground: 0 0% 0%;        /* Black text on accent */
+
+    /* ==================== MUTED/SUBTLE COLORS ==================== */
+    /* Muted: Subtle backgrounds, disabled states */
+    --muted: 217 20% 28%;                /* #3f4854 - Desaturated blue-gray */
+    --muted-foreground: 0 0% 60%;        /* #999999 - Gray text */
+
+    /* ==================== STATUS COLORS ==================== */
+    /* Destructive: Errors, delete actions, danger states */
+    --destructive: 0 84.2% 60.2%;        /* #E74C3C - Red */
+    --destructive-foreground: 0 0% 98%;  /* Near-white text on red */
+
+    /* Success: Active trespass records (defined separately below) */
+    --success: 142 71% 45%;              /* #22c45d - Same as primary green */
+
+    /* Warning/Inactive: Expired records */
+    --inactive: 220 13% 46%;             /* #6b7280 - Gray */
+
+    /* ==================== BORDERS & INPUTS ==================== */
+    /* Border: All borders, separators */
+    --border: 217 20% 25%;               /* #363f4d - Subtle border */
+
+    /* Input: Input field backgrounds */
+    --input: 217 33% 15%;                /* #161b26 - Darker than background */
+
+    /* Ring: Focus rings on interactive elements */
+    --ring: 142 71% 45%;                 /* Same as primary for consistency */
+
+    /* ==================== SPACING & LAYOUT ==================== */
+    /* Border radius for cards, buttons, inputs */
+    --radius: 0.5rem;                    /* 8px - Consistent rounded corners */
+
+    /* Chart colors (for future data visualizations) */
+    --chart-1: 142 71% 45%;              /* Green */
+    --chart-2: 217 91% 60%;              /* Blue */
+    --chart-3: 48 96% 53%;               /* Yellow */
+    --chart-4: 0 84% 60%;                /* Red */
+    --chart-5: 280 87% 65%;              /* Purple */
+
+    /* ==================== LEGACY/CUSTOM ==================== */
+    /* Custom green (kept for backward compatibility) */
+    /* Use --primary instead for new code */
     --custom-green: #22c45d;
   }
 }

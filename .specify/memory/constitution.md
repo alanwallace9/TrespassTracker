@@ -19,14 +19,16 @@ Removed Sections:
 
 Templates Status:
 ✅ spec-template.md - Reviewed, no updates needed (already references constitution checks)
-✅ plan-template.md - REQUIRES UPDATE for Clerk auth patterns and Vercel deployment
+✅ plan-template.md - UPDATED: Constitution Check v2.0.0, Next.js 15 structure, Server Actions, Clerk auth
 ✅ tasks-template.md - Reviewed, task ordering and TDD principles align
 ✅ agent-file-template.md - Reviewed, already generic (no updates needed)
 
-Follow-up TODOs:
-- Update plan-template.md Constitution Check section for v2.0.0
-- Create Clerk migration guide
-- Document Vercel deployment workflow
+Completed:
+✅ Updated plan-template.md Constitution Check section for v2.0.0
+✅ Created Clerk migration guide (bolt-mvp-migration-guide.md)
+✅ Documented Vercel deployment workflow (bolt-mvp-migration-guide.md)
+✅ Added Git workflow best practices (git-workflow-best-practices.md)
+✅ Created integration summary (INTEGRATION_SUMMARY.md)
 -->
 
 # TrespassTracker Constitution
