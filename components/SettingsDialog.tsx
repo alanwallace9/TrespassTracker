@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { updateUserProfile } from '@/app/actions/users';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -75,15 +76,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .upsert({
-          id: user.id,
-          display_name: displayName || null,
-          theme: theme,
-        });
-
-      if (error) throw error;
+      await updateUserProfile(user.id, {
+        display_name: displayName || undefined,
+        theme: theme as 'light' | 'dark' | 'system',
+      });
 
       applyTheme(theme);
 
