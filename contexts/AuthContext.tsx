@@ -19,12 +19,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TESTING MODE: Bypass authentication
+    // TESTING MODE: Bypass authentication with master_admin role
     // TODO: Remove this before production - replace with Clerk
     const mockUser = {
       id: 'test-user-id',
       email: 'test@example.com',
-    } as User;
+      user_metadata: {
+        role: 'master_admin'
+      }
+    } as unknown as User;
 
     setUser(mockUser);
     setLoading(false);

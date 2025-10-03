@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TrespassRecord, supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { updateRecord, deleteRecord } from '@/app/actions/records';
 import { format } from 'date-fns';
 import { X, Upload } from 'lucide-react';
 
@@ -143,7 +144,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
     }
 
     try {
-      const { error } = await supabase.from('trespass_records').update({
+      await updateRecord(record.id, {
         first_name: formData.first_name,
         last_name: formData.last_name,
         aka: formData.aka || null,
@@ -160,9 +161,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
         is_former_student: formData.is_former_student,
         notes: formData.notes || null,
         photo_url: formData.photo_url || null,
-      }).eq('id', record.id);
-
-      if (error) throw error;
+      });
 
       toast({ title: 'Success', description: 'Record updated successfully' });
       setIsEditing(false);
@@ -176,8 +175,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
     if (!record || !confirm('Are you sure you want to delete this record?')) return;
 
     try {
-      const { error } = await supabase.from('trespass_records').delete().eq('id', record.id);
-      if (error) throw error;
+      await deleteRecord(record.id);
 
       toast({ title: 'Success', description: 'Record deleted successfully' });
       onOpenChange(false);
@@ -341,8 +339,8 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
           <div className="space-y-6">
             <div className="flex gap-6">
               <div className="flex-shrink-0">
-                {record.photo_url ? (
-                  <img src={record.photo_url} alt={`${record.first_name} ${record.last_name}`} className="w-40 h-40 rounded-full object-cover" />
+                {imagePreview || record.photo_url ? (
+                  <img src={imagePreview || record.photo_url || ''} alt={`${record.first_name} ${record.last_name}`} className="w-40 h-40 rounded-full object-cover" />
                 ) : (
                   <div className="w-40 h-40 rounded-full bg-[#3a4556] flex items-center justify-center">
                     <div className="text-5xl font-bold text-[#6b7688]">{record.first_name.charAt(0)}{record.last_name.charAt(0)}</div>

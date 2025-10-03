@@ -100,16 +100,17 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
                 filteredRecords.map((record) => {
                   const expired = isExpired(record);
                   const displayStatus = expired ? 'inactive' : record.status;
+                  const displayStatusText = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
 
                   return (
                     <TableRow key={record.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onViewRecord(record)}>
                       <TableCell className="font-medium text-foreground">
-                        {record.first_name} {record.last_name}
+                        {record.first_name.charAt(0).toUpperCase() + record.first_name.slice(1).toLowerCase()} {record.last_name.charAt(0).toUpperCase() + record.last_name.slice(1).toLowerCase()}
                       </TableCell>
                       <TableCell className="text-foreground">{record.date_of_birth ? format(new Date(record.date_of_birth), 'MMM d, yyyy') : 'N/A'}</TableCell>
                       <TableCell className="text-foreground">{record.trespassed_from || 'N/A'}</TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(displayStatus)} style={getStatusStyle(displayStatus)}>{displayStatus}</Badge>
+                        <Badge className={getStatusColor(displayStatus)} style={getStatusStyle(displayStatus)}>{displayStatusText}</Badge>
                       </TableCell>
                     </TableRow>
                   );

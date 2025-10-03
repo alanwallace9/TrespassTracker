@@ -44,7 +44,7 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
           className={`absolute top-2 right-2 text-white`}
           style={{backgroundColor: record.status === 'active' && !isExpired ? '#22c45d' : '#6b7280'}}
         >
-          {isExpired ? 'Inactive' : 'Active'}
+          {isExpired ? 'Inactive' : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
         </Badge>
         {record.is_former_student && (
           <div className="absolute bottom-0 left-0 right-0 bg-[#3B82F6] text-white text-sm font-medium py-2 text-center">
@@ -54,7 +54,7 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
       </div>
       <CardContent className="p-4 space-y-1 bg-[#1e293b]">
         <h3 className="font-semibold text-base text-foreground">
-          {record.first_name} {record.last_name}
+          {record.first_name.charAt(0).toUpperCase() + record.first_name.slice(1).toLowerCase()} {record.last_name.charAt(0).toUpperCase() + record.last_name.slice(1).toLowerCase()}
         </h3>
         <div className="text-sm text-muted-foreground">
           {age && <span>{age} years old</span>}
