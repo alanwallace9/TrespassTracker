@@ -19,6 +19,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // TESTING MODE: Bypass authentication
+    // TODO: Remove this before production - replace with Clerk
+    const mockUser = {
+      id: 'test-user-id',
+      email: 'test@example.com',
+    } as User;
+
+    setUser(mockUser);
+    setLoading(false);
+
+    /* // Original Supabase auth (commented out for testing)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -32,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
+    */
   }, []);
 
   const signUp = async (email: string, password: string) => {

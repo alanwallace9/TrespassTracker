@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// Real Supabase client - connected to your database
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export type TrespassRecord = {
@@ -33,7 +34,8 @@ export type TrespassRecord = {
 };
 
 export type UserProfile = {
-  id: string;
+  id: string;                                          // Clerk user ID (e.g., "user_2abc...")
+  email: string | null;                                // User email from Clerk
   display_name: string | null;
   role: 'user' | 'district_admin' | 'master_admin';
   theme: 'light' | 'dark' | 'system';

@@ -18,6 +18,10 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  const isExpired = (record: TrespassRecord) => {
+    return record.expiration_date && new Date(record.expiration_date) < new Date();
+  };
+
   const filteredRecords = records.filter((record) => {
     const matchesSearch =
       record.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -93,18 +97,23 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRecords.map((record) => (
-                  <TableRow key={record.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onViewRecord(record)}>
-                    <TableCell className="font-medium text-foreground">
-                      {record.first_name} {record.last_name}
-                    </TableCell>
-                    <TableCell className="text-foreground">{record.date_of_birth ? format(new Date(record.date_of_birth), 'MMM d, yyyy') : 'N/A'}</TableCell>
-                    <TableCell className="text-foreground">{record.trespassed_from || 'N/A'}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(record.status)} style={getStatusStyle(record.status)}>{record.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredRecords.map((record) => {
+                  const expired = isExpired(record);
+                  const displayStatus = expired ? 'inactive' : record.status;
+
+                  return (
+                    <TableRow key={record.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onViewRecord(record)}>
+                      <TableCell className="font-medium text-foreground">
+                        {record.first_name} {record.last_name}
+                      </TableCell>
+                      <TableCell className="text-foreground">{record.date_of_birth ? format(new Date(record.date_of_birth), 'MMM d, yyyy') : 'N/A'}</TableCell>
+                      <TableCell className="text-foreground">{record.trespassed_from || 'N/A'}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(displayStatus)} style={getStatusStyle(displayStatus)}>{displayStatus}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
