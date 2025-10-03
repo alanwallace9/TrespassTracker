@@ -1,12 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { TrespassRecord } from '@/lib/supabase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search } from 'lucide-react';
 import { format } from 'date-fns';
 
 type RecordsTableProps = {
@@ -15,23 +11,9 @@ type RecordsTableProps = {
 };
 
 export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-
   const isExpired = (record: TrespassRecord) => {
     return record.expiration_date && new Date(record.expiration_date) < new Date();
   };
-
-  const filteredRecords = records.filter((record) => {
-    const matchesSearch =
-      record.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.location.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -55,59 +37,41 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-          <Input
-            placeholder="Search by name or location..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="text-foreground">Name</TableHead>
-                <TableHead className="text-foreground">Birth Date</TableHead>
+                <TableHead className="text-foreground">Age</TableHead>
+                <TableHead className="text-foreground hidden md:table-cell">Birth Date</TableHead>
                 <TableHead className="text-foreground">Trespassed From</TableHead>
                 <TableHead className="text-foreground">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRecords.length === 0 ? (
+              {records.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     No records found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRecords.map((record) => {
+                records.map((record) => {
                   const expired = isExpired(record);
                   const displayStatus = expired ? 'inactive' : record.status;
                   const displayStatusText = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
+                  const age = record.date_of_birth
+                    ? Math.floor((new Date().getTime() - new Date(record.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+                    : null;
 
                   return (
                     <TableRow key={record.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onViewRecord(record)}>
                       <TableCell className="font-medium text-foreground">
                         {record.first_name.charAt(0).toUpperCase() + record.first_name.slice(1).toLowerCase()} {record.last_name.charAt(0).toUpperCase() + record.last_name.slice(1).toLowerCase()}
                       </TableCell>
-                      <TableCell className="text-foreground">{record.date_of_birth ? format(new Date(record.date_of_birth), 'MMM d, yyyy') : 'N/A'}</TableCell>
+                      <TableCell className="text-foreground">{age || 'N/A'}</TableCell>
+                      <TableCell className="text-foreground hidden md:table-cell">{record.date_of_birth ? format(new Date(record.date_of_birth), 'MMM d, yyyy') : 'N/A'}</TableCell>
                       <TableCell className="text-foreground">{record.trespassed_from || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(displayStatus)} style={getStatusStyle(displayStatus)}>{displayStatusText}</Badge>
@@ -119,10 +83,6 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
             </TableBody>
           </Table>
         </div>
-      </div>
-
-      <div className="text-sm text-muted-foreground">
-        Showing {filteredRecords.length} of {records.length} records
       </div>
     </div>
   );

@@ -56,12 +56,13 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
       onStatusFilterChange={setStatusFilter}
       viewMode={viewMode}
       onViewModeChange={setViewMode}
+      filteredCount={filteredRecords.length}
     >
       <div className="space-y-6">
         {viewMode === 'list' ? (
           <RecordsTable records={filteredRecords} onViewRecord={handleViewRecord} />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredRecords.map((record) => (
               <RecordCard key={record.id} record={record} onViewRecord={handleViewRecord} />
             ))}

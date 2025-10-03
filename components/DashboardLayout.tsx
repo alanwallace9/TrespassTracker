@@ -25,6 +25,7 @@ interface DashboardLayoutProps {
   onStatusFilterChange?: (filter: string) => void;
   viewMode?: 'list' | 'card';
   onViewModeChange?: (mode: 'list' | 'card') => void;
+  filteredCount?: number;
 }
 
 export function DashboardLayout({
@@ -37,6 +38,7 @@ export function DashboardLayout({
   onStatusFilterChange,
   viewMode = 'list',
   onViewModeChange,
+  filteredCount,
 }: DashboardLayoutProps) {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
@@ -105,14 +107,14 @@ export function DashboardLayout({
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
                 <Shield className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-foreground">BISD Trespass Management</h1>
-                <p className="text-xs text-muted-foreground">School District Management</p>
+                <p className="text-xs text-muted-foreground">powered by DistrictTracker.com</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -136,7 +138,7 @@ export function DashboardLayout({
                     <>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-slate-600">Total Records</span>
+                          <span className="text-slate-200">Total Records</span>
                           <span className="font-semibold">{stats.total}</span>
                         </div>
                       </DropdownMenuItem>
@@ -148,8 +150,8 @@ export function DashboardLayout({
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-yellow-600">Inactive</span>
-                          <span className="font-semibold text-yellow-600">{stats.inactive}</span>
+                          <span className="text-yellow-200">Inactive</span>
+                          <span className="font-semibold text-yellow-200">{stats.inactive}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -194,6 +196,11 @@ export function DashboardLayout({
                   className="pl-10 bg-input border-border text-foreground placeholder:text-muted-foreground"
                 />
               </div>
+              {filteredCount !== undefined && stats && (
+                <div className="text-sm text-muted-foreground whitespace-nowrap">
+                  Showing {filteredCount} of {stats.total}
+                </div>
+              )}
               <div className="flex gap-2 w-full sm:w-auto">
                 <Select value={statusFilter} onValueChange={onStatusFilterChange}>
                   <SelectTrigger className="w-full sm:w-[180px] bg-input border-border">

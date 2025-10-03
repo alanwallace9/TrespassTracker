@@ -5,7 +5,7 @@ This guide provides a step-by-step approach to integrate a Bolt-generated MVP in
 
 ## Migration Strategy
 
-### Phase 1: Setup & Assessment (Day 1)
+### Phase 1: Setup & Assessment (Day 1) ✅ COMPLETED
 
 #### 1.1 Create Feature Branch ✅
 ```bash
@@ -133,7 +133,7 @@ In production, can generate from Supabase:
 npx supabase gen types typescript --project-id gnbxdjiibwjaurybohak > lib/database.types.ts
 ```
 
-### Phase 3: Clerk Authentication Setup (Day 2) ⏳ NEXT SESSION
+### Phase 3: Clerk Authentication Setup (Day 2) ⏸️ SKIPPED (For Later)
 
 **Prerequisites Completed:**
 - ✅ Database schema is Clerk-compatible (TEXT user_id fields)
@@ -146,7 +146,7 @@ npx supabase gen types typescript --project-id gnbxdjiibwjaurybohak > lib/databa
 - Login screen is commented out for testing
 - Ready to implement proper Clerk authentication flow
 
-#### 3.1 Create Clerk Application ⏳ TODO
+#### 3.1 Create Clerk Application ⏸️ TODO
 1. Sign up at https://clerk.com
 2. Create new application
 3. Enable email/password (or preferred providers)
@@ -209,9 +209,9 @@ export default function RootLayout({
 }
 ```
 
-### Phase 4: Code Migration (Day 3-5)
+### Phase 4: Code Migration (Day 3-5) ✅ SUBSTANTIALLY COMPLETED
 
-#### 4.1 Convert Components to Server Components
+#### 4.1 Convert Components to Server Components ✅
 **Default**: All components are Server Components unless they need:
 - Client-side interactivity (onClick, useState, etc.)
 - Browser APIs (localStorage, window, etc.)
@@ -237,7 +237,7 @@ export function DashboardUI({ data }) {
 }
 ```
 
-#### 4.2 Replace Auth Context with Clerk
+#### 4.2 Replace Auth Context with Clerk ⏸️ (Pending Phase 3)
 ```typescript
 // ❌ Old: Supabase Auth Context
 const { user } = useAuth(); // custom context
@@ -251,7 +251,7 @@ import { useUser } from '@clerk/nextjs';
 const { user } = useUser();
 ```
 
-#### 4.3 Create Server Actions for Mutations
+#### 4.3 Create Server Actions for Mutations ✅
 ```typescript
 // app/actions/records.ts
 'use server';
@@ -282,7 +282,7 @@ export async function createRecord(formData: FormData) {
 }
 ```
 
-#### 4.4 Migrate to Tailwind v4
+#### 4.4 Migrate to Tailwind v4 ⏸️ SKIPPED (Keeping v3)
 ```css
 /* app/globals.css */
 @import "tailwindcss";
@@ -298,9 +298,9 @@ export async function createRecord(formData: FormData) {
 
 Remove old Tailwind config files (tailwind.config.ts, postcss.config.js).
 
-### Phase 5: Supabase RLS Integration (Day 4-5)
+### Phase 5: Supabase RLS Integration (Day 4-5) 🔄 PARTIAL (Using Service Role for Testing)
 
-#### 5.1 Create Supabase Server Client
+#### 5.1 Create Supabase Server Client ✅ (Temporary: Using Service Role Key)
 ```typescript
 // lib/supabase/server.ts
 import { createServerClient } from '@supabase/ssr';
@@ -332,7 +332,7 @@ export async function createClient() {
 }
 ```
 
-#### 5.2 Configure Clerk JWT Template for Supabase
+#### 5.2 Configure Clerk JWT Template for Supabase ⏸️ (Pending Phase 3)
 In Clerk Dashboard → JWT Templates:
 1. Create new template named "supabase"
 2. Add claim:
@@ -344,7 +344,7 @@ In Clerk Dashboard → JWT Templates:
 }
 ```
 
-#### 5.3 Update RLS Policies for Clerk
+#### 5.3 Update RLS Policies for Clerk ⏸️ (Pending Phase 3)
 ```sql
 -- Use JWT token from Clerk
 CREATE POLICY "Users can access own data"
@@ -352,9 +352,9 @@ CREATE POLICY "Users can access own data"
   USING (auth.jwt() ->> 'sub' = user_id);
 ```
 
-### Phase 6: Vercel Deployment (Day 5-6)
+### Phase 6: Vercel Deployment (Day 5-6) ⏳ TODO
 
-#### 6.1 Connect Repository to Vercel
+#### 6.1 Connect Repository to Vercel ⏳
 1. Go to https://vercel.com
 2. Import Git repository
 3. Framework Preset: Next.js (auto-detected)
@@ -391,9 +391,9 @@ In Clerk Dashboard → Paths:
 }
 ```
 
-### Phase 7: Testing & Validation (Day 6-7)
+### Phase 7: Testing & Validation (Day 6-7) ⏳ TODO
 
-#### 7.1 Local Testing Checklist
+#### 7.1 Local Testing Checklist 🔄 PARTIAL
 - [ ] `npm run typecheck` passes
 - [ ] `npm run lint` passes
 - [ ] `npm run build` succeeds
@@ -490,6 +490,31 @@ If migration fails:
 - **Tailwind v4 Docs**: https://tailwindcss.com/docs
 - **shadcn/ui**: https://ui.shadcn.com
 - **Vercel Docs**: https://vercel.com/docs
+
+## Current Status Summary (Updated: Oct 3, 2025)
+
+**Completed:**
+- ✅ Phase 1: Setup & Assessment
+- ✅ Phase 2: Database Setup (65 records loaded, normalized)
+- ✅ Phase 4: Code Migration (Server Components, Server Actions)
+  - Dashboard is Server Component
+  - Server Actions for all CRUD operations
+  - Using service role key to bypass RLS (temporary)
+  - Database status values normalized to lowercase
+  - UI fixes: name capitalization, badge display, image preview
+
+**Skipped for Later:**
+- ⏸️ Phase 3: Clerk Authentication (using mock auth currently)
+- ⏸️ Tailwind v4 migration (keeping v3)
+
+**Pending:**
+- ⏳ Phase 5: Full RLS Integration (waiting for Clerk JWT)
+- ⏳ Phase 6: Vercel Deployment
+- ⏳ Phase 7: Full Testing & Validation
+
+**Next Steps:**
+1. Complete Phase 3 (Clerk Auth) OR
+2. Continue with Phase 6 (Vercel Deployment with mock auth)
 
 ## Success Metrics
 
