@@ -1,20 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
+import { auth } from '@clerk/nextjs/server';
 
 /**
  * Server-side Supabase client for use in Server Components and Server Actions
  *
- * TEMPORARY: Using service role key to bypass RLS during testing phase
- * TODO: Replace with Clerk JWT authentication in Phase 3
+ * Uses Clerk's native Supabase integration (April 2025+)
+ * No JWT template needed - Clerk tokens are automatically trusted by Supabase
  */
-export function createServerClient() {
+export async function createServerClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  // Use service role key to bypass RLS until Clerk auth is implemented
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  return createClient(supabaseUrl, supabaseKey, {
+  // Get Clerk session token for Supabase RLS (native integration - no template parameter)
+  const { getToken } = await auth();
+  const supabaseAccessToken = await getToken();
+
+  // Create Supabase client with Clerk JWT
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: supabaseAccessToken
+        ? { Authorization: `Bearer ${supabaseAccessToken}` }
+        : {},
+    },
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
   });
+
+  return supabase;
 }

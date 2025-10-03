@@ -10,17 +10,37 @@ export type UserProfileUpdate = {
 
 /**
  * Update user profile (display name, theme, etc.)
+ * Uses upsert to create profile if it doesn't exist
  */
 export async function updateUserProfile(userId: string, updates: UserProfileUpdate) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
+
+  // Get current user from Supabase to check if profile exists
+  const { data: existingProfile } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  // If profile doesn't exist, we need to create it with required fields
+  const upsertData = existingProfile
+    ? {
+        id: userId,
+        ...updates,
+        updated_at: new Date().toISOString(),
+      }
+    : {
+        id: userId,
+        email: null, // Will be populated from Clerk
+        role: 'viewer', // Default role
+        ...updates,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
 
   const { data, error } = await supabase
     .from('user_profiles')
-    .upsert({
-      id: userId,
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
+    .upsert(upsertData)
     .select()
     .single();
 
@@ -37,7 +57,7 @@ export async function updateUserProfile(userId: string, updates: UserProfileUpda
  * Get user profile
  */
 export async function getUserProfile(userId: string) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { data, error } = await supabase
     .from('user_profiles')
@@ -51,4 +71,24 @@ export async function getUserProfile(userId: string) {
   }
 
   return data;
+}
+
+/**
+ * Get display name only (lightweight version)
+ */
+export async function getDisplayName(userId: string) {
+  const supabase = await createServerClient();
+
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('display_name')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching display name:', error);
+    return null;
+  }
+
+  return data?.display_name || null;
 }
