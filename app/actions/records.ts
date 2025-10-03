@@ -8,17 +8,11 @@ import { TrespassRecord } from '@/lib/supabase';
  * Create a new trespass record
  */
 export async function createRecord(data: Omit<TrespassRecord, 'id' | 'created_at' | 'updated_at'>) {
-  const supabase = createServerClient();
-
-  // For now, using mock user ID until Clerk is integrated
-  const userId = 'test-user-id';
+  const supabase = await createServerClient();
 
   const { data: record, error } = await supabase
     .from('trespass_records')
-    .insert({
-      ...data,
-      user_id: userId,
-    })
+    .insert(data)
     .select()
     .single();
 
@@ -35,7 +29,7 @@ export async function createRecord(data: Omit<TrespassRecord, 'id' | 'created_at
  * Update an existing trespass record
  */
 export async function updateRecord(id: string, data: Partial<TrespassRecord>) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { data: record, error } = await supabase
     .from('trespass_records')
@@ -57,7 +51,7 @@ export async function updateRecord(id: string, data: Partial<TrespassRecord>) {
  * Delete a trespass record
  */
 export async function deleteRecord(id: string) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { error } = await supabase
     .from('trespass_records')
@@ -76,7 +70,7 @@ export async function deleteRecord(id: string) {
  * Get a single record by ID
  */
 export async function getRecord(id: string) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { data: record, error } = await supabase
     .from('trespass_records')

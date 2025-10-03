@@ -6,14 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { updateUserProfile } from '@/app/actions/users';
+import { updateUserProfile, getUserProfile } from '@/app/actions/users';
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSettingsSaved?: () => void;
 }
 
 interface UserProfile {
@@ -21,10 +21,11 @@ interface UserProfile {
   theme: string;
 }
 
-export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: SettingsDialogProps) {
   const [displayName, setDisplayName] = useState('');
   const [theme, setTheme] = useState('system');
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -35,22 +36,22 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   }, [open, user]);
 
   const fetchProfile = async () => {
+    if (!user) return;
+
+    setFetching(true);
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('display_name, theme')
-        .eq('id', user?.id)
-        .maybeSingle();
+      const profile = await getUserProfile(user.id);
 
-      if (error) throw error;
-
-      if (data) {
-        setDisplayName(data.display_name || '');
-        setTheme(data.theme);
-        applyTheme(data.theme);
+      if (profile) {
+        console.log('SettingsDialog fetched profile:', profile);
+        setDisplayName(profile.display_name || '');
+        setTheme(profile.theme || 'system');
+        applyTheme(profile.theme || 'system');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
+    } finally {
+      setFetching(false);
     }
   };
 
@@ -88,6 +89,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         description: 'Your preferences have been updated.',
       });
 
+      // Trigger refresh in parent component
+      if (onSettingsSaved) {
+        onSettingsSaved();
+      }
+
       onOpenChange(false);
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -118,7 +124,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Enter your display name"
+              disabled={fetching || loading}
             />
+            {fetching && <p className="text-xs text-muted-foreground">Loading...</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="theme">Theme</Label>
@@ -135,7 +143,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="hover:bg-red-600 hover:text-white">
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={loading}>
