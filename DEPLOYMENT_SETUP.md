@@ -36,12 +36,17 @@
   - `staging.districttracker.com`
   - `birdville.districttracker.com`
 - ✅ `.env` file prepared with all environment variables
+- ✅ Environment variables imported to Vercel
+- ✅ React 19 dependency conflicts resolved (`.npmrc` + `cmdk` update)
+- ✅ **Main branch deployed successfully to Vercel**
 
 ---
 
 ## 🔄 Next Session: Immediate Tasks
 
 ### 1. Update Clerk for Production URLs
+
+**Status:** ⚠️ CRITICAL - Blocks user invitations from working
 
 **Problem:** Invitation emails currently redirect to `localhost:3002`
 
