@@ -193,7 +193,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#2d3a4d] border-[#3a4556]" hideCloseButton>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" hideCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between text-foreground">
             <span>{isEditing ? 'Edit Trespass Record' : record.first_name + ' ' + record.last_name}</span>
@@ -332,7 +332,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
 
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={() => setIsEditing(false)} className="hover:bg-red-600 hover:text-white">Cancel</Button>
-              <Button onClick={handleSave} className="text-white" style={{backgroundColor: '#22c45d'}}>Save Changes</Button>
+              <Button onClick={handleSave} className="text-white bg-primary hover:bg-primary/90">Save Changes</Button>
             </div>
           </div>
         ) : (
@@ -342,8 +342,8 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
                 {imagePreview || record.photo_url ? (
                   <img src={imagePreview || record.photo_url || ''} alt={`${record.first_name} ${record.last_name}`} className="w-40 h-40 rounded-full object-cover" />
                 ) : (
-                  <div className="w-40 h-40 rounded-full bg-[#3a4556] flex items-center justify-center">
-                    <div className="text-5xl font-bold text-[#6b7688]">{record.first_name.charAt(0)}{record.last_name.charAt(0)}</div>
+                  <div className="w-40 h-40 rounded-full bg-card flex items-center justify-center">
+                    <div className="text-5xl font-bold text-muted-foreground">{record.first_name.charAt(0)}{record.last_name.charAt(0)}</div>
                   </div>
                 )}
               </div>
@@ -352,7 +352,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
                 <div className="grid grid-cols-2 gap-x-16 gap-y-3">
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">Status</div>
-                    <Badge className="text-white" style={{backgroundColor: '#22c45d'}}>Active</Badge>
+                    <Badge className="text-white bg-status-active">Active</Badge>
                   </div>
                   <div></div>
 

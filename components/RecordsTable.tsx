@@ -18,21 +18,14 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'text-white hover:bg-[#22c45d]';
+        return 'bg-status-success text-white hover:bg-status-success/90';
       case 'expired':
-        return 'bg-red-100 text-red-800 hover:bg-red-100';
+        return 'bg-status-error/10 text-status-error hover:bg-status-error/20';
       case 'inactive':
-        return 'bg-red-100 text-red-800 hover:bg-red-100';
+        return 'bg-status-error/10 text-status-error hover:bg-status-error/20';
       default:
-        return 'bg-slate-100 text-slate-800 hover:bg-slate-100';
+        return 'bg-muted text-muted-foreground hover:bg-muted';
     }
-  };
-
-  const getStatusStyle = (status: string) => {
-    if (status === 'active') {
-      return { backgroundColor: '#22c45d' };
-    }
-    return {};
   };
 
   return (
@@ -74,7 +67,7 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
                       <TableCell className="text-foreground hidden md:table-cell">{record.date_of_birth ? format(new Date(record.date_of_birth), 'MMM d, yyyy') : 'N/A'}</TableCell>
                       <TableCell className="text-foreground">{record.trespassed_from || 'N/A'}</TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(displayStatus)} style={getStatusStyle(displayStatus)}>{displayStatusText}</Badge>
+                        <Badge className={getStatusColor(displayStatus)}>{displayStatusText}</Badge>
                       </TableCell>
                     </TableRow>
                   );

@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { updateUserProfile, getUserProfile } from '@/app/actions/users';
@@ -16,14 +15,8 @@ interface SettingsDialogProps {
   onSettingsSaved?: () => void;
 }
 
-interface UserProfile {
-  display_name: string | null;
-  theme: string;
-}
-
 export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: SettingsDialogProps) {
   const [displayName, setDisplayName] = useState('');
-  const [theme, setTheme] = useState('system');
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(false);
   const { user } = useAuth();
@@ -43,32 +36,12 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
       const profile = await getUserProfile(user.id);
 
       if (profile) {
-        console.log('SettingsDialog fetched profile:', profile);
         setDisplayName(profile.display_name || '');
-        setTheme(profile.theme || 'system');
-        applyTheme(profile.theme || 'system');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
       setFetching(false);
-    }
-  };
-
-  const applyTheme = (selectedTheme: string) => {
-    const root = document.documentElement;
-
-    if (selectedTheme === 'dark') {
-      root.classList.add('dark');
-    } else if (selectedTheme === 'light') {
-      root.classList.remove('dark');
-    } else {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (isDark) {
-        root.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-      }
     }
   };
 
@@ -79,10 +52,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
     try {
       await updateUserProfile(user.id, {
         display_name: displayName || undefined,
-        theme: theme as 'light' | 'dark' | 'system',
       });
-
-      applyTheme(theme);
 
       toast({
         title: 'Settings saved',
@@ -113,7 +83,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
-            Manage your profile and preferences
+            Manage your profile preferences
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -127,19 +97,6 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
               disabled={fetching || loading}
             />
             {fetching && <p className="text-xs text-muted-foreground">Loading...</p>}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="theme">Theme</Label>
-            <Select value={theme} onValueChange={setTheme}>
-              <SelectTrigger id="theme">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="light">Light</SelectItem>
-                <SelectItem value="dark">Dark</SelectItem>
-                <SelectItem value="system">System</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
         <div className="flex justify-end gap-2">

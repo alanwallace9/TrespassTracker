@@ -27,26 +27,26 @@ export function StatsDropdown({ stats }: StatsDropdownProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem>
           <div className="flex justify-between items-center w-full">
-            <span className="text-slate-600">Total Records</span>
-            <span className="font-semibold">{stats.total}</span>
+            <span className="text-muted-foreground">Total Records</span>
+            <span className="font-semibold text-foreground">{stats.total}</span>
           </div>
         </DropdownMenuItem>
         <DropdownMenuItem>
           <div className="flex justify-between items-center w-full">
-            <div className="flex items-center gap-1" style={{color: '#22c45d'}}>
+            <div className="flex items-center gap-1 text-status-success">
               <AlertTriangle className="w-3 h-3" />
               <span>Active</span>
             </div>
-            <span className="font-semibold" style={{color: '#22c45d'}}>{stats.active}</span>
+            <span className="font-semibold text-status-success">{stats.active}</span>
           </div>
         </DropdownMenuItem>
         <DropdownMenuItem>
           <div className="flex justify-between items-center w-full">
-            <div className="flex items-center gap-1 text-yellow-600">
+            <div className="flex items-center gap-1 text-status-warning">
               <Clock className="w-3 h-3" />
               <span>Inactive</span>
             </div>
-            <span className="font-semibold text-yellow-600">{stats.inactive}</span>
+            <span className="font-semibold text-status-warning">{stats.inactive}</span>
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
