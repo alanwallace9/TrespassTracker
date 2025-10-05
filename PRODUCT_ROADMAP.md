@@ -1,6 +1,6 @@
 # TrespassTracker Product Roadmap
 
-> **Last Updated:** October 4, 2025
+> **Last Updated:** October 5, 2025
 > **Current Version:** 2.0 MVP (Birdville single-tenant)
 
 ---
@@ -108,11 +108,31 @@
   - SSL certificates provisioned
   - Production domain ready
 
+#### Status Color Refinements (October 5, 2025)
+- ✅ **Status Color System Updates**:
+  - Updated `--status-active` to brighter green: `oklch(0.62 0.19 142)`
+  - Added dedicated `--status-former` color: `oklch(0.58 0.18 260)` (purple/blue)
+  - Former Student badges now use semantic color instead of generic primary
+  - Added `status-former` utility to Tailwind config
+
+- ✅ **Light Mode Color Improvements**:
+  - Increased background lightness (0.96, 0.94, 0.98 vs previous 0.90, 0.84, 0.74)
+  - Removed color tinting (changed from `oklch(L 0 264)` to `oklch(L 0 0)`)
+  - Updated borders to pure neutral grays (0.75, 0.78)
+  - Added softer shadows for light mode
+  - Fixed input backgrounds to use `--bg-light` for better contrast
+  - Added `--primary-foreground` for proper contrast on primary elements
+
+- ✅ **UI Interaction Refinements**:
+  - Profile dropdown now scales on hover without color change
+  - Theme toggle button uses `bg-input` for consistency
+  - Hover effects consistent across header controls
+
 #### Remaining Tasks
-- ⏳ **Test Light/Dark theme switching** (user testing)
+- ⏳ **Add user reference photos to project**
+- ⏳ **Test Light/Dark theme switching** (user testing on actual devices)
 - ⏳ **Test power button on mobile devices**
 - ⏳ **Take QA screenshots** (Light mode, Dark mode)
-- ⏳ **Commit changes to staging branch**
 - ⏳ **Deploy to production**
 - ⏳ **Get feedback from Birdville users**
 
