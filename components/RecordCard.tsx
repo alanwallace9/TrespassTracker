@@ -51,7 +51,7 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
           {isExpired ? 'Inactive' : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
         </Badge>
         {record.is_former_student && (
-          <div className="absolute bottom-0 left-0 right-0 bg-primary text-white text-sm font-medium py-2 text-center">
+          <div className="absolute bottom-0 left-0 right-0 bg-status-former text-white text-sm font-medium py-2 text-center">
             Former Student
           </div>
         )}
