@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Shield, LogOut, Settings, User, ChevronDown, Search, Plus, Upload, LayoutGrid, List, FileText } from 'lucide-react';
+import { Shield, LogOut, Settings, User, ChevronDown, Search, Plus, Upload, LayoutGrid, List, FileText, Power, History, MessageSquare } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { AddRecordDialog } from '@/components/AddRecordDialog';
@@ -36,7 +36,7 @@ export function DashboardLayout({
   onSearchChange,
   statusFilter = 'active',
   onStatusFilterChange,
-  viewMode = 'list',
+  viewMode = 'card',
   onViewModeChange,
   filteredCount,
 }: DashboardLayoutProps) {
@@ -49,8 +49,17 @@ export function DashboardLayout({
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('viewer');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const initializingRef = useRef(false);
   const initializedRef = useRef(false);
+
+  // Initialize theme from localStorage on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const initialTheme = savedTheme || 'dark';
+    setTheme(initialTheme);
+    document.documentElement.setAttribute('data-theme', initialTheme);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -110,6 +119,13 @@ export function DashboardLayout({
     router.push('/sign-in');
   };
 
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -130,29 +146,44 @@ export function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
+      <header className="bg-background sticky top-0 z-50 shadow-sm backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center border" style={{ backgroundColor: 'var(--birdville-blue)', borderColor: 'var(--birdville-light-gold)' }}>
+                <Shield className="w-5 h-5" style={{ color: 'var(--birdville-light-gold)', stroke: 'var(--birdville-light-gold)', strokeWidth: '2' }} />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-foreground">BISD Trespass Management</h1>
-                <p className="text-xs text-muted-foreground">powered by DistrictTracker.com</p>
+                <p className="text-xs text-muted-foreground">powered by <a href="https://DistrictTracker.com" className="underline hover:no-underline">DistrictTracker.com</a></p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Theme Toggle Power Button */}
+              <button
+                onClick={toggleTheme}
+                className="h-9 w-9 flex items-center justify-center rounded-lg transition-all hover:scale-110 border border-birdville-light-gold"
+                aria-label="Toggle theme"
+              >
+                <Power
+                  className="w-5 h-5 transition-colors"
+                  style={{
+                    color: theme === 'dark' ? 'oklch(0.9 0.17 100)' : 'oklch(0.65 0.15 264)',
+                    filter: theme === 'dark' ? 'drop-shadow(0 0 8px oklch(0.9 0.17 100 / 0.5))' : 'drop-shadow(0 2px 4px oklch(0 0 0 / 0.2))'
+                  }}
+                />
+              </button>
+
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 bg-input text-foreground">
                     <User className="w-4 h-4" />
                     <span className="hidden sm:inline">{displayName || user.email?.split('@')[0]}</span>
                     <ChevronDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
+                  <DropdownMenuLabel >
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium">{displayName || 'User'}</p>
                       <p className="text-xs text-slate-500">{user.email}</p>
@@ -163,20 +194,20 @@ export function DashboardLayout({
                     <>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-slate-200">Total Records</span>
-                          <span className="font-semibold">{stats.total}</span>
+                          <span className="text-foreground">Total Records</span>
+                          <span className="font-semibold text-foreground">{stats.total}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span style={{color: '#22c45d'}}>Active</span>
-                          <span className="font-semibold" style={{color: '#22c45d'}}>{stats.active}</span>
+                          <span className="text-status-active">Active</span>
+                          <span className="font-semibold text-status-active">{stats.active}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-yellow-200">Inactive</span>
-                          <span className="font-semibold text-yellow-200">{stats.inactive}</span>
+                          <span className="text-status-warning">Inactive</span>
+                          <span className="font-semibold text-status-warning">{stats.inactive}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -209,6 +240,26 @@ export function DashboardLayout({
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
+                  {(userRole === 'district_admin' || userRole === 'master_admin') && (
+                    <DropdownMenuItem onSelect={(e) => {
+                      e.preventDefault();
+                      setDropdownOpen(false);
+                      // TODO: Open changelog modal
+                      console.log('Changelog clicked - placeholder for future implementation');
+                    }}>
+                      <History className="w-4 h-4 mr-2" />
+                      Changelog
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={(e) => {
+                    e.preventDefault();
+                    setDropdownOpen(false);
+                    // TODO: Open feedback form (Google Form or similar)
+                    window.open('https://forms.google.com/placeholder', '_blank');
+                  }}>
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Send Feedback
+                  </DropdownMenuItem>
                   <DropdownMenuItem onSelect={(e) => {
                     e.preventDefault();
                     setDropdownOpen(false);
@@ -227,14 +278,14 @@ export function DashboardLayout({
             </div>
           </div>
           {onSearchChange && onStatusFilterChange && onViewModeChange && (
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center py-4 border-t border-border">
-              <div className="relative flex-1 w-full">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center pt-4 pb-2 border-t" style={{ borderColor: 'var(--birdville-light-gold)' }}>
+                <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-foreground w-4 h-4" />
                 <Input
-                  placeholder="Search by name or location..."
+                  placeholder="Search by name or ID -->"
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  className="pl-10 bg-input border-border text-foreground placeholder:text-muted-foreground"
+                  className="pl-10 bg-input border-border text-foreground placeholder:text-foreground"
                 />
               </div>
               {filteredCount !== undefined && stats && (
@@ -244,39 +295,39 @@ export function DashboardLayout({
               )}
               <div className="flex gap-2 w-full sm:w-auto">
                 <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-                  <SelectTrigger className="w-full sm:w-[180px] bg-input border-border">
+                  <SelectTrigger className="w-full sm:w-[180px] bg-input border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-card border-border">
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
-                <div className="flex border border-border rounded-lg">
+                <div className="flex border border-border rounded-lg bg-card h-10">
                   <Button
-                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
                     size="sm"
                     onClick={() => onViewModeChange('list')}
-                    className="rounded-r-none"
+                    className={`rounded-r-none h-full ${viewMode === 'list' ? 'bg-input' : 'text-foreground'}`}
                   >
                     <List className="w-4 h-4" />
                   </Button>
                   <Button
-                    variant={viewMode === 'card' ? 'default' : 'ghost'}
+                    variant={viewMode === 'card' ? 'secondary' : 'ghost'}
                     size="sm"
                     onClick={() => onViewModeChange('card')}
-                    className="rounded-l-none"
+                    className={`rounded-l-none h-full ${viewMode === 'card' ? 'bg-input' : 'text-foreground'}`}
                   >
                     <LayoutGrid className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
-            </div>
+              </div>
           )}
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-8">
         {children}
       </main>
       <SettingsDialog

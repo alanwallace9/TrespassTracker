@@ -2,100 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
-/**
- * TrespassTracker Design System
- *
- * CENTRALIZED THEMING:
- * All colors, spacing, and design tokens are defined here as CSS variables.
- * To change the app's appearance, modify the values in this file only.
- *
- * All components reference these variables via Tailwind classes like:
- * - bg-primary (uses --primary)
- * - text-foreground (uses --foreground)
- * - border-border (uses --border)
- *
- * DO NOT hardcode colors in components - always use these variables.
- */
-
 @layer base {
   :root {
-    /* ==================== BRAND COLORS ==================== */
-    /* Primary: Main brand color - used for active states, primary buttons */
-    --primary: 142 71% 45%;              /* #22c45d - Green */
-    --primary-foreground: 0 0% 0%;       /* Black text on primary */
+    /* OKLCH Color System - Dark Mode Default */
+    --bg-dark: oklch(0.18 0 0);
+    --bg: oklch(0.24 0 0);
+    --bg-light: oklch(0.4 0 0);
+    --text: oklch(0.94 0 0);
+    --text-muted: oklch(0.72 0 0);
+    --highlight: oklch(0.5 0 0);
+    --border: oklch(0.4 0 0);
+    --border-muted: oklch(0.3 0 0);
+    --primary: oklch(0.9 0.17 100);
+    --shadow: 0px 2px 2px oklch(0 0 0 / 0.25), 0px 4px 4px oklch(0 0 0 / 0.15);
 
-    /* ==================== BACKGROUND COLORS ==================== */
-    /* Main backgrounds */
-    --background: 217 33% 17%;           /* #1a1f2e - Dark blue-gray (main bg) */
-    --foreground: 0 0% 100%;             /* White text */
+    /* Status colors */
+    --status-active: oklch(0.5 0.15 145);
+    --status-error: oklch(0.6 0.2 25);
+    --status-warning: oklch(0.7 0.15 65);
+    --status-success: oklch(0.5 0.15 145);
 
-    /* Card/Panel backgrounds */
-    --card: 217 33% 20%;                 /* #232c3f - Slightly lighter than background */
-    --card-foreground: 0 0% 100%;        /* White text on cards */
+    /* Utility */
+    --border-card: solid 1px var(--border-muted);
+    --gradient: linear-gradient(0deg, var(--bg) 97%, var(--bg-light));
+    --gradient-hover: linear-gradient(0deg, var(--bg), var(--bg-light));
+    --radius: 0.5rem;
 
-    /* Popover/Dropdown backgrounds */
-    --popover: 217 33% 20%;              /* Same as card for consistency */
-    --popover-foreground: 0 0% 100%;     /* White text in popovers */
-
-    /* ==================== SECONDARY COLORS ==================== */
-    /* Secondary buttons, less prominent elements */
-    --secondary: 217 33% 24%;            /* #2a3647 - Lighter blue-gray */
-    --secondary-foreground: 0 0% 100%;   /* White text on secondary */
-
-    /* Accent: Highlights, hover states */
-    --accent: 142 71% 45%;               /* Same as primary for consistency */
-    --accent-foreground: 0 0% 0%;        /* Black text on accent */
-
-    /* ==================== MUTED/SUBTLE COLORS ==================== */
-    /* Muted: Subtle backgrounds, disabled states */
-    --muted: 217 20% 28%;                /* #3f4854 - Desaturated blue-gray */
-    --muted-foreground: 0 0% 60%;        /* #999999 - Gray text */
-
-    /* ==================== STATUS COLORS ==================== */
-    /* Destructive: Errors, delete actions, danger states */
-    --destructive: 0 84.2% 60.2%;        /* #E74C3C - Red */
-    --destructive-foreground: 0 0% 98%;  /* Near-white text on red */
-
-    /* Success: Active trespass records (defined separately below) */
-    --success: 142 71% 45%;              /* #22c45d - Same as primary green */
-
-    /* Warning/Inactive: Expired records */
-    --inactive: 220 13% 46%;             /* #6b7280 - Gray */
-
-    /* ==================== BORDERS & INPUTS ==================== */
-    /* Border: All borders, separators */
-    --border: 217 20% 25%;               /* #363f4d - Subtle border */
-
-    /* Input: Input field backgrounds */
-    --input: 217 33% 15%;                /* #161b26 - Darker than background */
-
-    /* Ring: Focus rings on interactive elements */
-    --ring: 142 71% 45%;                 /* Same as primary for consistency */
-
-    /* ==================== SPACING & LAYOUT ==================== */
-    /* Border radius for cards, buttons, inputs */
-    --radius: 0.5rem;                    /* 8px - Consistent rounded corners */
-
-    /* Chart colors (for future data visualizations) */
-    --chart-1: 142 71% 45%;              /* Green */
-    --chart-2: 217 91% 60%;              /* Blue */
-    --chart-3: 48 96% 53%;               /* Yellow */
-    --chart-4: 0 84% 60%;                /* Red */
-    --chart-5: 280 87% 65%;              /* Purple */
-
-    /* ==================== LEGACY/CUSTOM ==================== */
-    /* Custom green (kept for backward compatibility) */
-    /* Use --primary instead for new code */
-    --custom-green: #22c45d;
+    /*Birdville ISD colors*/
+    --birdville-gold: oklch(0.6792 0.0889 85.34);
+    --birdville-blue: oklch(0.4426 0.134 261.58);
+    --birdville-light-gold: oklch(0.8744 0.0823 84.61);
+    --birdville-yellow: oklch(0.968 0.211 109.77);    
+    --birdville-green: oklch(0.5769 0.1538 146.35);
+    --birdville-red: oklch(0.628 0.2577 29.23);
+     
+    /* Shadcn component mappings */
+    --background: var(--bg-dark);
+    --foreground: var(--text);
+    --card: var(--bg);
+    --card-foreground: var(--text);
+    --popover: var(--bg);
+    --popover-foreground: var(--text);
+    --input: var(--bg-light);
+    --muted-foreground: var(--text-muted);
+    --primary: var(--primary);
+    --primary-foreground: var(--bg-dark);
+    --secondary: var(--bg-light);
+    --secondary-foreground: var(--text);
+    --muted: var(--bg-light);
+    --accent: var(--primary);
+    --accent-foreground: var(--bg-dark);
+    --destructive: var(--status-error);
+    --destructive-foreground: var(--text);
+    --ring: var(--highlight);
   }
-}
 
-@layer base {
+  /* Light theme */
+  [data-theme="light"] {
+    /* OKLCH */
+    --bg-dark: oklch(0.90 0 264);
+    --bg: oklch(0.84 0 264);
+    --bg-light: oklch(.74 0 264);
+    --text: oklch(0.14 0 264);
+    --text-muted: oklch(0.38 0 264);
+    --highlight: oklch(1 0 264);
+    --border: oklch(0.68 0 264);
+    --border-muted: oklch(0.780 264);
+    --primary: oklch(0.65 0.15 264);
+
+    /* Utility */
+    --border-card: solid 1px var(--bg);
+    --gradient: linear-gradient(0deg, var(--bg) 97%, var(--bg-light));
+    --gradient-hover: linear-gradient(0deg, var(--bg), var(--bg-light));
+
+    /* Override input for light mode to be lighter */
+    --input: var(--bg-dark);
+  }
+
+  /* Accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Base styles */
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  }
+
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 }
