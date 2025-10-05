@@ -71,6 +71,7 @@ const config: Config = {
           error: 'var(--status-error)',
           warning: 'var(--status-warning)',
           success: 'var(--status-success)',
+          former: 'var(--status-former)',
         },
 
         // Birdville ISD colors

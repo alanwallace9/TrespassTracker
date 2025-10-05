@@ -17,10 +17,11 @@
     --shadow: 0px 2px 2px oklch(0 0 0 / 0.25), 0px 4px 4px oklch(0 0 0 / 0.15);
 
     /* Status colors */
-    --status-active: oklch(0.5 0.15 145);
+    --status-active: oklch(0.62 0.19 142);
     --status-error: oklch(0.6 0.2 25);
     --status-warning: oklch(0.7 0.15 65);
     --status-success: oklch(0.5 0.15 145);
+    --status-former: oklch(0.58 0.18 260);
 
     /* Utility */
     --border-card: solid 1px var(--border-muted);
@@ -60,15 +61,22 @@
   /* Light theme */
   [data-theme="light"] {
     /* OKLCH */
-    --bg-dark: oklch(0.90 0 264);
-    --bg: oklch(0.84 0 264);
-    --bg-light: oklch(.74 0 264);
-    --text: oklch(0.14 0 264);
-    --text-muted: oklch(0.38 0 264);
+    --bg-dark: oklch(0.96 0 0);
+    --bg: oklch(0.94 0 0);
+    --bg-light: oklch(0.98 0 0);
+
+    --text: oklch(0.14 0 0);
+    --text-muted: oklch(0.38 0 0);
     --highlight: oklch(1 0 264);
-    --border: oklch(0.68 0 264);
-    --border-muted: oklch(0.780 264);
+
+    --border: oklch(0.75 0 0);
+    --border-muted: oklch(0.78 0 0);
+
     --primary: oklch(0.65 0.15 264);
+    --primary-foreground: oklch(1 0 0);
+
+    /* slightly softer shadows for light mode */
+  --shadow: 0 1px 2px oklch(0 0 0 / 0.10), 0 2px 4px oklch(0 0 0 / 0.06);
 
     /* Utility */
     --border-card: solid 1px var(--bg);
@@ -76,7 +84,7 @@
     --gradient-hover: linear-gradient(0deg, var(--bg), var(--bg-light));
 
     /* Override input for light mode to be lighter */
-    --input: var(--bg-dark);
+   --input: var(--bg-light);
   }
 
   /* Accessibility */
