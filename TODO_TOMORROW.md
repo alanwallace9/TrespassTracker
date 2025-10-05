@@ -1,23 +1,23 @@
 # TODO List - October 5, 2025
 
-> **Session:** Morning/Next Work Session
-> **Focus:** Testing, Color Adjustments, and Deployment Prep
+> **Session:** Afternoon/Next Work Session
+> **Focus:** Testing, User Photos, and Deployment Prep
 
 ---
 
 ## High Priority
 
-### 1. Color Theme Refinements
-- [ ] Review COLOR_REFERENCE.md and identify color inconsistencies
+### 1. Color Theme Refinements ✅ PARTIALLY COMPLETE
+- [x] Adjust colors based on initial review:
+  - [x] Updated status-active to brighter green (0.62 lightness, 0.19 chroma)
+  - [x] Added dedicated status-former color for Former Student badges
+  - [x] Improved light mode backgrounds (0.96, 0.94, 0.98 lightness)
+  - [x] Removed color tinting from light mode (pure neutral grays)
+  - [x] Fixed light mode input backgrounds to be lighter
 - [ ] Test light theme on actual devices (mobile, tablet, desktop)
 - [ ] Test dark theme on actual devices
-- [ ] Adjust colors based on visual testing:
-  - [ ] Check if card backgrounds have enough contrast from page background
-  - [ ] Verify text readability in both themes
-  - [ ] Review border visibility (especially `border-muted`)
-  - [ ] Check dropdown/popover backgrounds
-- [ ] Update `globals.css` with any color adjustments needed
-- [ ] Document color changes in COLOR_REFERENCE.md
+- [ ] Further adjustments after device testing if needed
+- [ ] Update COLOR_REFERENCE.md with status-former documentation
 
 ### 2. Google Form Setup
 - [ ] Create Google Form for user feedback
@@ -188,5 +188,17 @@
 
 ---
 
-**Last Updated:** October 4, 2025 (End of Day)
-**Next Review:** October 5, 2025 (Morning Session)
+**Last Updated:** October 5, 2025 (Mid-Day)
+**Next Review:** October 5, 2025 (Afternoon/Evening Session)
+
+---
+
+## Completed This Session (October 5)
+
+- ✅ Status color refinements (status-active brightness increase)
+- ✅ Added status-former dedicated color for Former Student badges
+- ✅ Light mode color overhaul (lighter, neutral backgrounds)
+- ✅ Profile dropdown hover effects (scale without color change)
+- ✅ Theme toggle button background consistency
+- ✅ Git commit and push to staging (commit 3376dc2)
+- ✅ Session summary documentation created
