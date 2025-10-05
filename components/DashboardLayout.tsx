@@ -162,7 +162,7 @@ export function DashboardLayout({
               {/* Theme Toggle Power Button */}
               <button
                 onClick={toggleTheme}
-                className="h-9 w-9 flex items-center justify-center rounded-lg transition-all hover:scale-110 border border-birdville-light-gold"
+                className="h-9 w-9 flex items-center justify-center rounded-lg transition-all hover:scale-110 border border-birdville-light-gold bg-input"
                 aria-label="Toggle theme"
               >
                 <Power
@@ -176,7 +176,7 @@ export function DashboardLayout({
 
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2 bg-input text-foreground">
+                  <Button variant="outline" size="sm" className="gap-2 bg-input text-foreground border-border hover:bg-input hover:text-foreground hover:scale-110">
                     <User className="w-4 h-4" />
                     <span className="hidden sm:inline">{displayName || user.email?.split('@')[0]}</span>
                     <ChevronDown className="w-4 h-4" />
