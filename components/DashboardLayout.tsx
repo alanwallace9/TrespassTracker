@@ -278,30 +278,25 @@ export function DashboardLayout({
             </div>
           </div>
           {onSearchChange && onStatusFilterChange && onViewModeChange && (
-              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center pt-4 pb-2 border-t" style={{ borderColor: 'var(--birdville-light-gold)' }}>
-                <div className="relative flex-1 w-full">
+              <div className="flex flex-row gap-2 items-center pt-4 pb-2 border-t" style={{ borderColor: 'var(--birdville-light-gold)' }}>
+                <div className="relative w-full max-w-[280px]">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-foreground w-4 h-4" />
                 <Input
-                  placeholder="Search by name or ID -->"
+                  placeholder="Search by name or ID"
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   className="pl-10 bg-input border-border text-foreground placeholder:text-foreground"
                 />
               </div>
-              {filteredCount !== undefined && stats && (
-                <div className="text-sm text-muted-foreground whitespace-nowrap">
-                  Showing {filteredCount} of {stats.total}
-                </div>
-              )}
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex gap-2 flex-shrink-0">
                 <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-                  <SelectTrigger className="w-full sm:w-[180px] bg-input border-border text-foreground">
+                  <SelectTrigger className="w-[130px] sm:w-[150px] bg-input border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="all">All {stats ? `(${stats.total})` : ''}</SelectItem>
+                    <SelectItem value="active">Active {stats ? `(${stats.active})` : ''}</SelectItem>
+                    <SelectItem value="inactive">Inactive {stats ? `(${stats.inactive})` : ''}</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="flex border border-border rounded-lg bg-card h-10">
