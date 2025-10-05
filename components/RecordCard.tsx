@@ -20,10 +20,13 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
 
   return (
     <Card
-      className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow bg-card border-border"
+      className="overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl bg-card border-border"
+      style={{
+        boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.19), 0px 12px 12px rgba(0, 0, 0, 0.08)'
+      }}
       onClick={() => onViewRecord(record)}
     >
-      <div className="relative aspect-[4/3] bg-secondary">
+      <div className="relative aspect-[4/3] bg-secondary border-b-2 border-border-muted">
         {record.photo_url ? (
           <img
             src={record.photo_url}
@@ -31,9 +34,9 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-[#3a4556]">
+          <div className="w-full h-full flex items-center justify-center bg-card">
             <div className="text-center">
-              <div className="text-6xl font-bold text-[#5a6578]">
+              <div className="text-6xl font-bold text-muted-foreground">
                 {record.first_name.charAt(0)}
                 {record.last_name.charAt(0)}
               </div>
@@ -41,18 +44,19 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
           </div>
         )}
         <Badge
-          className={`absolute top-2 right-2 text-white`}
-          style={{backgroundColor: record.status === 'active' && !isExpired ? '#22c45d' : '#6b7280'}}
+          className={`absolute top-2 right-2 text-white ${
+            record.status === 'active' && !isExpired ? 'bg-status-active' : 'bg-status-inactive'
+          }`}
         >
           {isExpired ? 'Inactive' : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
         </Badge>
         {record.is_former_student && (
-          <div className="absolute bottom-0 left-0 right-0 bg-[#3B82F6] text-white text-sm font-medium py-2 text-center">
+          <div className="absolute bottom-0 left-0 right-0 bg-primary text-white text-sm font-medium py-2 text-center">
             Former Student
           </div>
         )}
       </div>
-      <CardContent className="p-4 space-y-1 bg-[#1e293b]">
+      <CardContent className="p-4 space-y-1 bg-card">
         <h3 className="font-semibold text-base text-foreground">
           {record.first_name.charAt(0).toUpperCase() + record.first_name.slice(1).toLowerCase()} {record.last_name.charAt(0).toUpperCase() + record.last_name.slice(1).toLowerCase()}
         </h3>

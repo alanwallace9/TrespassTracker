@@ -1,7 +1,8 @@
 # V2: District Subdomain Handling Architecture
 
-> **Status:** Planned for V2 (post-MVP)
-> **Purpose:** Multi-district support via subdomains (e.g., keller.districttracker.com)
+> **Status:** Deferred to V2.1 (post-Birdville MVP)
+> **Purpose:** Multi-district support via subdomains (e.g., birdville.districttracker.com, desoto.districttracker.com)
+> **Current Version:** V2.0 is single-tenant (Birdville only) with hardcoded theme
 
 ## Overview
 
@@ -227,17 +228,23 @@ await supabase
   });
 ```
 
-## Migration Path from MVP to V2
+## Migration Path from V2.0 to V2.1
 
-1. **Add districts table** and seed with initial district
-2. **Add district_id columns** to all relevant tables
-3. **Backfill existing data** with single district_id
+**Prerequisites:** V2.0 Birdville MVP complete with clean theme system
+
+1. **Add districts table** and seed with Birdville as first district
+2. **Add district_id columns** to all relevant tables (user_profiles, trespass_records)
+3. **Backfill existing data** with Birdville district_id
 4. **Update RLS policies** to include district checks
-5. **Add subdomain detection** to middleware/layout
-6. **Test thoroughly** with multiple test subdomains
-7. **Configure Cloudflare DNS** for first production district
-8. **Add Vercel domains** one district at a time
-9. **Monitor logs** for invalid subdomain attempts
+5. **Move Birdville theme** from hardcoded globals.css to district_themes table
+6. **Create dynamic theme loader** (lib/theme/applyDistrictTheme.ts)
+7. **Add subdomain detection** to middleware/layout
+8. **Test thoroughly** with multiple test subdomains
+9. **Configure Cloudflare DNS** for first production district
+10. **Add Vercel domains** one district at a time
+11. **Monitor logs** for invalid subdomain attempts
+
+**Detailed migration steps:** See PRODUCT_ROADMAP.md v2.1 section
 
 ## Testing Checklist
 

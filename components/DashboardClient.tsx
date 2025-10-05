@@ -17,7 +17,7 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
-  const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
 
   const handleViewRecord = (record: TrespassRecord) => {
     setSelectedRecord(record);
@@ -28,17 +28,24 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
     return record.expiration_date && new Date(record.expiration_date) < new Date();
   };
 
-  const filteredRecords = initialRecords.filter((record) => {
-    const matchesSearch =
-      record.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.location.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredRecords = initialRecords
+    .filter((record) => {
+      const matchesSearch =
+        record.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        record.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        record.location.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const recordStatus = isExpired(record) ? 'inactive' : record.status;
-    const matchesStatus = statusFilter === 'all' || recordStatus === statusFilter;
+      const recordStatus = isExpired(record) ? 'inactive' : record.status;
+      const matchesStatus = statusFilter === 'all' || recordStatus === statusFilter;
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      // Sort alphabetically by last name, then first name
+      const lastNameCompare = a.last_name.toLowerCase().localeCompare(b.last_name.toLowerCase());
+      if (lastNameCompare !== 0) return lastNameCompare;
+      return a.first_name.toLowerCase().localeCompare(b.first_name.toLowerCase());
+    });
 
   const stats = {
     total: initialRecords.length,
