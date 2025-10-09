@@ -1,13 +1,46 @@
-# TODO List - October 5, 2025
+# TODO List - October 10, 2025
 
-> **Session:** Afternoon/Next Work Session
-> **Focus:** Testing, User Photos, and Deployment Prep
+> **Last Updated:** October 9, 2025
+> **Focus:** Production Deployment & Final Testing
+
+---
+
+## 🎉 Recent Accomplishments (October 9, 2025)
+
+- ✅ Custom login page rebuilt with Clerk's `useSignIn` hook
+- ✅ Login route migrated from `/sign-in` to `/login`
+- ✅ Fixed root page redirect logic
+- ✅ Implemented password visibility toggle
+- ✅ Added proper error handling with user-friendly messages
+- ✅ Created unified card design with header and footer
+- ✅ Archived old Supabase-based login for reference
+- ✅ Comprehensive session documentation created
 
 ---
 
 ## High Priority
 
-### 1. Color Theme Refinements ✅ PARTIALLY COMPLETE
+### 1. Production Deployment - Login Page 🚀 URGENT
+- [ ] **Update Vercel Environment Variables**:
+  - [ ] Go to Vercel dashboard for TrespassTracker project
+  - [ ] Update `NEXT_PUBLIC_CLERK_SIGN_IN_URL` from `/sign-in` to `/login`
+  - [ ] Verify all other Clerk environment variables are correct
+  - [ ] Trigger new deployment after env var update
+
+- [ ] **Test Production Login**:
+  - [ ] Visit https://birdville.districttracker.com/login
+  - [ ] Test with valid credentials
+  - [ ] Test with invalid credentials (verify error message displays)
+  - [ ] Verify redirect to dashboard on success
+  - [ ] Test password visibility toggle
+  - [ ] Test "powered by DistrictTracker.com" link opens correctly
+
+- [ ] **Verify Clerk Dashboard Settings**:
+  - [ ] Confirm sign-in URL is set to `/login`
+  - [ ] Verify production API keys are being used
+  - [ ] Check that sign-up is disabled (invite-only)
+
+### 2. Color Theme Refinements ✅ PARTIALLY COMPLETE
 - [x] Adjust colors based on initial review:
   - [x] Updated status-active to brighter green (0.62 lightness, 0.19 chroma)
   - [x] Added dedicated status-former color for Former Student badges
@@ -19,7 +52,7 @@
 - [ ] Further adjustments after device testing if needed
 - [ ] Update COLOR_REFERENCE.md with status-former documentation
 
-### 2. Google Form Setup
+### 3. Google Form Setup
 - [ ] Create Google Form for user feedback
 - [ ] Configure form fields:
   - [ ] What do you like?
@@ -30,14 +63,14 @@
 - [ ] Get shareable link
 - [ ] Update DashboardLayout.tsx line 258 with real Google Form URL
 
-### 3. Mobile Testing
+### 4. Mobile Testing
 - [ ] Test power button toggle on mobile devices
 - [ ] Verify card hover effects work on touch devices
 - [ ] Check dropdown menu usability on mobile
 - [ ] Verify all touch targets are ≥44x44px
 - [ ] Test theme persistence across page refreshes
 
-### 4. RecordCard Polish (Optional)
+### 5. RecordCard Polish (Optional)
 - [ ] Review hover animation speed (currently 300ms) - adjust if needed
 - [ ] Test card separator visibility in both themes
 - [ ] Consider adding subtle hover effect on image section
@@ -47,7 +80,7 @@
 
 ## Medium Priority
 
-### 5. Changelog Implementation Planning
+### 6. Changelog Implementation Planning
 - [ ] Decide on changelog data structure:
   - Track: created_at, created_by, updated_at, updated_by
   - Store: who added/edited/deleted records
@@ -59,7 +92,7 @@
   - [ ] Both options
 - [ ] Plan Supabase schema for audit logs (for future implementation)
 
-### 6. QA Testing
+### 7. QA Testing
 - [ ] Take screenshots of light mode:
   - [ ] Dashboard with cards
   - [ ] Dashboard with list view
@@ -79,7 +112,7 @@
 - [ ] Test search functionality
 - [ ] Test status filters (active/inactive/all)
 
-### 7. Code Cleanup
+### 8. Code Cleanup
 - [ ] Review and clean up console.log statements
 - [ ] Check for unused imports
 - [ ] Run `npm run typecheck` to catch TypeScript errors
@@ -90,19 +123,19 @@
 
 ## Low Priority (Nice to Have)
 
-### 8. Documentation Updates
+### 9. Documentation Updates
 - [ ] Update CLAUDE.md with new color system notes
 - [ ] Add note about localStorage theme persistence
 - [ ] Document the alphabetical sorting feature
 - [ ] Update deployment checklist if needed
 
-### 9. Performance Review
+### 10. Performance Review
 - [ ] Check page load times
 - [ ] Review image optimization (if any photos uploaded)
 - [ ] Consider lazy loading for large record lists
 - [ ] Test with 50+ records to see grid performance
 
-### 10. Accessibility Audit
+### 11. Accessibility Audit
 - [ ] Run axe DevTools or Lighthouse accessibility check
 - [ ] Verify all interactive elements have proper labels
 - [ ] Test keyboard navigation through all modals
@@ -113,7 +146,7 @@
 
 ## Deployment Prep (When Ready)
 
-### 11. Pre-Deployment Checklist
+### 12. Pre-Deployment Checklist
 - [ ] All tests passing
 - [ ] TypeScript compilation successful
 - [ ] No critical console errors
@@ -121,7 +154,7 @@
 - [ ] Google Form URL updated
 - [ ] Screenshots taken for documentation
 
-### 12. Git Commit
+### 13. Git Commit
 - [ ] Review all changed files
 - [ ] Stage changes to staging branch
 - [ ] Write comprehensive commit message:
@@ -133,7 +166,7 @@
   - Color reference docs
 - [ ] Push to staging branch
 
-### 13. Deployment
+### 14. Deployment
 - [ ] Deploy to Vercel staging environment
 - [ ] Test staging deployment
 - [ ] Share staging URL with stakeholders for review
@@ -188,17 +221,21 @@
 
 ---
 
-**Last Updated:** October 5, 2025 (Mid-Day)
-**Next Review:** October 5, 2025 (Afternoon/Evening Session)
+**Last Updated:** October 9, 2025 (End of Session)
+**Next Review:** October 10, 2025 (Production Deployment)
 
 ---
 
-## Completed This Session (October 5)
+## Completed This Session (October 9)
 
-- ✅ Status color refinements (status-active brightness increase)
-- ✅ Added status-former dedicated color for Former Student badges
-- ✅ Light mode color overhaul (lighter, neutral backgrounds)
-- ✅ Profile dropdown hover effects (scale without color change)
-- ✅ Theme toggle button background consistency
-- ✅ Git commit and push to staging (commit 3376dc2)
-- ✅ Session summary documentation created
+- ✅ Custom login page rebuilt using Clerk's `useSignIn` hook
+- ✅ Login route migrated from `/sign-in` to `/login`
+- ✅ Root page redirect logic fixed with `useUser` hook
+- ✅ Password visibility toggle implemented (Eye/EyeOff icons)
+- ✅ Error handling with user-friendly messages
+- ✅ Unified card design with header, form, and footer
+- ✅ Light theme styling matching brand requirements
+- ✅ Archived old Supabase login for reference
+- ✅ Comprehensive session documentation (SESSION_SUMMARY_2025-10-09.md)
+- ✅ Updated PRODUCT_ROADMAP.md with October 9 progress
+- ✅ Updated TODO_TOMORROW.md with new deployment tasks

@@ -1,13 +1,13 @@
 # Deployment Readiness Checklist
 
-**Last Updated:** October 3, 2025
-**Current Branch:** `feature/bolt-mvp-integration`
+**Last Updated:** October 9, 2025
+**Current Branch:** `staging`
 
 ---
 
-## 🎯 Current Status: READY FOR TESTING
+## 🎯 Current Status: READY FOR PRODUCTION
 
-You are **90% complete** with the Bolt MVP migration and ready to proceed to testing and deployment.
+You are **95% complete** with the application and ready for production deployment. Login page has been rebuilt with custom Clerk authentication.
 
 ---
 
@@ -44,9 +44,52 @@ You are **90% complete** with the Bolt MVP migration and ready to proceed to tes
 - Complete RLS policies for 4 roles
 - Profile updates working correctly
 
+### Phase 6: Custom Login Page (October 9, 2025) ✅
+- Custom login form built using Clerk's `useSignIn` hook
+- Login route migrated from `/sign-in` to `/login`
+- Root page redirect logic fixed with `useUser` hook
+- Password visibility toggle implemented
+- User-friendly error handling with red error messages
+- Unified card design with BISD branding
+- Light theme styling matching brand requirements
+- Removed all styling conflicts with Clerk's appearance API
+
 ---
 
-## ⏳ Pending: Critical Testing
+## ⏳ Pending: Critical Deployment Steps
+
+### 🚨 URGENT: Update Vercel Environment Variables
+**Status:** 🔴 NOT DONE
+
+**Required Action:**
+1. Go to Vercel dashboard → TrespassTracker project → Settings → Environment Variables
+2. Update `NEXT_PUBLIC_CLERK_SIGN_IN_URL` from `/sign-in` to `/login`
+3. Verify `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` is set to `/dashboard`
+4. Trigger new deployment
+
+**Why:** The login route has been changed from `/sign-in` to `/login`. Without this update, production will redirect to the wrong URL.
+
+### Test 0: Production Login Flow
+**Status:** 🔴 NOT TESTED (After Vercel update)
+
+**Steps:**
+1. Visit https://birdville.districttracker.com/login
+2. Test with valid credentials
+3. Test with invalid credentials (verify error message)
+4. Verify redirect to dashboard on success
+5. Test password visibility toggle
+6. Verify "powered by DistrictTracker.com" link
+
+**Expected Results:**
+- [ ] Login page displays correctly with BISD branding
+- [ ] Error handling works with user-friendly messages
+- [ ] Password toggle works
+- [ ] Successful login redirects to dashboard
+- [ ] Footer link opens in new tab
+
+---
+
+## ⏳ Additional Testing
 
 ### Test 1: Full Invitation Flow
 **Status:** 🔴 NOT TESTED
@@ -147,8 +190,8 @@ Test each role's permissions:
 # Clerk (use PRODUCTION keys)
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...
 CLERK_SECRET_KEY=sk_live_...
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
 
 # Supabase (same as local)
 NEXT_PUBLIC_SUPABASE_URL=https://gnbxdjiibwjaurybohak.supabase.co
@@ -156,17 +199,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 # App URL (will be your Vercel domain)
-NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+NEXT_PUBLIC_APP_URL=https://birdville.districttracker.com
 ```
 
 ### Step 3: Update Clerk for Production
 1. Create production Clerk instance (or switch to production mode)
 2. Get production keys (`pk_live_...`, `sk_live_...`)
 3. Configure paths in Clerk Dashboard:
-   - Sign-in URL: `https://your-app.vercel.app/sign-in`
-   - Sign-up URL: `https://your-app.vercel.app/sign-up`
-   - After sign-in: `https://your-app.vercel.app/dashboard`
-4. **Update webhook URL:** `https://your-app.vercel.app/api/webhooks/clerk`
+   - Sign-in URL: `https://birdville.districttracker.com/login`
+   - After sign-in: `https://birdville.districttracker.com/dashboard`
+   - Note: Sign-up disabled (invite-only system)
+4. **Update webhook URL:** `https://birdville.districttracker.com/api/webhooks/clerk`
 5. Add webhook signing secret to Vercel environment variables
 
 ### Step 4: Deploy
@@ -253,7 +296,9 @@ NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 
 ## 📚 Reference Documentation
 
+- `SESSION_SUMMARY_2025-10-09.md` - Custom login page rebuild (latest session)
 - `SESSION_SUMMARY_2025-10-03.md` - Complete session log
+- `PRODUCT_ROADMAP.md` - Version planning and roadmap
 - `.specify/docs/bolt-mvp-migration-guide.md` - Full migration guide (just updated)
 - `CLERK_SETUP_INSTRUCTIONS.md` - Clerk configuration
 - `WEBHOOK_SETUP.md` - Webhook details
