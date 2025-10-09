@@ -1,6 +1,6 @@
 # TrespassTracker Product Roadmap
 
-> **Last Updated:** October 5, 2025
+> **Last Updated:** October 9, 2025
 > **Current Version:** 2.0 MVP (Birdville single-tenant)
 
 ---
@@ -128,12 +128,53 @@
   - Theme toggle button uses `bg-input` for consistency
   - Hover effects consistent across header controls
 
+#### Authentication & Login Page Refinements (October 9, 2025)
+- ✅ **Custom Login Page Rebuild**:
+  - Migrated from Clerk's `<SignIn>` component to custom form using `useSignIn` hook
+  - Built completely custom form with full design control
+  - Removed all styling conflicts with Clerk's appearance API
+  - Implemented light theme design matching brand requirements
+
+- ✅ **Login Route Migration**:
+  - Changed route from `/sign-in` to `/login`
+  - Updated middleware to allow `/login` as public route
+  - Updated environment variables: `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login`
+  - Fixed root page redirect logic using `useUser` hook from Clerk
+
+- ✅ **Custom Form Features**:
+  - Email and password inputs with proper validation
+  - Show/hide password toggle with Eye/EyeOff icons
+  - Loading states ("Signing in..." with disabled button)
+  - Error handling with user-friendly red error messages
+  - Auto-redirect to dashboard on successful login
+  - Unified card design with header, form, and footer inside
+
+- ✅ **Design & Styling**:
+  - Light theme with white card background and slate gray inputs
+  - Blue primary button matching brand colors
+  - Shield icon and BISD branding in card header
+  - Clickable "powered by DistrictTracker.com" footer link
+  - Professional spacing and rounded corners
+  - No sign-up link (invite-only system)
+
+- ✅ **Authentication Enhancements**:
+  - Proper error handling with Clerk error messages
+  - Session management using `setActive()` to establish Clerk session
+  - Graceful error UI with fallback messages
+  - Integration with existing AuthContext
+
+- ✅ **Cleanup & Documentation**:
+  - Archived old Supabase-based login for reference
+  - Created comprehensive SESSION_SUMMARY_2025-10-09.md
+  - Updated all relevant documentation
+
 #### Remaining Tasks
+- ⏳ **Update Vercel environment variable**: `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login`
+- ⏳ **Test production login** at https://birdville.districttracker.com/login
 - ⏳ **Add user reference photos to project**
 - ⏳ **Test Light/Dark theme switching** (user testing on actual devices)
 - ⏳ **Test power button on mobile devices**
 - ⏳ **Take QA screenshots** (Light mode, Dark mode)
-- ⏳ **Deploy to production**
 - ⏳ **Get feedback from Birdville users**
 
 ### Out of Scope (Deferred to v2.1+)
@@ -486,6 +527,33 @@ ALTER TABLE district_themes ADD COLUMN email_footer TEXT;
 
 ---
 
+### October 9, 2025 - Custom Login Form with Clerk Hooks
+**Decision:** Replace Clerk's `<SignIn>` component with custom form using `useSignIn` hook.
+
+**Rationale:**
+- Clerk's `<SignIn>` component had styling conflicts when wrapped in outer card
+- Appearance API couldn't properly control padding and layout
+- Form fields were getting compressed/squished with card wrapper
+- Sign-up link couldn't be hidden despite appearance API settings
+- Custom form provides complete control over HTML structure and CSS
+
+**Implementation:**
+- Built form from scratch using React state and Clerk's `useSignIn` hook
+- Full control over error handling, loading states, and user experience
+- Clean, professional design matching brand requirements
+- Unified card layout with header, form, and footer
+- No more fighting with Clerk's internal styles
+
+**Trade-offs:**
+- More code to maintain compared to using `<SignIn>` component
+- Need to implement form validation manually
+- Lost some Clerk component features (but weren't needed)
+- Benefits far outweigh trade-offs - complete design control
+
+**Approved by:** Product Owner
+
+---
+
 ### October 4, 2025 - v2.0 Scope Simplification
 **Decision:** Ship Birdville MVP with hardcoded theme first, defer multi-tenant to v2.1.
 
@@ -512,6 +580,12 @@ ALTER TABLE district_themes ADD COLUMN email_footer TEXT;
 - [x] Power button is 44×44px touch-friendly
 - [x] Theme persists across sessions via localStorage
 - [x] Card view is default with professional shadows
+- [x] Custom login page with full design control
+- [x] Login route changed from `/sign-in` to `/login`
+- [x] Password visibility toggle working
+- [x] Error handling with user-friendly messages
+- [x] Auto-redirect to dashboard on successful login
+- [ ] Vercel environment variable updated for production
 - [ ] Mobile experience tested and smooth
 - [ ] No accessibility regressions (contrast, focus rings)
 - [ ] Positive feedback from Birdville pilot users
