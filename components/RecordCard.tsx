@@ -96,6 +96,7 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
               src={record.photo_url}
               alt={`${record.first_name} ${record.last_name}`}
               className="w-full h-full object-cover object-[50%_30%] transition-all duration-300"
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-card">
