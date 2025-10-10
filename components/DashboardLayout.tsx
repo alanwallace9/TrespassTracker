@@ -63,7 +63,7 @@ export function DashboardLayout({
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/sign-in');
+      router.push('/login');
     }
   }, [user, loading, router]);
 
@@ -116,7 +116,7 @@ export function DashboardLayout({
 
   const handleSignOut = async () => {
     await signOut();
-    router.push('/sign-in');
+    router.push('/login');
   };
 
   const toggleTheme = () => {
