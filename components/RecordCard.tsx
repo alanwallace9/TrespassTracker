@@ -66,7 +66,7 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
   return (
     <>
       {/* Image Preview Modal */}
-      {isImageEnlarged && (
+      {isImageEnlarged && record.photo_url && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-in fade-in duration-300">
           <div ref={modalRef} className="relative max-w-2xl max-h-[90vh] w-full flex items-center justify-center">
             <img
