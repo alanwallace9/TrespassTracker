@@ -75,3 +75,6 @@ coverage/
 # Bolt/MVP temporary files
 /Temp/
 *.bolt.backup
+
+# Security audit files (may contain sensitive information)
+.agents/doc/audit/

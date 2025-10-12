@@ -2,6 +2,8 @@ import { headers } from 'next/headers';
 import { WebhookEvent } from '@clerk/nextjs/server';
 import { Webhook } from 'svix';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 // Supabase client with service role key (bypasses RLS for admin operations)
 const supabaseAdmin = createClient(
@@ -53,7 +55,7 @@ export async function POST(req: Request) {
 
   // Handle the webhook event
   const eventType = evt.type;
-  console.log(`Webhook received: ${eventType}`, { userId: evt.data.id });
+  logger.info('Webhook received', { eventType, userId: evt.data.id });
 
   try {
     switch (eventType) {
@@ -67,19 +69,17 @@ export async function POST(req: Request) {
 
         const role = (public_metadata?.role as string) || 'viewer';
         const campusId = public_metadata?.campus_id as string | null;
+        const orgId = public_metadata?.org_id as string | null;
 
-        console.log('Creating user profile:', {
-          id,
-          email: primaryEmail,
-          role,
-          campusId,
-        });
+        // Log to server (no PII in console)
+        logger.info('Creating user profile', { userId: id, role });
 
         const { error } = await supabaseAdmin.from('user_profiles').insert({
           id: id,
           email: primaryEmail,
           role: role,
           campus_id: campusId || null,
+          org_id: orgId || null,
           display_name: null,
           theme: 'system',
           created_at: new Date().toISOString(),
@@ -87,13 +87,26 @@ export async function POST(req: Request) {
         });
 
         if (error) {
-          console.error('Error creating user profile:', error);
-          return new Response(`Database error: ${error.message}`, {
-            status: 500,
-          });
+          logger.error('Error creating user profile', error);
+          return new Response('Unable to process webhook', { status: 500 });
         }
 
-        console.log('User profile created successfully');
+        // Log to admin audit log (viewable by admins with PII)
+        await logAuditEvent({
+          eventType: 'user.created',
+          actorId: 'system',
+          actorRole: 'system',
+          targetId: id,
+          action: 'User profile created via webhook',
+          details: {
+            role,
+            campusId,
+            orgId,
+            email: primaryEmail,
+          },
+        });
+
+        logger.info('User profile created successfully');
         break;
       }
 
@@ -107,13 +120,10 @@ export async function POST(req: Request) {
 
         const role = (public_metadata?.role as string) || 'viewer';
         const campusId = public_metadata?.campus_id as string | null;
+        const orgId = public_metadata?.org_id as string | null;
 
-        console.log('Updating user profile:', {
-          id,
-          email: primaryEmail,
-          role,
-          campusId,
-        });
+        // Log to server (no PII in console)
+        logger.info('Updating user profile', { userId: id, role });
 
         const { error } = await supabaseAdmin
           .from('user_profiles')
@@ -121,18 +131,32 @@ export async function POST(req: Request) {
             email: primaryEmail,
             role: role,
             campus_id: campusId || null,
+            org_id: orgId || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', id);
 
         if (error) {
-          console.error('Error updating user profile:', error);
-          return new Response(`Database error: ${error.message}`, {
-            status: 500,
-          });
+          logger.error('Error updating user profile', error);
+          return new Response('Unable to process webhook', { status: 500 });
         }
 
-        console.log('User profile updated successfully');
+        // Log to admin audit log (viewable by admins with PII)
+        await logAuditEvent({
+          eventType: 'user.updated',
+          actorId: 'system',
+          actorRole: 'system',
+          targetId: id,
+          action: 'User profile updated via webhook',
+          details: {
+            role,
+            campusId,
+            orgId,
+            email: primaryEmail,
+          },
+        });
+
+        logger.info('User profile updated successfully');
         break;
       }
 
@@ -140,7 +164,8 @@ export async function POST(req: Request) {
         // Optionally delete user from Supabase (or mark as deleted)
         const { id } = evt.data;
 
-        console.log('Deleting user profile:', { id });
+        // Log to server (no PII in console)
+        logger.info('Deleting user profile', { userId: id });
 
         const { error } = await supabaseAdmin
           .from('user_profiles')
@@ -148,23 +173,31 @@ export async function POST(req: Request) {
           .eq('id', id);
 
         if (error) {
-          console.error('Error deleting user profile:', error);
-          return new Response(`Database error: ${error.message}`, {
-            status: 500,
-          });
+          logger.error('Error deleting user profile', error);
+          return new Response('Unable to process webhook', { status: 500 });
         }
 
-        console.log('User profile deleted successfully');
+        // Log to admin audit log
+        await logAuditEvent({
+          eventType: 'user.deleted',
+          actorId: 'system',
+          actorRole: 'system',
+          targetId: id,
+          action: 'User profile deleted via webhook',
+          details: {},
+        });
+
+        logger.info('User profile deleted successfully');
         break;
       }
 
       default:
-        console.log(`Unhandled event type: ${eventType}`);
+        logger.warn('Unhandled webhook event type', { eventType });
     }
 
     return new Response('Webhook processed successfully', { status: 200 });
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    logger.error('Error processing webhook', error);
     return new Response('Error processing webhook', { status: 500 });
   }
 }
