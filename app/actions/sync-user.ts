@@ -2,6 +2,8 @@
 
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,13 +30,10 @@ export async function syncCurrentUser() {
 
   const role = (clerkUser.publicMetadata.role as string) || 'viewer';
   const campusId = clerkUser.publicMetadata.campus_id as string | null;
+  const orgId = clerkUser.publicMetadata.org_id as string | null;
 
-  console.log('Syncing user:', {
-    id: userId,
-    email: primaryEmail,
-    role,
-    campusId,
-  });
+  // Log to server (no PII in console)
+  logger.info('Syncing user', { userId, role });
 
   // Upsert user profile
   const { error } = await supabaseAdmin.from('user_profiles').upsert({
@@ -42,14 +41,30 @@ export async function syncCurrentUser() {
     email: primaryEmail,
     role: role,
     campus_id: campusId || null,
+    org_id: orgId || null,
     updated_at: new Date().toISOString(),
   });
 
   if (error) {
-    console.error('Error syncing user:', error);
-    throw new Error(error.message);
+    logger.error('Error syncing user', error);
+    throw new Error('Unable to sync user profile');
   }
 
-  console.log('User synced successfully');
+  // Log to admin audit log (viewable by admins with PII)
+  await logAuditEvent({
+    eventType: 'user.updated',
+    actorId: userId,
+    actorEmail: primaryEmail,
+    actorRole: role,
+    targetId: userId,
+    action: 'User profile synced manually',
+    details: {
+      role,
+      campusId,
+      orgId,
+    },
+  });
+
+  logger.info('User synced successfully');
   return { success: true };
 }

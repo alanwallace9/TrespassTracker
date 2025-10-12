@@ -31,12 +31,22 @@ export default function LoginPage() {
         await setActive({
           session: signInAttempt.createdSessionId,
         });
-        // Force full page reload to ensure session is recognized
+
+        // Wait briefly to ensure session cookie is fully written to browser
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Use window.location.href for full page reload
+        // This is necessary because:
+        // 1. Clerk's session cookie must be sent with the next HTTP request
+        // 2. Client-side navigation (router.push) doesn't reliably include the new cookie
+        // 3. Middleware needs to see the cookie to authorize access
+        // Security: Safe because URL is hardcoded internal path (no user input)
         window.location.href = '/dashboard';
+        // Keep loading state active during redirect (don't set to false)
+        return;
       }
     } catch (err: any) {
       setError(err.errors?.[0]?.message || 'Invalid email or password');
-    } finally {
       setIsLoading(false);
     }
   };

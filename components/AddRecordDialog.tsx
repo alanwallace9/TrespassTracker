@@ -205,9 +205,15 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="aka">AKA (Also Known As)</Label>
-            <Input id="aka" value={formData.aka} onChange={(e) => setFormData({ ...formData, aka: e.target.value })} className="bg-input border-border" disabled={isLoading} />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="aka">AKA (Also Known As)</Label>
+              <Input id="aka" value={formData.aka} onChange={(e) => setFormData({ ...formData, aka: e.target.value })} className="bg-input border-border" disabled={isLoading} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="known_associates">Known Associates</Label>
+              <Input id="known_associates" value={formData.known_associates} onChange={(e) => setFormData({ ...formData, known_associates: e.target.value })} className="bg-input border-border" disabled={isLoading} />
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -228,18 +234,13 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="known_associates">Known Associates</Label>
-              <Input id="known_associates" value={formData.known_associates} onChange={(e) => setFormData({ ...formData, known_associates: e.target.value })} className="bg-input border-border" disabled={isLoading} />
+              <Label htmlFor="current_school">Current School</Label>
+              <Input id="current_school" value={formData.current_school} onChange={(e) => setFormData({ ...formData, current_school: e.target.value })} className="bg-input border-border" disabled={isLoading} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contact_info">Contact Info</Label>
+              <Label htmlFor="contact_info">School Contact</Label>
               <Input id="contact_info" value={formData.contact_info} onChange={(e) => setFormData({ ...formData, contact_info: e.target.value })} className="bg-input border-border" disabled={isLoading} />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="current_school">Current School</Label>
-            <Input id="current_school" value={formData.current_school} onChange={(e) => setFormData({ ...formData, current_school: e.target.value })} className="bg-input border-border" disabled={isLoading} />
           </div>
 
           <div className="space-y-2">

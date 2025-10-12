@@ -13,6 +13,7 @@ import { AddRecordDialog } from '@/components/AddRecordDialog';
 import { CSVUploadDialog } from '@/components/CSVUploadDialog';
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { StatsDropdown } from '@/components/StatsDropdown';
+import { AdminAuditLog } from '@/components/AdminAuditLog';
 import { getDisplayName } from '@/app/actions/users';
 
 interface DashboardLayoutProps {
@@ -47,25 +48,24 @@ export function DashboardLayout({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [csvDialogOpen, setCSVDialogOpen] = useState(false);
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  const [auditLogOpen, setAuditLogOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('viewer');
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  // Initialize theme state directly from localStorage (no useEffect delay)
+  // The blocking script in layout.tsx already set the data-theme attribute
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      return (saved as 'light' | 'dark') || 'dark';
+    }
+    return 'dark';
+  });
   const initializingRef = useRef(false);
   const initializedRef = useRef(false);
 
-  // Initialize theme from localStorage on mount
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    const initialTheme = savedTheme || 'dark';
-    setTheme(initialTheme);
-    document.documentElement.setAttribute('data-theme', initialTheme);
-  }, []);
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+  // Removed client-side auth redirect - middleware handles authentication
+  // This was causing a redirect loop after login because of timing issues
+  // with Clerk session loading after window.location.href redirect
 
   // Auto-sync user to Supabase on first load, then fetch display name (truly only once)
   useEffect(() => {
@@ -82,9 +82,9 @@ export function DashboardLayout({
         // Auto-sync (for development without webhooks)
         const { syncCurrentUser } = await import('@/app/actions/sync-user');
         await syncCurrentUser();
-        console.log('User auto-synced to Supabase');
+        // Logging handled in sync-user.ts
       } catch (error) {
-        console.error('Error auto-syncing user:', error);
+        // Silently fail - sync will happen via webhook or next load
       }
 
       // Fetch display name (only once per user load)
@@ -106,10 +106,9 @@ export function DashboardLayout({
     // Fetch display name from Supabase using server action (with Clerk auth)
     try {
       const name = await getDisplayName(user.id);
-      console.log('Fetch display name:', { userId: user.id, name });
       setDisplayName(name);
     } catch (error) {
-      console.error('Error fetching display name:', error);
+      // Silently fail - display name is optional
       setDisplayName(null);
     }
   };
@@ -126,16 +125,17 @@ export function DashboardLayout({
     localStorage.setItem('theme', newTheme);
   };
 
-  if (loading) {
+  // Show loading state while auth is initializing
+  // Middleware protects the route, so we know user will be authenticated
+  if (loading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">Loading your dashboard...</p>
+        </div>
       </div>
     );
-  }
-
-  if (!user) {
-    return null;
   }
 
   const handleDialogClose = () => {
@@ -244,8 +244,7 @@ export function DashboardLayout({
                     <DropdownMenuItem onSelect={(e) => {
                       e.preventDefault();
                       setDropdownOpen(false);
-                      // TODO: Open changelog modal
-                      console.log('Changelog clicked - placeholder for future implementation');
+                      setTimeout(() => setAuditLogOpen(true), 150);
                     }}>
                       <History className="w-4 h-4 mr-2" />
                       Changelog
@@ -344,6 +343,10 @@ export function DashboardLayout({
         open={addUserDialogOpen}
         onOpenChange={setAddUserDialogOpen}
         onUserAdded={handleDialogClose}
+      />
+      <AdminAuditLog
+        open={auditLogOpen}
+        onOpenChange={setAuditLogOpen}
       />
     </div>
   );
