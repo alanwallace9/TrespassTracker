@@ -43,3 +43,29 @@ export type UserProfile = {
   created_at: string;
   updated_at: string;
 };
+
+export type RecordPhoto = {
+  id: string;
+  record_id: string;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  display_order: number;
+  uploaded_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecordDocument = {
+  id: string;
+  record_id: string;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  document_type: string;
+  uploaded_by: string;
+  created_at: string;
+  updated_at: string;
+};
