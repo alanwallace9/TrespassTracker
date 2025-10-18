@@ -278,7 +278,7 @@ export function DashboardLayout({
           </div>
           {onSearchChange && onStatusFilterChange && onViewModeChange && (
               <div className="flex flex-row gap-2 items-center pt-4 pb-2 border-t" style={{ borderColor: 'var(--birdville-light-gold)' }}>
-                <div className="relative w-full max-w-[280px]">
+                <div className="relative w-full min-w-[150px] flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-foreground w-4 h-4" />
                 <Input
                   placeholder="Search by name or ID"

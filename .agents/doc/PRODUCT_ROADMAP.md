@@ -1,7 +1,7 @@
 # TrespassTracker Product Roadmap
 
-> **Last Updated:** October 9, 2025
-> **Current Version:** 2.0 MVP (Birdville single-tenant)
+> **Last Updated:** October 18, 2025
+> **Current Version:** 2.0.1 (Photo/Document Upload - Backend Pending)
 
 ---
 
@@ -9,7 +9,9 @@
 
 | Version | Status | Focus | Timeline |
 |---------|--------|-------|----------|
-| **v2.0** | 🚧 In Progress | Clean theming + Light/Dark modes (Birdville only) | Current Sprint |
+| **v2.0** | ✅ Complete | Clean theming + Light/Dark modes (Birdville only) | Shipped Oct 2025 |
+| **v2.0.1** | 🚧 90% Complete | Multiple photo uploads + document management | Current Sprint - Storage buckets pending |
+| **v2.0.2** | 📋 Planned | Complete audit trail + FERPA compliance | After v2.0.1 |
 | **v2.1** | 📋 Planned | Multi-tenant architecture + subdomain routing | After Birdville feedback |
 | **v2.2** | 💭 Future | Advanced theming (logos, fonts, custom colors) | TBD |
 | **v3.0** | 💭 Future | Clerk Organizations + advanced features | TBD |
@@ -185,6 +187,188 @@
 - ❌ Logo customization
 - ❌ Clerk Organizations
 - ❌ System theme mode (removed for simplicity)
+
+---
+
+## v2.0.1 - Photo and Document Upload Feature
+
+**Status:** 🚧 90% COMPLETE - Storage buckets require manual creation (October 18, 2025)
+
+**Goal:** Enable admins to attach multiple photos and legal documents to trespass records.
+
+### Implementation Progress
+
+**✅ Frontend Complete (100%)**
+- ✅ PhotoGallery component with drag-and-drop upload
+- ✅ DocumentUpload component with type categorization
+- ✅ DocumentViewer component with PDF preview
+- ✅ RecordDetailDialog integration (photos + documents tabs)
+- ✅ File upload utilities with progress tracking
+- ✅ UI refinements for view/edit modes
+- ✅ Mobile-responsive design
+
+**✅ Database Complete (100%)**
+- ✅ `record_photos` table created with RLS policies
+- ✅ `record_documents` table created with RLS policies
+- ✅ Indexes for performance (record_id, display_order)
+- ✅ Triggers for updated_at timestamps
+- ✅ Cascade delete for orphaned records
+
+**❌ Storage Buckets (0% - Manual Creation Required)**
+- ❌ `record-photos` bucket (2MB limit, images only)
+- ❌ `record-documents` bucket (5MB limit, PDFs/DOCs only)
+- ⚠️ Migration file exists but cannot be applied via Supabase MCP (permission error)
+- ⚠️ Requires manual creation in Supabase dashboard
+
+**⬜ Testing (Blocked)**
+- Awaiting storage bucket creation to test upload/download functionality
+
+### Feature Highlights
+
+**Photo Management:**
+- Multiple photo upload with drag-and-drop interface
+- Primary photo selection (auto-shown on record card)
+- Photo reordering with display_order field
+- Lightbox viewer with keyboard navigation
+- Delete photos (admin only)
+- Progress indicators during upload
+- File size limit: 2MB per photo
+- Supported formats: JPEG, PNG, WebP
+
+**Document Management:**
+- Single document upload per action
+- Document type categories:
+  - Trespass Warning
+  - Court Order
+  - Other
+- Admin-only upload/delete restrictions
+- Read-only view for non-admins
+- Download functionality for all users
+- PDF preview in full-screen viewer
+- File size limit: 5MB per document
+- Supported formats: PDF, DOC, DOCX
+
+**Security Features:**
+- ✅ RLS policies restrict upload/delete to admins
+- ✅ MIME type validation prevents malicious uploads
+- ✅ File size limits enforced client-side
+- ✅ Storage bucket policies (pending application)
+- ✅ Audit trail with uploaded_by field
+- ✅ Cascade delete prevents orphaned files
+
+### Database Schema
+
+```sql
+-- record_photos table
+CREATE TABLE record_photos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  record_id UUID NOT NULL REFERENCES trespass_records(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  mime_type TEXT NOT NULL,
+  display_order INTEGER DEFAULT 0,
+  uploaded_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- record_documents table
+CREATE TABLE record_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  record_id UUID NOT NULL REFERENCES trespass_records(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  mime_type TEXT NOT NULL,
+  document_type TEXT NOT NULL DEFAULT 'trespass_warning',
+  uploaded_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_record_photos_record_id ON record_photos(record_id);
+CREATE INDEX idx_record_photos_display_order ON record_photos(record_id, display_order);
+CREATE INDEX idx_record_documents_record_id ON record_documents(record_id);
+```
+
+### Remaining Tasks
+
+**Critical (Blocks Testing):**
+1. ⬜ Manually create `record-photos` bucket in Supabase dashboard
+2. ⬜ Manually create `record-documents` bucket in Supabase dashboard
+3. ⬜ Apply RLS policies from migration file to storage buckets
+
+**Testing Checklist:**
+- [ ] Upload single photo to record
+- [ ] Upload multiple photos (batch upload)
+- [ ] Reorder photos and verify display_order updates
+- [ ] Set primary photo (should appear first in gallery and on card)
+- [ ] Delete photo and verify storage cleanup
+- [ ] View photo in lightbox with navigation
+- [ ] Upload trespass warning document
+- [ ] Upload court order document
+- [ ] Download document
+- [ ] Delete document and verify storage cleanup
+- [ ] Verify non-admins can view but not upload/delete
+- [ ] Verify file size limits enforced (2MB photos, 5MB docs)
+- [ ] Verify MIME type validation blocks invalid files
+- [ ] Test on mobile devices (responsive design)
+- [ ] Verify RLS policies prevent unauthorized access
+
+**Documentation:**
+- [x] Document progress in `security_audit_10-9_fixes.md`
+- [x] Update `PRODUCT_ROADMAP.md` with current status
+- [ ] Create storage bucket setup guide for manual steps
+- [ ] Update `CLAUDE.md` if needed
+
+### Files Modified/Created
+
+**Components:**
+- `components/PhotoGallery.tsx` (354 lines)
+- `components/DocumentUpload.tsx` (307 lines)
+- `components/DocumentViewer.tsx` (178 lines)
+- `components/RecordDetailDialog.tsx` (updated with photo/document sections)
+
+**Utilities:**
+- `lib/file-upload.ts` (363 lines - all upload/delete functions)
+
+**Database:**
+- `supabase/migrations/20251012_create_record_photos_and_documents.sql` ✅ Applied
+- `supabase/migrations/20251013_create_storage_buckets_and_policies.sql` ❌ Not Applied
+
+**Scripts:**
+- `scripts/check-tables.js` (verification script)
+
+### Performance Considerations
+
+- Photos use Next.js Image component for optimization
+- Indexed queries for fast record lookups
+- Progress indicators prevent UI blocking during uploads
+- Batch operations minimize database round-trips
+- Storage URLs are public for fast CDN delivery
+
+### Next Steps
+
+1. **Manual Storage Setup:**
+   - Create buckets in Supabase dashboard
+   - Configure size limits and MIME type restrictions
+   - Apply RLS policies for access control
+
+2. **Testing Phase:**
+   - Run complete testing checklist
+   - Verify security policies work correctly
+   - Test on various devices and browsers
+
+3. **Launch:**
+   - Deploy to production
+   - Monitor for errors
+   - Gather user feedback
+
+4. **Iteration:**
+   - Address any bugs or UX issues
+   - Consider future enhancements (image compression, thumbnails, etc.)
 
 ---
 

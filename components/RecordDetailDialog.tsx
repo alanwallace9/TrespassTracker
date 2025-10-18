@@ -9,12 +9,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrespassRecord, supabase } from '@/lib/supabase';
+import { TrespassRecord, supabase, RecordPhoto, RecordDocument } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { updateRecord, deleteRecord } from '@/app/actions/records';
 import { format } from 'date-fns';
 import { X, Upload } from 'lucide-react';
+import { PhotoGallery } from '@/components/PhotoGallery';
+import { DocumentUpload } from '@/components/DocumentUpload';
+import { getRecordPhotos, getRecordDocuments } from '@/lib/file-upload';
 
 type RecordDetailDialogProps = {
   record: TrespassRecord | null;
@@ -30,6 +33,9 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [currentRecord, setCurrentRecord] = useState<TrespassRecord | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [photos, setPhotos] = useState<RecordPhoto[]>([]);
+  const [documents, setDocuments] = useState<RecordDocument[]>([]);
+  const [isLoadingMedia, setIsLoadingMedia] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -87,8 +93,33 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
         photo_url: record.photo_url || '',
       });
       setImagePreview(record.photo_url || null);
+
+      // Fetch photos and documents
+      loadMediaFiles(record.id);
     }
   }, [record]);
+
+  const loadMediaFiles = async (recordId: string) => {
+    setIsLoadingMedia(true);
+    try {
+      const [photosData, documentsData] = await Promise.all([
+        getRecordPhotos(recordId),
+        getRecordDocuments(recordId),
+      ]);
+      setPhotos(photosData);
+      setDocuments(documentsData);
+    } catch (error) {
+      console.error('Failed to load media files:', error);
+      toast({
+        title: 'Warning',
+        description: 'Could not load photos and documents',
+        variant: 'destructive',
+        duration: 3000,
+      });
+    } finally {
+      setIsLoadingMedia(false);
+    }
+  };
 
   const fetchUserRole = async () => {
     if (!user) return;
@@ -223,9 +254,13 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" hideCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between text-foreground">
-            <span>{isEditing ? 'Edit Trespass Record' : currentRecord.first_name + ' ' + currentRecord.last_name}</span>
+            {isEditing ? (
+              <span>Edit Trespass Record</span>
+            ) : (
+              <span className="sr-only">Student Details</span>
+            )}
             {!isEditing && (
-              <button onClick={() => onOpenChange(false)} className="hover:opacity-70">
+              <button onClick={() => onOpenChange(false)} className="hover:opacity-70 absolute right-4 top-4">
                 <X className="w-5 h-5" />
               </button>
             )}
@@ -366,6 +401,36 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
               <Textarea id="notes" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-input border-border" rows={3} />
             </div>
 
+            {/* Photos Section - Edit Mode */}
+            <div className="space-y-2">
+              <Label className="text-base font-semibold">Photos</Label>
+              {user && (
+                <PhotoGallery
+                  recordId={currentRecord.id}
+                  photos={photos}
+                  userId={user.id}
+                  isEditing={true}
+                  onPhotosChange={setPhotos}
+                />
+              )}
+            </div>
+
+            {/* Documents Section - Edit Mode (Admin Only) */}
+            {(userRole === 'district_admin' || userRole === 'master_admin') && (
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">Documents (Admin Only)</Label>
+                {user && (
+                  <DocumentUpload
+                    recordId={currentRecord.id}
+                    documents={documents}
+                    userId={user.id}
+                    userRole={userRole}
+                    onDocumentsChange={setDocuments}
+                  />
+                )}
+              </div>
+            )}
+
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving} className="hover:bg-red-600 hover:text-white">Cancel</Button>
               <Button onClick={handleSave} disabled={isSaving} className="text-white bg-primary hover:bg-primary/90">
@@ -377,7 +442,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
           <div className="space-y-6">
             {/* Student Data Section */}
             <div>
-              <h3 className="text-lg font-semibold mb-3 pb-2 border-b border-border">Student Data</h3>
+              <h2 className="text-xl font-bold text-center mb-4">{currentRecord.first_name} {currentRecord.last_name}</h2>
               <div className="flex gap-6">
                 <div className="flex-shrink-0">
                   {imagePreview || currentRecord.photo_url ? (
@@ -462,6 +527,53 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
                 <div className="text-sm whitespace-pre-wrap bg-secondary/30 p-3 rounded">{currentRecord.notes}</div>
               </div>
             )}
+
+            {/* Photos Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3 pb-2 border-b border-border">Photos</h3>
+              {user && (
+                <PhotoGallery
+                  recordId={currentRecord.id}
+                  photos={photos}
+                  userId={user.id}
+                  isEditing={false}
+                  onPhotosChange={setPhotos}
+                />
+              )}
+            </div>
+
+            {/* Documents Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3 pb-2 border-b border-border">Documents</h3>
+              {documents.length > 0 ? (
+                <div className="space-y-3">
+                  {documents.map((document) => (
+                    <div key={document.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{document.file_name}</p>
+                        <p className="text-xs text-muted-foreground">{document.document_type.replace(/_/g, ' ')}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const link = window.document.createElement('a');
+                          link.href = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/record-documents/${document.storage_path}`;
+                          link.download = document.file_name;
+                          link.click();
+                        }}
+                      >
+                        Download
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  No documents uploaded yet.
+                </div>
+              )}
+            </div>
 
             <div className="flex justify-between items-center pt-4 border-t border-border">
               {canEdit ? (
