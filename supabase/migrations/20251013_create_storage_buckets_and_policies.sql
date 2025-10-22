@@ -43,16 +43,16 @@ CREATE POLICY "Authenticated users can upload photos"
   TO authenticated
   WITH CHECK (
     bucket_id = 'record-photos' AND
-    get_my_role_from_db() IN ('user', 'district_admin', 'master_admin')
+    get_my_role_from_db() IN ('viewer', 'campus_admin', 'district_admin', 'master_admin')
   );
 
--- Policy: Users can delete their own uploaded photos
+-- Policy: Users can delete their own uploaded photos (using owner_id for text comparison)
 CREATE POLICY "Users can delete their own photos"
   ON storage.objects FOR DELETE
   TO authenticated
   USING (
     bucket_id = 'record-photos' AND
-    owner = (auth.jwt() ->> 'sub')
+    owner_id = (auth.jwt() ->> 'sub')
   );
 
 -- Policy: Admins can delete any photo
@@ -64,13 +64,13 @@ CREATE POLICY "Admins can delete any photo"
     get_my_role_from_db() IN ('district_admin', 'master_admin')
   );
 
--- Policy: Users can update their own photos metadata
+-- Policy: Users can update their own photos metadata (using owner_id for text comparison)
 CREATE POLICY "Users can update their own photos"
   ON storage.objects FOR UPDATE
   TO authenticated
   USING (
     bucket_id = 'record-photos' AND
-    owner = (auth.jwt() ->> 'sub')
+    owner_id = (auth.jwt() ->> 'sub')
   );
 
 -- Policy: Admins can update any photo metadata

@@ -98,7 +98,7 @@ CREATE POLICY "Users and admins can insert photos"
   ON record_photos FOR INSERT
   TO authenticated
   WITH CHECK (
-    get_my_role_from_db() IN ('user', 'district_admin', 'master_admin')
+    get_my_role_from_db() IN ('viewer', 'campus_admin', 'district_admin', 'master_admin')
   );
 
 -- Policy: Users can delete their own uploaded photos
