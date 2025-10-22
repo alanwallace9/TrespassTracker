@@ -157,7 +157,7 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#2d3a4d] border-[#3a4556]">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-foreground">Add New Trespass Record</DialogTitle>
         </DialogHeader>
@@ -288,7 +288,7 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
 
           <div className="flex justify-between pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading} className="hover:bg-red-600 hover:text-white">Cancel</Button>
-            <Button type="submit" disabled={isLoading} className="text-white" style={{backgroundColor: '#22c45d'}}>{isLoading ? 'Adding...' : 'Add Record'}</Button>
+            <Button type="submit" disabled={isLoading} className="bg-status-success text-white hover:bg-status-success/90">{isLoading ? 'Adding...' : 'Add Record'}</Button>
           </div>
         </form>
       </DialogContent>
