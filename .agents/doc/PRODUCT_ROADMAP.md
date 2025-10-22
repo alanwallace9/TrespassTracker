@@ -1,7 +1,7 @@
 # TrespassTracker Product Roadmap
 
-> **Last Updated:** October 5, 2025
-> **Current Version:** 2.0 MVP (Birdville single-tenant)
+> **Last Updated:** October 18, 2025
+> **Current Version:** 2.0.1 (Photo/Document Upload - Backend Pending)
 
 ---
 
@@ -9,7 +9,9 @@
 
 | Version | Status | Focus | Timeline |
 |---------|--------|-------|----------|
-| **v2.0** | 🚧 In Progress | Clean theming + Light/Dark modes (Birdville only) | Current Sprint |
+| **v2.0** | ✅ Complete | Clean theming + Light/Dark modes (Birdville only) | Shipped Oct 2025 |
+| **v2.0.1** | 🚧 90% Complete | Multiple photo uploads + document management | Current Sprint - Storage buckets pending |
+| **v2.0.2** | 📋 Planned | Complete audit trail + FERPA compliance | After v2.0.1 |
 | **v2.1** | 📋 Planned | Multi-tenant architecture + subdomain routing | After Birdville feedback |
 | **v2.2** | 💭 Future | Advanced theming (logos, fonts, custom colors) | TBD |
 | **v3.0** | 💭 Future | Clerk Organizations + advanced features | TBD |
@@ -128,12 +130,53 @@
   - Theme toggle button uses `bg-input` for consistency
   - Hover effects consistent across header controls
 
+#### Authentication & Login Page Refinements (October 9, 2025)
+- ✅ **Custom Login Page Rebuild**:
+  - Migrated from Clerk's `<SignIn>` component to custom form using `useSignIn` hook
+  - Built completely custom form with full design control
+  - Removed all styling conflicts with Clerk's appearance API
+  - Implemented light theme design matching brand requirements
+
+- ✅ **Login Route Migration**:
+  - Changed route from `/sign-in` to `/login`
+  - Updated middleware to allow `/login` as public route
+  - Updated environment variables: `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login`
+  - Fixed root page redirect logic using `useUser` hook from Clerk
+
+- ✅ **Custom Form Features**:
+  - Email and password inputs with proper validation
+  - Show/hide password toggle with Eye/EyeOff icons
+  - Loading states ("Signing in..." with disabled button)
+  - Error handling with user-friendly red error messages
+  - Auto-redirect to dashboard on successful login
+  - Unified card design with header, form, and footer inside
+
+- ✅ **Design & Styling**:
+  - Light theme with white card background and slate gray inputs
+  - Blue primary button matching brand colors
+  - Shield icon and BISD branding in card header
+  - Clickable "powered by DistrictTracker.com" footer link
+  - Professional spacing and rounded corners
+  - No sign-up link (invite-only system)
+
+- ✅ **Authentication Enhancements**:
+  - Proper error handling with Clerk error messages
+  - Session management using `setActive()` to establish Clerk session
+  - Graceful error UI with fallback messages
+  - Integration with existing AuthContext
+
+- ✅ **Cleanup & Documentation**:
+  - Archived old Supabase-based login for reference
+  - Created comprehensive SESSION_SUMMARY_2025-10-09.md
+  - Updated all relevant documentation
+
 #### Remaining Tasks
+- ⏳ **Update Vercel environment variable**: `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login`
+- ⏳ **Test production login** at https://birdville.districttracker.com/login
 - ⏳ **Add user reference photos to project**
 - ⏳ **Test Light/Dark theme switching** (user testing on actual devices)
 - ⏳ **Test power button on mobile devices**
 - ⏳ **Take QA screenshots** (Light mode, Dark mode)
-- ⏳ **Deploy to production**
 - ⏳ **Get feedback from Birdville users**
 
 ### Out of Scope (Deferred to v2.1+)
@@ -144,6 +187,188 @@
 - ❌ Logo customization
 - ❌ Clerk Organizations
 - ❌ System theme mode (removed for simplicity)
+
+---
+
+## v2.0.1 - Photo and Document Upload Feature
+
+**Status:** 🚧 90% COMPLETE - Storage buckets require manual creation (October 18, 2025)
+
+**Goal:** Enable admins to attach multiple photos and legal documents to trespass records.
+
+### Implementation Progress
+
+**✅ Frontend Complete (100%)**
+- ✅ PhotoGallery component with drag-and-drop upload
+- ✅ DocumentUpload component with type categorization
+- ✅ DocumentViewer component with PDF preview
+- ✅ RecordDetailDialog integration (photos + documents tabs)
+- ✅ File upload utilities with progress tracking
+- ✅ UI refinements for view/edit modes
+- ✅ Mobile-responsive design
+
+**✅ Database Complete (100%)**
+- ✅ `record_photos` table created with RLS policies
+- ✅ `record_documents` table created with RLS policies
+- ✅ Indexes for performance (record_id, display_order)
+- ✅ Triggers for updated_at timestamps
+- ✅ Cascade delete for orphaned records
+
+**❌ Storage Buckets (0% - Manual Creation Required)**
+- ❌ `record-photos` bucket (2MB limit, images only)
+- ❌ `record-documents` bucket (5MB limit, PDFs/DOCs only)
+- ⚠️ Migration file exists but cannot be applied via Supabase MCP (permission error)
+- ⚠️ Requires manual creation in Supabase dashboard
+
+**⬜ Testing (Blocked)**
+- Awaiting storage bucket creation to test upload/download functionality
+
+### Feature Highlights
+
+**Photo Management:**
+- Multiple photo upload with drag-and-drop interface
+- Primary photo selection (auto-shown on record card)
+- Photo reordering with display_order field
+- Lightbox viewer with keyboard navigation
+- Delete photos (admin only)
+- Progress indicators during upload
+- File size limit: 2MB per photo
+- Supported formats: JPEG, PNG, WebP
+
+**Document Management:**
+- Single document upload per action
+- Document type categories:
+  - Trespass Warning
+  - Court Order
+  - Other
+- Admin-only upload/delete restrictions
+- Read-only view for non-admins
+- Download functionality for all users
+- PDF preview in full-screen viewer
+- File size limit: 5MB per document
+- Supported formats: PDF, DOC, DOCX
+
+**Security Features:**
+- ✅ RLS policies restrict upload/delete to admins
+- ✅ MIME type validation prevents malicious uploads
+- ✅ File size limits enforced client-side
+- ✅ Storage bucket policies (pending application)
+- ✅ Audit trail with uploaded_by field
+- ✅ Cascade delete prevents orphaned files
+
+### Database Schema
+
+```sql
+-- record_photos table
+CREATE TABLE record_photos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  record_id UUID NOT NULL REFERENCES trespass_records(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  mime_type TEXT NOT NULL,
+  display_order INTEGER DEFAULT 0,
+  uploaded_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- record_documents table
+CREATE TABLE record_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  record_id UUID NOT NULL REFERENCES trespass_records(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_size INTEGER NOT NULL,
+  mime_type TEXT NOT NULL,
+  document_type TEXT NOT NULL DEFAULT 'trespass_warning',
+  uploaded_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_record_photos_record_id ON record_photos(record_id);
+CREATE INDEX idx_record_photos_display_order ON record_photos(record_id, display_order);
+CREATE INDEX idx_record_documents_record_id ON record_documents(record_id);
+```
+
+### Remaining Tasks
+
+**Critical (Blocks Testing):**
+1. ⬜ Manually create `record-photos` bucket in Supabase dashboard
+2. ⬜ Manually create `record-documents` bucket in Supabase dashboard
+3. ⬜ Apply RLS policies from migration file to storage buckets
+
+**Testing Checklist:**
+- [ ] Upload single photo to record
+- [ ] Upload multiple photos (batch upload)
+- [ ] Reorder photos and verify display_order updates
+- [ ] Set primary photo (should appear first in gallery and on card)
+- [ ] Delete photo and verify storage cleanup
+- [ ] View photo in lightbox with navigation
+- [ ] Upload trespass warning document
+- [ ] Upload court order document
+- [ ] Download document
+- [ ] Delete document and verify storage cleanup
+- [ ] Verify non-admins can view but not upload/delete
+- [ ] Verify file size limits enforced (2MB photos, 5MB docs)
+- [ ] Verify MIME type validation blocks invalid files
+- [ ] Test on mobile devices (responsive design)
+- [ ] Verify RLS policies prevent unauthorized access
+
+**Documentation:**
+- [x] Document progress in `security_audit_10-9_fixes.md`
+- [x] Update `PRODUCT_ROADMAP.md` with current status
+- [ ] Create storage bucket setup guide for manual steps
+- [ ] Update `CLAUDE.md` if needed
+
+### Files Modified/Created
+
+**Components:**
+- `components/PhotoGallery.tsx` (354 lines)
+- `components/DocumentUpload.tsx` (307 lines)
+- `components/DocumentViewer.tsx` (178 lines)
+- `components/RecordDetailDialog.tsx` (updated with photo/document sections)
+
+**Utilities:**
+- `lib/file-upload.ts` (363 lines - all upload/delete functions)
+
+**Database:**
+- `supabase/migrations/20251012_create_record_photos_and_documents.sql` ✅ Applied
+- `supabase/migrations/20251013_create_storage_buckets_and_policies.sql` ❌ Not Applied
+
+**Scripts:**
+- `scripts/check-tables.js` (verification script)
+
+### Performance Considerations
+
+- Photos use Next.js Image component for optimization
+- Indexed queries for fast record lookups
+- Progress indicators prevent UI blocking during uploads
+- Batch operations minimize database round-trips
+- Storage URLs are public for fast CDN delivery
+
+### Next Steps
+
+1. **Manual Storage Setup:**
+   - Create buckets in Supabase dashboard
+   - Configure size limits and MIME type restrictions
+   - Apply RLS policies for access control
+
+2. **Testing Phase:**
+   - Run complete testing checklist
+   - Verify security policies work correctly
+   - Test on various devices and browsers
+
+3. **Launch:**
+   - Deploy to production
+   - Monitor for errors
+   - Gather user feedback
+
+4. **Iteration:**
+   - Address any bugs or UX issues
+   - Consider future enhancements (image compression, thumbnails, etc.)
 
 ---
 
@@ -486,6 +711,33 @@ ALTER TABLE district_themes ADD COLUMN email_footer TEXT;
 
 ---
 
+### October 9, 2025 - Custom Login Form with Clerk Hooks
+**Decision:** Replace Clerk's `<SignIn>` component with custom form using `useSignIn` hook.
+
+**Rationale:**
+- Clerk's `<SignIn>` component had styling conflicts when wrapped in outer card
+- Appearance API couldn't properly control padding and layout
+- Form fields were getting compressed/squished with card wrapper
+- Sign-up link couldn't be hidden despite appearance API settings
+- Custom form provides complete control over HTML structure and CSS
+
+**Implementation:**
+- Built form from scratch using React state and Clerk's `useSignIn` hook
+- Full control over error handling, loading states, and user experience
+- Clean, professional design matching brand requirements
+- Unified card layout with header, form, and footer
+- No more fighting with Clerk's internal styles
+
+**Trade-offs:**
+- More code to maintain compared to using `<SignIn>` component
+- Need to implement form validation manually
+- Lost some Clerk component features (but weren't needed)
+- Benefits far outweigh trade-offs - complete design control
+
+**Approved by:** Product Owner
+
+---
+
 ### October 4, 2025 - v2.0 Scope Simplification
 **Decision:** Ship Birdville MVP with hardcoded theme first, defer multi-tenant to v2.1.
 
@@ -512,6 +764,12 @@ ALTER TABLE district_themes ADD COLUMN email_footer TEXT;
 - [x] Power button is 44×44px touch-friendly
 - [x] Theme persists across sessions via localStorage
 - [x] Card view is default with professional shadows
+- [x] Custom login page with full design control
+- [x] Login route changed from `/sign-in` to `/login`
+- [x] Password visibility toggle working
+- [x] Error handling with user-friendly messages
+- [x] Auto-redirect to dashboard on successful login
+- [ ] Vercel environment variable updated for production
 - [ ] Mobile experience tested and smooth
 - [ ] No accessibility regressions (contrast, focus rings)
 - [ ] Positive feedback from Birdville pilot users

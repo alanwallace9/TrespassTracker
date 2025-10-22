@@ -10,9 +10,12 @@ import { TrespassRecord } from '@/lib/supabase';
 export async function createRecord(data: Omit<TrespassRecord, 'id' | 'created_at' | 'updated_at'>) {
   const supabase = await createServerClient();
 
+  // Remove any fields that shouldn't be in the insert
+  const { id, created_at, updated_at, ...insertData } = data as any;
+
   const { data: record, error } = await supabase
     .from('trespass_records')
-    .insert(data)
+    .insert(insertData)
     .select()
     .single();
 
@@ -31,9 +34,12 @@ export async function createRecord(data: Omit<TrespassRecord, 'id' | 'created_at
 export async function updateRecord(id: string, data: Partial<TrespassRecord>) {
   const supabase = await createServerClient();
 
+  // Remove fields that shouldn't be updated
+  const { id: _id, created_at, updated_at, user_id, status, ...updateData } = data as any;
+
   const { data: record, error } = await supabase
     .from('trespass_records')
-    .update(data)
+    .update(updateData)
     .eq('id', id)
     .select()
     .single();

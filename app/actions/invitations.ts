@@ -1,11 +1,15 @@
 'use server';
 
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { clerkClient } from '@clerk/nextjs/server';
+import { requirePermission, requireTenantPermission } from '@/lib/auth-utils';
+import { logger } from '@/lib/logger';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 export type InviteUserData = {
   email: string;
   role: 'viewer' | 'campus_admin' | 'district_admin' | 'master_admin';
   campus_id?: string | null; // Required for campus_admin role
+  tenant_id?: string | null; // Tenant ID for multi-tenant support
 };
 
 /**
@@ -13,19 +17,12 @@ export type InviteUserData = {
  * district_admin and master_admin can invite users
  */
 export async function inviteUser(data: InviteUserData) {
-  const { userId } = await auth();
+  // Check if user has permission to invite users
+  const user = await requirePermission('invite_users');
 
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
-
-  // Check if current user has permission to invite
-  const client = await clerkClient();
-  const currentUser = await client.users.getUser(userId);
-  const currentUserRole = (currentUser.publicMetadata.role as string) || 'viewer';
-
-  if (!['district_admin', 'master_admin'].includes(currentUserRole)) {
-    throw new Error('Only district and master admins can invite users');
+  // If user has tenant_id, verify they can invite to this tenant
+  if (user.role !== 'master_admin' && data.tenant_id) {
+    await requireTenantPermission('invite_users', data.tenant_id);
   }
 
   // Validate campus_id for campus_admin role
@@ -34,7 +31,7 @@ export async function inviteUser(data: InviteUserData) {
   }
 
   try {
-    // Create invitation with role and campus_id in publicMetadata
+    // Create invitation with role, campus_id, and tenant_id in publicMetadata
     const metadata: Record<string, any> = {
       role: data.role,
     };
@@ -43,30 +40,42 @@ export async function inviteUser(data: InviteUserData) {
       metadata.campus_id = data.campus_id;
     }
 
-    console.log('Creating invitation with:', {
-      email: data.email,
-      metadata,
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002'}/sign-up`,
-    });
+    if (data.tenant_id) {
+      metadata.tenant_id = data.tenant_id;
+    }
 
+    // Log to server (no PII in console)
+    logger.info('Creating invitation', { role: data.role, tenantId: data.tenant_id });
+
+    const client = await clerkClient();
     const invitation = await client.invitations.createInvitation({
       emailAddress: data.email,
       redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002'}/sign-up`,
       publicMetadata: metadata,
     });
 
-    console.log('Invitation created successfully:', invitation.id);
-    return { success: true, invitation };
-  } catch (error: any) {
-    console.error('Error inviting user - Full error:', {
-      message: error.message,
-      errors: error.errors,
-      status: error.status,
-      clerkError: error.clerkError,
+    // Log to admin audit log (viewable by admins with PII)
+    await logAuditEvent({
+      eventType: 'user.invited',
+      actorId: user.userId,
+      actorRole: user.role,
+      targetId: invitation.id,
+      action: 'User invitation created',
+      details: {
+        email: data.email,
+        role: data.role,
+        campusId: data.campus_id,
+        tenantId: data.tenant_id,
+      },
     });
 
-    // Return more detailed error message
-    const errorMessage = error.errors?.[0]?.message || error.message || 'Failed to invite user';
+    logger.info('Invitation created successfully', { invitationId: invitation.id });
+    return { success: true, invitation };
+  } catch (error: any) {
+    logger.error('Error inviting user', error);
+
+    // Return generic error message
+    const errorMessage = error.errors?.[0]?.message || 'Failed to invite user';
     throw new Error(errorMessage);
   }
 }
@@ -75,20 +84,10 @@ export async function inviteUser(data: InviteUserData) {
  * Get all pending invitations
  */
 export async function getPendingInvitations() {
-  const { userId } = await auth();
-
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  // Check if user has permission to view invitations
+  await requirePermission('invite_users');
 
   const client = await clerkClient();
-  const currentUser = await client.users.getUser(userId);
-  const currentUserRole = (currentUser.publicMetadata.role as string) || 'viewer';
-
-  if (!['district_admin', 'master_admin'].includes(currentUserRole)) {
-    throw new Error('Only district and master admins can view invitations');
-  }
-
   const invitations = await client.invitations.getInvitationList({
     status: 'pending',
   });
@@ -100,20 +99,10 @@ export async function getPendingInvitations() {
  * Revoke an invitation
  */
 export async function revokeInvitation(invitationId: string) {
-  const { userId } = await auth();
-
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
+  // Check if user has permission to revoke invitations
+  await requirePermission('revoke_invitations');
 
   const client = await clerkClient();
-  const currentUser = await client.users.getUser(userId);
-  const currentUserRole = (currentUser.publicMetadata.role as string) || 'viewer';
-
-  if (!['district_admin', 'master_admin'].includes(currentUserRole)) {
-    throw new Error('Only district and master admins can revoke invitations');
-  }
-
   await client.invitations.revokeInvitation(invitationId);
   return { success: true };
 }
