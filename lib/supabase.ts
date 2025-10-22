@@ -9,26 +9,27 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export type TrespassRecord = {
   id: string;
   user_id: string;
+  tenant_id: string;                                   // Tenant ID for multi-tenancy (required)
   first_name: string;
   last_name: string;
+  school_id: string;                                   // Required - Student ID
+  expiration_date: string;                             // Required - When trespass order expires
+  trespassed_from: string;                             // Required - Location trespassed from
   aka: string | null;
   date_of_birth: string | null;
-  school_id: string | null;
+  incident_date: string | null;                        // Optional
+  location: string | null;                             // Optional
+  description: string | null;                          // Optional
   known_associates: string | null;
   current_school: string | null;
   guardian_first_name: string | null;
   guardian_last_name: string | null;
   guardian_phone: string | null;
   contact_info: string | null;
-  incident_date: string;
-  location: string;
-  description: string;
   notes: string | null;
   photo_url: string | null;
   status: 'active' | 'inactive';
   is_former_student: boolean;
-  expiration_date: string | null;
-  trespassed_from: string;
   created_at: string;
   updated_at: string;
 };
@@ -38,8 +39,44 @@ export type UserProfile = {
   email: string | null;                                // User email from Clerk
   display_name: string | null;
   role: 'viewer' | 'campus_admin' | 'district_admin' | 'master_admin';
+  tenant_id: string;                                   // Tenant ID for multi-tenancy (required)
   campus_id: string | null;                            // Campus ID for campus_admin users
   theme: 'light' | 'dark' | 'system';
+  created_at: string;
+  updated_at: string;
+};
+
+export type Tenant = {
+  id: string;                                          // Tenant identifier (e.g., 'birdville', 'demo')
+  subdomain: string;                                   // Subdomain for routing (e.g., 'birdville')
+  display_name: string;                                // Human-readable name (e.g., 'Birdville ISD')
+  status: 'active' | 'suspended' | 'trial';
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecordPhoto = {
+  id: string;
+  record_id: string;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  display_order: number;
+  uploaded_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecordDocument = {
+  id: string;
+  record_id: string;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  document_type: string;
+  uploaded_by: string;
   created_at: string;
   updated_at: string;
 };

@@ -6,6 +6,7 @@ import { RecordsTable } from '@/components/RecordsTable';
 import { RecordCard } from '@/components/RecordCard';
 import { RecordDetailDialog } from '@/components/RecordDetailDialog';
 import { TrespassRecord } from '@/lib/supabase';
+import { useDebounce } from '@/hooks/useDebounce';
 
 type DashboardClientProps = {
   initialRecords: TrespassRecord[];
@@ -19,6 +20,9 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
   const [statusFilter, setStatusFilter] = useState('active');
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
 
+  // Debounce search query with 300ms delay
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
   const handleViewRecord = (record: TrespassRecord) => {
     setSelectedRecord(record);
     setDetailDialogOpen(true);
@@ -30,10 +34,14 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
 
   const filteredRecords = initialRecords
     .filter((record) => {
+      // Only search if query is empty or has 4+ characters
       const matchesSearch =
-        record.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        record.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        record.location.toLowerCase().includes(searchQuery.toLowerCase());
+        debouncedSearchQuery.length === 0 ||
+        debouncedSearchQuery.length >= 4
+          ? record.first_name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+            record.last_name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+            (record.location?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ?? false)
+          : true; // Show all records if less than 4 characters
 
       const recordStatus = isExpired(record) ? 'inactive' : record.status;
       const matchesStatus = statusFilter === 'all' || recordStatus === statusFilter;
