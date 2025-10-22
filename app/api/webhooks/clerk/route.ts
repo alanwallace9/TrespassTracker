@@ -69,7 +69,7 @@ export async function POST(req: Request) {
 
         const role = (public_metadata?.role as string) || 'viewer';
         const campusId = public_metadata?.campus_id as string | null;
-        const orgId = public_metadata?.org_id as string | null;
+        const tenantId = public_metadata?.tenant_id as string | null;
 
         // Log to server (no PII in console)
         logger.info('Creating user profile', { userId: id, role });
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
           email: primaryEmail,
           role: role,
           campus_id: campusId || null,
-          org_id: orgId || null,
+          tenant_id: tenantId || null,
           display_name: null,
           theme: 'system',
           created_at: new Date().toISOString(),
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
           details: {
             role,
             campusId,
-            orgId,
+            tenantId,
             email: primaryEmail,
           },
         });
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
 
         const role = (public_metadata?.role as string) || 'viewer';
         const campusId = public_metadata?.campus_id as string | null;
-        const orgId = public_metadata?.org_id as string | null;
+        const tenantId = public_metadata?.tenant_id as string | null;
 
         // Log to server (no PII in console)
         logger.info('Updating user profile', { userId: id, role });
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
             email: primaryEmail,
             role: role,
             campus_id: campusId || null,
-            org_id: orgId || null,
+            tenant_id: tenantId || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', id);
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
           details: {
             role,
             campusId,
-            orgId,
+            tenantId,
             email: primaryEmail,
           },
         });

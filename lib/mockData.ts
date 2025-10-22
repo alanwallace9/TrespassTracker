@@ -10,6 +10,7 @@ export const mockUserProfile: UserProfile = {
   email: 'test@example.com',
   display_name: 'Test Admin',
   role: 'master_admin',
+  tenant_id: 'demo',
   campus_id: null,
   theme: 'system',
   created_at: new Date().toISOString(),
@@ -33,6 +34,7 @@ export const mockTrespassRecords: Omit<TrespassRecord, 'id' | 'created_at' | 'up
   // 1. Active record
   {
     user_id: MOCK_USER_ID,
+    tenant_id: 'demo',
     first_name: 'John',
     last_name: 'Doe',
     aka: 'JD',
@@ -58,11 +60,12 @@ export const mockTrespassRecords: Omit<TrespassRecord, 'id' | 'created_at' | 'up
   // 2. Expired record
   {
     user_id: MOCK_USER_ID,
+    tenant_id: 'demo',
     first_name: 'Emily',
     last_name: 'Rodriguez',
     aka: null,
     date_of_birth: '2003-08-22',
-    school_id: null,
+    school_id: 'UNKNOWN',
     known_associates: null,
     current_school: 'N/A',
     guardian_first_name: 'Maria',
@@ -83,6 +86,7 @@ export const mockTrespassRecords: Omit<TrespassRecord, 'id' | 'created_at' | 'up
   // 3. Active former student
   {
     user_id: MOCK_USER_ID,
+    tenant_id: 'demo',
     first_name: 'Marcus',
     last_name: 'Thompson',
     aka: 'Marc',

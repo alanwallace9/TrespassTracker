@@ -30,7 +30,7 @@ export async function syncCurrentUser() {
 
   const role = (clerkUser.publicMetadata.role as string) || 'viewer';
   const campusId = clerkUser.publicMetadata.campus_id as string | null;
-  const orgId = clerkUser.publicMetadata.org_id as string | null;
+  const tenantId = clerkUser.publicMetadata.tenant_id as string | null;
 
   // Log to server (no PII in console)
   logger.info('Syncing user', { userId, role });
@@ -41,7 +41,7 @@ export async function syncCurrentUser() {
     email: primaryEmail,
     role: role,
     campus_id: campusId || null,
-    org_id: orgId || null,
+    tenant_id: tenantId || null,
     updated_at: new Date().toISOString(),
   });
 
@@ -61,7 +61,7 @@ export async function syncCurrentUser() {
     details: {
       role,
       campusId,
-      orgId,
+      tenantId,
     },
   });
 
