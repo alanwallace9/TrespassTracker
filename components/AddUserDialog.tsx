@@ -76,7 +76,7 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Invite New User</DialogTitle>
           <DialogDescription>Send an email invitation to add a new user to the system</DialogDescription>
@@ -133,10 +133,10 @@ export function AddUserDialog({ open, onOpenChange, onUserAdded }: AddUserDialog
           )}
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="hover:bg-red-600 hover:text-white">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="border-border hover:bg-red-600 hover:text-white">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="text-white" style={{backgroundColor: '#22c45d'}}>
+            <Button type="submit" disabled={loading} variant="outline" className="border-border text-foreground hover:bg-muted">
               {loading ? 'Inviting...' : 'Invite User'}
             </Button>
           </div>
