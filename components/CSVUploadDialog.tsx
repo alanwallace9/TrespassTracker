@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Upload, FileText, CircleAlert as AlertCircle } from 'lucide-react';
+import { Upload, FileText, CircleAlert as AlertCircle, Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FieldMappingDialog } from '@/components/FieldMappingDialog';
 
 type CSVUploadDialogProps = {
   open: boolean;
@@ -16,15 +17,28 @@ type CSVUploadDialogProps = {
 };
 
 type CSVRecord = {
+  // Required fields
   first_name: string;
   last_name: string;
+  school_id: string;
+  expiration_date: string;
+  trespassed_from: string;
+  // Optional fields
+  aka?: string;
   date_of_birth?: string;
-  incident_date: string;
-  location: string;
-  description: string;
-  status: string;
+  incident_date?: string;
+  location?: string;
+  description?: string;
+  status?: string;
   is_former_student?: boolean;
-  expiration_date?: string;
+  known_associates?: string;
+  current_school?: string;
+  guardian_first_name?: string;
+  guardian_last_name?: string;
+  guardian_phone?: string;
+  contact_info?: string;
+  notes?: string;
+  photo_url?: string;
 };
 
 type UserCSVRecord = {
@@ -41,27 +55,32 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   const [error, setError] = useState<string>('');
   const [uploadType, setUploadType] = useState<'records' | 'users'>('records');
   const [userRole, setUserRole] = useState<string>('user');
+  const [userTenantId, setUserTenantId] = useState<string>('');
+  const [rawCSVText, setRawCSVText] = useState<string>('');
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
-      fetchUserRole();
+      fetchUserProfile();
     }
   }, [user]);
 
-  const fetchUserRole = async () => {
+  const fetchUserProfile = async () => {
     if (!user) return;
 
     const { data } = await supabase
       .from('user_profiles')
-      .select('role')
+      .select('role, tenant_id')
       .eq('id', user.id)
       .maybeSingle();
 
-    if (data?.role) {
-      setUserRole(data.role);
+    if (data) {
+      setUserRole(data.role || 'user');
+      setUserTenantId(data.tenant_id || '');
     }
   };
 
@@ -111,7 +130,7 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
     const records: CSVRecord[] = [];
 
-    const requiredFields = ['first_name', 'last_name', 'incident_date', 'location', 'description'];
+    const requiredFields = ['first_name', 'last_name', 'school_id', 'expiration_date', 'trespassed_from'];
     const missingFields = requiredFields.filter(field => !headers.includes(field));
 
     if (missingFields.length > 0) {
@@ -126,22 +145,161 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
         record[header] = values[index] || '';
       });
 
-      if (record.first_name && record.last_name && record.incident_date && record.location && record.description) {
+      if (record.first_name && record.last_name && record.school_id && record.expiration_date && record.trespassed_from) {
         records.push({
           first_name: record.first_name,
           last_name: record.last_name,
+          school_id: record.school_id,
+          expiration_date: record.expiration_date,
+          trespassed_from: record.trespassed_from,
+          aka: record.aka || undefined,
           date_of_birth: record.date_of_birth || undefined,
-          incident_date: record.incident_date,
-          location: record.location,
-          description: record.description,
+          incident_date: record.incident_date || undefined,
+          location: record.location || undefined,
+          description: record.description || undefined,
           status: record.status || 'active',
           is_former_student: record.is_former_student === 'true' || record.is_former_student === '1',
-          expiration_date: record.expiration_date || undefined,
+          known_associates: record.known_associates || undefined,
+          current_school: record.current_school || undefined,
+          guardian_first_name: record.guardian_first_name || undefined,
+          guardian_last_name: record.guardian_last_name || undefined,
+          guardian_phone: record.guardian_phone || undefined,
+          contact_info: record.contact_info || undefined,
+          notes: record.notes || undefined,
+          photo_url: record.photo_url || undefined,
         });
       }
     }
 
     return records;
+  };
+
+  const parseCSVWithMapping = (text: string, fieldMapping: Record<string, string>): CSVRecord[] => {
+    const lines = text.split('\n').filter(line => line.trim());
+    if (lines.length < 2) {
+      throw new Error('CSV file must contain headers and at least one record');
+    }
+
+    const originalHeaders = lines[0].split(',').map(h => h.trim());
+    const records: CSVRecord[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      const record: any = {};
+
+      // Apply field mapping
+      originalHeaders.forEach((originalHeader, index) => {
+        const mappedField = fieldMapping[originalHeader];
+        if (mappedField && mappedField !== 'skip') {
+          record[mappedField] = values[index] || '';
+        }
+      });
+
+      // Check if all required fields are present
+      if (record.first_name && record.last_name && record.school_id && record.expiration_date && record.trespassed_from) {
+        records.push({
+          first_name: record.first_name,
+          last_name: record.last_name,
+          school_id: record.school_id,
+          expiration_date: record.expiration_date,
+          trespassed_from: record.trespassed_from,
+          aka: record.aka || undefined,
+          date_of_birth: record.date_of_birth || undefined,
+          incident_date: record.incident_date || undefined,
+          location: record.location || undefined,
+          description: record.description || undefined,
+          status: record.status || 'active',
+          is_former_student: record.is_former_student === 'true' || record.is_former_student === '1',
+          known_associates: record.known_associates || undefined,
+          current_school: record.current_school || undefined,
+          guardian_first_name: record.guardian_first_name || undefined,
+          guardian_last_name: record.guardian_last_name || undefined,
+          guardian_phone: record.guardian_phone || undefined,
+          contact_info: record.contact_info || undefined,
+          notes: record.notes || undefined,
+          photo_url: record.photo_url || undefined,
+        });
+      }
+    }
+
+    return records;
+  };
+
+  const handleMappingConfirmed = (fieldMapping: Record<string, string>) => {
+    try {
+      const records = parseCSVWithMapping(rawCSVText, fieldMapping);
+      setPreviewData(records);
+      setMappingDialogOpen(false);
+    } catch (err: any) {
+      setError(err.message);
+      setPreviewData([]);
+    }
+  };
+
+  const downloadTemplate = () => {
+    // Create CSV template with headers and sample data
+    const headers = [
+      'first_name',
+      'last_name',
+      'school_id',
+      'expiration_date',
+      'trespassed_from',
+      'aka',
+      'date_of_birth',
+      'incident_date',
+      'location',
+      'description',
+      'status',
+      'is_former_student',
+      'known_associates',
+      'current_school',
+      'guardian_first_name',
+      'guardian_last_name',
+      'guardian_phone',
+      'contact_info',
+      'notes',
+      'photo_url',
+    ];
+
+    const sampleRow = [
+      'John',
+      'Doe',
+      '12345',
+      '2026-10-15',
+      'All district properties',
+      'Big John',
+      '1995-05-20',
+      '2025-10-10',
+      'North High School',
+      'Unauthorized entry after school hours',
+      'active',
+      'false',
+      'Little Timmy',
+      'North High School',
+      'Jane',
+      'Doe',
+      '555-1234',
+      'Dr Brown',
+      'First offense, cooperative',
+      'https://example.com/photo.jpg',
+    ];
+
+    // Create CSV content
+    const csvContent = [
+      headers.join(','),
+      sampleRow.map(cell => `"${cell}"`).join(','),
+    ].join('\n');
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'trespass_records_template.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,8 +317,16 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
           setUserPreviewData(users);
           setPreviewData([]);
         } else {
-          const records = parseCSV(text);
-          setPreviewData(records);
+          // For records, extract headers and show mapping dialog
+          const lines = text.split('\n').filter(line => line.trim());
+          if (lines.length < 2) {
+            throw new Error('CSV file must contain headers and at least one record');
+          }
+
+          const headers = lines[0].split(',').map(h => h.trim());
+          setRawCSVText(text);
+          setCsvHeaders(headers);
+          setMappingDialogOpen(true);
           setUserPreviewData([]);
         }
       } catch (err: any) {
@@ -209,15 +375,27 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
       } else {
         const recordsToInsert = previewData.map(record => ({
           user_id: user.id,
+          tenant_id: userTenantId,
           first_name: record.first_name,
           last_name: record.last_name,
+          school_id: record.school_id,
+          expiration_date: record.expiration_date,
+          trespassed_from: record.trespassed_from,
+          aka: record.aka || null,
           date_of_birth: record.date_of_birth || null,
-          incident_date: record.incident_date,
-          location: record.location,
-          description: record.description,
-          status: record.status,
+          incident_date: record.incident_date || null,
+          location: record.location || null,
+          description: record.description || null,
+          status: record.status || 'active',
           is_former_student: record.is_former_student || false,
-          expiration_date: record.expiration_date || null,
+          known_associates: record.known_associates || null,
+          current_school: record.current_school || null,
+          guardian_first_name: record.guardian_first_name || null,
+          guardian_last_name: record.guardian_last_name || null,
+          guardian_phone: record.guardian_phone || null,
+          contact_info: record.contact_info || null,
+          notes: record.notes || null,
+          photo_url: record.photo_url || null,
         }));
 
         const { error } = await supabase.from('trespass_records').insert(recordsToInsert);
@@ -249,13 +427,14 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Upload CSV File</DialogTitle>
           <DialogDescription>
             {uploadType === 'records'
-              ? 'Upload a CSV file with trespass records. Required columns: first_name, last_name, incident_date, location, description'
+              ? 'Upload a CSV file with trespass records. Required columns: first_name, last_name, school_id, expiration_date, trespassed_from'
               : 'Upload a CSV file with user accounts. Required columns: email, password. Optional: role, display_name'}
           </DialogDescription>
         </DialogHeader>
@@ -309,6 +488,21 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
             </label>
           </div>
 
+          {uploadType === 'records' && (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={downloadTemplate}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download CSV Template
+              </Button>
+            </div>
+          )}
+
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -354,7 +548,7 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
                         {record.first_name} {record.last_name}
                       </div>
                       <div className="text-xs text-slate-500">
-                        {record.location} - {record.incident_date}
+                        ID: {record.school_id} | Trespassed from: {record.trespassed_from} | Expires: {record.expiration_date}
                       </div>
                     </div>
                   ))}
@@ -385,5 +579,12 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
         </div>
       </DialogContent>
     </Dialog>
+    <FieldMappingDialog
+      open={mappingDialogOpen}
+      onOpenChange={setMappingDialogOpen}
+      csvHeaders={csvHeaders}
+      onMappingConfirmed={handleMappingConfirmed}
+    />
+  </>
   );
 }

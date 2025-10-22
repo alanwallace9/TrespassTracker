@@ -9,12 +9,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrespassRecord, supabase } from '@/lib/supabase';
+import { TrespassRecord, supabase, RecordPhoto, RecordDocument } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { updateRecord, deleteRecord } from '@/app/actions/records';
 import { format } from 'date-fns';
 import { X, Upload } from 'lucide-react';
+import { PhotoGallery } from '@/components/PhotoGallery';
+import { DocumentUpload } from '@/components/DocumentUpload';
+import { getRecordPhotos, getRecordDocuments } from '@/lib/file-upload';
 
 type RecordDetailDialogProps = {
   record: TrespassRecord | null;
@@ -28,6 +31,11 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
   const [userRole, setUserRole] = useState<string>('user');
   const [isDragging, setIsDragging] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [currentRecord, setCurrentRecord] = useState<TrespassRecord | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [photos, setPhotos] = useState<RecordPhoto[]>([]);
+  const [documents, setDocuments] = useState<RecordDocument[]>([]);
+  const [isLoadingMedia, setIsLoadingMedia] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -65,6 +73,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
 
   useEffect(() => {
     if (record) {
+      setCurrentRecord(record);
       setFormData({
         first_name: record.first_name,
         last_name: record.last_name,
@@ -84,8 +93,33 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
         photo_url: record.photo_url || '',
       });
       setImagePreview(record.photo_url || null);
+
+      // Fetch photos and documents
+      loadMediaFiles(record.id);
     }
   }, [record]);
+
+  const loadMediaFiles = async (recordId: string) => {
+    setIsLoadingMedia(true);
+    try {
+      const [photosData, documentsData] = await Promise.all([
+        getRecordPhotos(recordId),
+        getRecordDocuments(recordId),
+      ]);
+      setPhotos(photosData);
+      setDocuments(documentsData);
+    } catch (error) {
+      console.error('Failed to load media files:', error);
+      toast({
+        title: 'Warning',
+        description: 'Could not load photos and documents',
+        variant: 'destructive',
+        duration: 3000,
+      });
+    } finally {
+      setIsLoadingMedia(false);
+    }
+  };
 
   const fetchUserRole = async () => {
     if (!user) return;
@@ -139,35 +173,50 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
         title: 'Validation Error',
         description: 'Please fill in all required fields.',
         variant: 'destructive',
+        duration: 5000 // Errors stay longer (5 seconds)
       });
       return;
     }
 
+    setIsSaving(true);
     try {
-      await updateRecord(record.id, {
+      const updatedRecord = await updateRecord(record.id, {
         first_name: formData.first_name,
         last_name: formData.last_name,
         aka: formData.aka || null,
         date_of_birth: formData.date_of_birth || null,
-        school_id: formData.school_id || null,
+        school_id: formData.school_id, // Required field
         known_associates: formData.known_associates || null,
         current_school: formData.current_school || null,
         guardian_first_name: formData.guardian_first_name || null,
         guardian_last_name: formData.guardian_last_name || null,
         guardian_phone: formData.guardian_phone || null,
         contact_info: formData.contact_info || null,
-        expiration_date: formData.expiration_date || null,
+        expiration_date: formData.expiration_date, // Required field
         trespassed_from: formData.trespassed_from,
         is_former_student: formData.is_former_student,
         notes: formData.notes || null,
         photo_url: formData.photo_url || null,
       });
 
-      toast({ title: 'Success', description: 'Record updated successfully' });
+      // Update local state with fresh data from database
+      setCurrentRecord(updatedRecord);
+      toast({
+        title: 'Success',
+        description: 'Record updated successfully',
+        duration: 3000 // Auto-dismiss after 3 seconds
+      });
       setIsEditing(false);
       if (onRecordUpdated) onRecordUpdated();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+        duration: 5000 // Errors stay longer (5 seconds)
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -177,18 +226,27 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
     try {
       await deleteRecord(record.id);
 
-      toast({ title: 'Success', description: 'Record deleted successfully' });
+      toast({
+        title: 'Success',
+        description: 'Record deleted successfully',
+        duration: 3000 // Auto-dismiss after 3 seconds
+      });
       onOpenChange(false);
       if (onRecordUpdated) onRecordUpdated();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+        duration: 5000 // Errors stay longer (5 seconds)
+      });
     }
   };
 
-  if (!record) return null;
+  if (!record || !currentRecord) return null;
 
-  const age = record.date_of_birth
-    ? Math.floor((new Date().getTime() - new Date(record.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+  const age = currentRecord.date_of_birth
+    ? Math.floor((new Date().getTime() - new Date(currentRecord.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null;
 
   return (
@@ -196,9 +254,13 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" hideCloseButton>
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between text-foreground">
-            <span>{isEditing ? 'Edit Trespass Record' : record.first_name + ' ' + record.last_name}</span>
+            {isEditing ? (
+              <span>Edit Trespass Record</span>
+            ) : (
+              <span className="sr-only">Student Details</span>
+            )}
             {!isEditing && (
-              <button onClick={() => onOpenChange(false)} className="hover:opacity-70">
+              <button onClick={() => onOpenChange(false)} className="hover:opacity-70 absolute right-4 top-4">
                 <X className="w-5 h-5" />
               </button>
             )}
@@ -207,6 +269,14 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
 
         {isEditing ? (
           <div className="space-y-4">
+            {/* Close button for edit mode */}
+            <button
+              onClick={() => setIsEditing(false)}
+              className="absolute top-4 right-4 hover:opacity-70"
+              aria-label="Close edit mode"
+            >
+              <X className="w-5 h-5" />
+            </button>
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Photo</Label>
               <div
@@ -249,9 +319,15 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="aka">AKA (Also Known As)</Label>
-              <Input id="aka" value={formData.aka} onChange={(e) => setFormData({ ...formData, aka: e.target.value })} className="bg-input border-border" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="aka">AKA (Also Known As)</Label>
+                <Input id="aka" value={formData.aka} onChange={(e) => setFormData({ ...formData, aka: e.target.value })} className="bg-input border-border" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="known_associates">Known Associates</Label>
+                <Input id="known_associates" value={formData.known_associates} onChange={(e) => setFormData({ ...formData, known_associates: e.target.value })} className="bg-input border-border" />
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -272,18 +348,13 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="known_associates">Known Associates</Label>
-                <Input id="known_associates" value={formData.known_associates} onChange={(e) => setFormData({ ...formData, known_associates: e.target.value })} className="bg-input border-border" />
+                <Label htmlFor="current_school">Current School</Label>
+                <Input id="current_school" value={formData.current_school} onChange={(e) => setFormData({ ...formData, current_school: e.target.value })} className="bg-input border-border" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contact_info">Contact Info</Label>
+                <Label htmlFor="contact_info">School Contact</Label>
                 <Input id="contact_info" value={formData.contact_info} onChange={(e) => setFormData({ ...formData, contact_info: e.target.value })} className="bg-input border-border" />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="current_school">Current School</Label>
-              <Input id="current_school" value={formData.current_school} onChange={(e) => setFormData({ ...formData, current_school: e.target.value })} className="bg-input border-border" />
             </div>
 
             <div className="space-y-2">
@@ -330,89 +401,179 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
               <Textarea id="notes" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="bg-input border-border" rows={3} />
             </div>
 
+            {/* Photos Section - Edit Mode */}
+            <div className="space-y-2">
+              <Label className="text-base font-semibold">Photos</Label>
+              {user && (
+                <PhotoGallery
+                  recordId={currentRecord.id}
+                  photos={photos}
+                  userId={user.id}
+                  isEditing={true}
+                  onPhotosChange={setPhotos}
+                />
+              )}
+            </div>
+
+            {/* Documents Section - Edit Mode (Admin Only) */}
+            {(userRole === 'district_admin' || userRole === 'master_admin') && (
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">Documents (Admin Only)</Label>
+                {user && (
+                  <DocumentUpload
+                    recordId={currentRecord.id}
+                    documents={documents}
+                    userId={user.id}
+                    userRole={userRole}
+                    onDocumentsChange={setDocuments}
+                  />
+                )}
+              </div>
+            )}
+
             <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={() => setIsEditing(false)} className="hover:bg-red-600 hover:text-white">Cancel</Button>
-              <Button onClick={handleSave} className="text-white bg-primary hover:bg-primary/90">Save Changes</Button>
+              <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving} className="hover:bg-red-600 hover:text-white">Cancel</Button>
+              <Button onClick={handleSave} disabled={isSaving} className="text-white bg-primary hover:bg-primary/90">
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="flex gap-6">
-              <div className="flex-shrink-0">
-                {imagePreview || record.photo_url ? (
-                  <img src={imagePreview || record.photo_url || ''} alt={`${record.first_name} ${record.last_name}`} className="w-40 h-40 rounded-full object-cover" />
-                ) : (
-                  <div className="w-40 h-40 rounded-full bg-card flex items-center justify-center">
-                    <div className="text-5xl font-bold text-muted-foreground">{record.first_name.charAt(0)}{record.last_name.charAt(0)}</div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 space-y-3">
-                <div className="grid grid-cols-2 gap-x-16 gap-y-3">
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-1">Status</div>
-                    <Badge className="text-white bg-status-active">Active</Badge>
-                  </div>
-                  <div></div>
-
-                  <div>
-                    <div className="text-sm text-muted-foreground mb-1">Former Student</div>
-                    <div className="text-base">{record.is_former_student ? 'Yes' : 'No'}</div>
-                  </div>
+            {/* Student Data Section */}
+            <div>
+              <h2 className="text-xl font-bold text-center mb-4">{currentRecord.first_name} {currentRecord.last_name}</h2>
+              <div className="flex gap-6">
+                <div className="flex-shrink-0">
+                  {imagePreview || currentRecord.photo_url ? (
+                    <img src={imagePreview || currentRecord.photo_url || ''} alt={`${currentRecord.first_name} ${currentRecord.last_name}`} className="w-32 h-32 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-card flex items-center justify-center border-2 border-border">
+                      <div className="text-4xl font-bold text-muted-foreground">{currentRecord.first_name.charAt(0)}{currentRecord.last_name.charAt(0)}</div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-3">
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">Date of Birth</div>
-                    <div className="text-base">{record.date_of_birth ? format(new Date(record.date_of_birth), 'MM/dd/yyyy') : 'N/A'}</div>
+                    <div className="text-base">{currentRecord.date_of_birth ? format(new Date(currentRecord.date_of_birth), 'MM/dd/yyyy') : 'N/A'}</div>
                   </div>
-
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">Age</div>
                     <div className="text-base">{age || 'N/A'}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">Trespassed From</div>
-                    <div className="text-base">{record.trespassed_from || 'N/A'}</div>
+                    <div className="text-sm text-muted-foreground mb-1">Former Student</div>
+                    <div className="text-base">{currentRecord.is_former_student ? 'Yes' : 'No'}</div>
                   </div>
-
-                  <div className="col-span-2">
-                    <div className="text-sm text-muted-foreground mb-1">Warning Expires</div>
-                    <div className="text-base">{record.expiration_date ? format(new Date(record.expiration_date), 'MM/dd/yyyy') : 'N/A'}</div>
-                  </div>
-
-                  <div className="col-span-2">
-                    <div className="text-sm text-muted-foreground mb-1">Guardian Name</div>
-                    <div className="text-base">{[record.guardian_first_name, record.guardian_last_name].filter(Boolean).join(' ') || 'N/A'}</div>
-                  </div>
-
-                  <div className="col-span-2">
-                    <div className="text-sm text-muted-foreground mb-1">Guardian Phone</div>
-                    <div className="text-base">{record.guardian_phone || 'N/A'}</div>
-                  </div>
-
-                  <div className="col-span-2">
-                    <div className="text-sm text-muted-foreground mb-1">Contact Info</div>
-                    <div className="text-base">{record.contact_info || 'N/A'}</div>
-                  </div>
-
-                  <div className="col-span-2">
+                  <div>
                     <div className="text-sm text-muted-foreground mb-1">Current School</div>
-                    <div className="text-base">{record.current_school || 'N/A'}</div>
+                    <div className="text-base">{currentRecord.current_school || 'N/A'}</div>
                   </div>
-
-                  <div className="col-span-2">
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">School Contact</div>
+                    <div className="text-base">{currentRecord.contact_info || 'N/A'}</div>
+                  </div>
+                  <div>
                     <div className="text-sm text-muted-foreground mb-1">School ID</div>
-                    <div className="text-base">{record.school_id || 'N/A'}</div>
+                    <div className="text-base">{currentRecord.school_id || 'N/A'}</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {record.notes && (
+            {/* Trespass Section */}
+            <div>
+              <div className="grid grid-cols-2 gap-x-8 mb-3 pb-2 border-b border-border">
+                <h3 className="text-lg font-semibold">Trespass Information</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Status:</span>
+                  <Badge className="text-white bg-status-active">Active</Badge>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">Warning Expires</div>
+                  <div className="text-base">{currentRecord.expiration_date ? format(new Date(currentRecord.expiration_date), 'MM/dd/yyyy') : 'N/A'}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">Trespassed From</div>
+                  <div className="text-base">{currentRecord.trespassed_from || 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Guardian Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3 pb-2 border-b border-border">Guardian Information</h3>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">Guardian Name</div>
+                  <div className="text-base capitalize">
+                    {[currentRecord.guardian_first_name?.toLowerCase(), currentRecord.guardian_last_name?.toLowerCase()].filter(Boolean).join(' ') || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground mb-1">Guardian Phone</div>
+                  <div className="text-base">{currentRecord.guardian_phone || 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes Section */}
+            {currentRecord.notes && (
               <div>
-                <div className="text-sm font-semibold mb-2">Notes</div>
-                <div className="text-sm whitespace-pre-wrap bg-secondary/30 p-3 rounded">{record.notes}</div>
+                <h3 className="text-lg font-semibold mb-3 pb-2 border-b border-border">Notes</h3>
+                <div className="text-sm whitespace-pre-wrap bg-secondary/30 p-3 rounded">{currentRecord.notes}</div>
               </div>
             )}
+
+            {/* Photos Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3 pb-2 border-b border-border">Photos</h3>
+              {user && (
+                <PhotoGallery
+                  recordId={currentRecord.id}
+                  photos={photos}
+                  userId={user.id}
+                  isEditing={false}
+                  onPhotosChange={setPhotos}
+                />
+              )}
+            </div>
+
+            {/* Documents Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3 pb-2 border-b border-border">Documents</h3>
+              {documents.length > 0 ? (
+                <div className="space-y-3">
+                  {documents.map((document) => (
+                    <div key={document.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{document.file_name}</p>
+                        <p className="text-xs text-muted-foreground">{document.document_type.replace(/_/g, ' ')}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const link = window.document.createElement('a');
+                          link.href = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/record-documents/${document.storage_path}`;
+                          link.download = document.file_name;
+                          link.click();
+                        }}
+                      >
+                        Download
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  No documents uploaded yet.
+                </div>
+              )}
+            </div>
 
             <div className="flex justify-between items-center pt-4 border-t border-border">
               {canEdit ? (

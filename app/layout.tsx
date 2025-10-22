@@ -55,6 +55,21 @@ export default function RootLayout({
       }}
     >
       <html lang="en">
+        <head>
+          {/* Load theme instantly from localStorage to prevent flash */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function() {
+                  try {
+                    const theme = localStorage.getItem('theme') || 'dark';
+                    document.documentElement.setAttribute('data-theme', theme);
+                  } catch (e) {}
+                })();
+              `,
+            }}
+          />
+        </head>
         <body className={inter.className} suppressHydrationWarning>
           <AuthProvider>
             <ThemeProvider>
