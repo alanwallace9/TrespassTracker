@@ -40,7 +40,7 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
         debouncedSearchQuery.length >= 4
           ? record.first_name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
             record.last_name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-            record.location.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+            (record.location?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ?? false)
           : true; // Show all records if less than 4 characters
 
       const recordStatus = isExpired(record) ? 'inactive' : record.status;

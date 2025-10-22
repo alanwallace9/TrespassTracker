@@ -28,7 +28,7 @@ export type Permission = (typeof ROLE_PERMISSIONS)[keyof typeof ROLE_PERMISSIONS
 interface AuthenticatedUser {
   userId: string;
   role: keyof typeof ROLE_PERMISSIONS;
-  orgId: string | null;
+  tenantId: string | null;
   campusId: string | null;
 }
 
@@ -45,7 +45,7 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser> {
   return {
     userId,
     role: (user.publicMetadata.role as keyof typeof ROLE_PERMISSIONS) || 'viewer',
-    orgId: (user.publicMetadata.org_id as string) || null,
+    tenantId: (user.publicMetadata.tenant_id as string) || null,
     campusId: (user.publicMetadata.campus_id as string) || null,
   };
 }
@@ -65,22 +65,22 @@ export async function requirePermission(permission: Permission): Promise<Authent
 }
 
 /**
- * Check if user can access resource in specific org
+ * Check if user can access resource in specific tenant
  */
-export async function requireOrgPermission(
+export async function requireTenantPermission(
   permission: Permission,
-  targetOrgId: string
+  targetTenantId: string
 ): Promise<AuthenticatedUser> {
   const user = await requirePermission(permission);
 
-  // Master admin can access any org
+  // Master admin can access any tenant
   if (user.role === 'master_admin') {
     return user;
   }
 
-  // Other roles must match org_id
-  if (user.orgId !== targetOrgId) {
-    throw new Error('Access denied: Organization mismatch');
+  // Other roles must match tenant_id
+  if (user.tenantId !== targetTenantId) {
+    throw new Error('Access denied: Tenant mismatch');
   }
 
   return user;

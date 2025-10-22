@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "optimize-images": "node scripts/optimize-images.js"
+    "optimize-images": "node scripts/optimize-images.js",
+    "seed:demo": "ts-node scripts/seed-demo-data.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.33.1",
@@ -77,6 +78,7 @@
     "@types/react-dom": "^19.2.0",
     "dotenv": "^17.2.3",
     "sharp": "^0.34.4",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
 }

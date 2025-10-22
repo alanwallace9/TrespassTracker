@@ -185,14 +185,14 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
         last_name: formData.last_name,
         aka: formData.aka || null,
         date_of_birth: formData.date_of_birth || null,
-        school_id: formData.school_id || null,
+        school_id: formData.school_id, // Required field
         known_associates: formData.known_associates || null,
         current_school: formData.current_school || null,
         guardian_first_name: formData.guardian_first_name || null,
         guardian_last_name: formData.guardian_last_name || null,
         guardian_phone: formData.guardian_phone || null,
         contact_info: formData.contact_info || null,
-        expiration_date: formData.expiration_date || null,
+        expiration_date: formData.expiration_date, // Required field
         trespassed_from: formData.trespassed_from,
         is_former_student: formData.is_former_student,
         notes: formData.notes || null,
