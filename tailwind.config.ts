@@ -20,46 +20,67 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
+        // OKLCH color system
+        'bg-dark': 'var(--bg-dark)',
+        'bg': 'var(--bg)',
+        'bg-light': 'var(--bg-light)',
+        'text': 'var(--text)',
+        'text-muted': 'var(--text-muted)',
+        'highlight': 'var(--highlight)',
+        'border': 'var(--border)',
+        'border-muted': 'var(--border-muted)',
+
+        // Shadcn component compatibility
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
         card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
+          DEFAULT: 'var(--card)',
+          foreground: 'var(--card-foreground)',
         },
         popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
+          DEFAULT: 'var(--popover)',
+          foreground: 'var(--popover-foreground)',
         },
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
+          DEFAULT: 'var(--primary)',
+          foreground: 'var(--primary-foreground)',
         },
         secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)',
         },
         muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
+          DEFAULT: 'var(--accent)',
+          foreground: 'var(--accent-foreground)',
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
+          DEFAULT: 'var(--destructive)',
+          foreground: 'var(--destructive-foreground)',
         },
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        chart: {
-          '1': 'hsl(var(--chart-1))',
-          '2': 'hsl(var(--chart-2))',
-          '3': 'hsl(var(--chart-3))',
-          '4': 'hsl(var(--chart-4))',
-          '5': 'hsl(var(--chart-5))',
+        input: 'var(--input)',
+        ring: 'var(--ring)',
+
+        // Status colors
+        status: {
+          active: 'var(--status-active)',
+          inactive: 'var(--text-muted)',
+          error: 'var(--status-error)',
+          warning: 'var(--status-warning)',
+          success: 'var(--status-success)',
+          former: 'var(--status-former)',
         },
+
+        // Birdville ISD colors
+        'birdville-gold': 'var(--birdville-gold)',
+        'birdville-blue': 'var(--birdville-blue)',
+        'birdville-light-gold': 'var(--birdville-light-gold)',
+        'birdville-yellow': 'var(--birdville-yellow)',
+        'birdville-green': 'var(--birdville-green)',
+        'birdville-red': 'var(--birdville-red)',
       },
       keyframes: {
         'accordion-down': {
