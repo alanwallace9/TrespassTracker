@@ -1,7 +1,7 @@
 'use server';
 
 import { clerkClient } from '@clerk/nextjs/server';
-import { requirePermission, requireOrgPermission } from '@/lib/auth-utils';
+import { requirePermission, requireTenantPermission } from '@/lib/auth-utils';
 import { logger } from '@/lib/logger';
 import { logAuditEvent } from '@/lib/audit-logger';
 
@@ -9,7 +9,7 @@ export type InviteUserData = {
   email: string;
   role: 'viewer' | 'campus_admin' | 'district_admin' | 'master_admin';
   campus_id?: string | null; // Required for campus_admin role
-  org_id?: string | null; // Organization ID for multi-tenant support
+  tenant_id?: string | null; // Tenant ID for multi-tenant support
 };
 
 /**
@@ -20,9 +20,9 @@ export async function inviteUser(data: InviteUserData) {
   // Check if user has permission to invite users
   const user = await requirePermission('invite_users');
 
-  // If user has org_id, verify they can invite to this org
-  if (user.role !== 'master_admin' && data.org_id) {
-    await requireOrgPermission('invite_users', data.org_id);
+  // If user has tenant_id, verify they can invite to this tenant
+  if (user.role !== 'master_admin' && data.tenant_id) {
+    await requireTenantPermission('invite_users', data.tenant_id);
   }
 
   // Validate campus_id for campus_admin role
@@ -31,7 +31,7 @@ export async function inviteUser(data: InviteUserData) {
   }
 
   try {
-    // Create invitation with role, campus_id, and org_id in publicMetadata
+    // Create invitation with role, campus_id, and tenant_id in publicMetadata
     const metadata: Record<string, any> = {
       role: data.role,
     };
@@ -40,12 +40,12 @@ export async function inviteUser(data: InviteUserData) {
       metadata.campus_id = data.campus_id;
     }
 
-    if (data.org_id) {
-      metadata.org_id = data.org_id;
+    if (data.tenant_id) {
+      metadata.tenant_id = data.tenant_id;
     }
 
     // Log to server (no PII in console)
-    logger.info('Creating invitation', { role: data.role, orgId: data.org_id });
+    logger.info('Creating invitation', { role: data.role, tenantId: data.tenant_id });
 
     const client = await clerkClient();
     const invitation = await client.invitations.createInvitation({
@@ -65,7 +65,7 @@ export async function inviteUser(data: InviteUserData) {
         email: data.email,
         role: data.role,
         campusId: data.campus_id,
-        orgId: data.org_id,
+        tenantId: data.tenant_id,
       },
     });
 
