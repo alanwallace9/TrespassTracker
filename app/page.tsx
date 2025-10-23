@@ -11,7 +11,7 @@ export default function Home() {
   useEffect(() => {
     if (isLoaded) {
       if (user) {
-        router.replace('/dashboard');
+        router.replace('/trespass');
       } else {
         router.replace('/login');
       }
