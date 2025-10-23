@@ -37,7 +37,7 @@ export default function DemoLoginPage() {
 
       if (result?.status === 'complete') {
         await setActive?.({ session: result.createdSessionId });
-        router.push('/dashboard');
+        router.push('/trespass');
       }
     } catch (err: any) {
       console.error('Demo login error:', err);

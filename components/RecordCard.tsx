@@ -124,7 +124,8 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
             {age && <span>{age} years old</span>}
             {record.is_former_student && (
               <Badge className="bg-status-former text-white text-xs font-medium">
-                Former Student
+                <span className="hidden sm:inline">Former Student</span>
+                <span className="sm:hidden">Former</span>
               </Badge>
             )}
           </div>
