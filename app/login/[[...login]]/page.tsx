@@ -41,7 +41,7 @@ export default function LoginPage() {
         // 2. Client-side navigation (router.push) doesn't reliably include the new cookie
         // 3. Middleware needs to see the cookie to authorize access
         // Security: Safe because URL is hardcoded internal path (no user input)
-        window.location.href = '/dashboard';
+        window.location.href = '/trespass';
         // Keep loading state active during redirect (don't set to false)
         return;
       }

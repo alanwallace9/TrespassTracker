@@ -289,7 +289,7 @@ export function DashboardLayout({
               </div>
               <div className="flex gap-2 flex-shrink-0">
                 <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-                  <SelectTrigger className="w-[130px] sm:w-[150px] bg-input border-border text-foreground">
+                  <SelectTrigger className="w-[130px] sm:w-[150px] bg-input border-border text-foreground [&>span]:text-slate-300 dark:[&>span]:text-slate-300">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
