@@ -13,6 +13,7 @@ export const mockUserProfile: UserProfile = {
   tenant_id: 'demo',
   campus_id: null,
   theme: 'system',
+  notifications_enabled: true,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };

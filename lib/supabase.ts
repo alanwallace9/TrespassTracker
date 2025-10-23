@@ -42,6 +42,7 @@ export type UserProfile = {
   tenant_id: string;                                   // Tenant ID for multi-tenancy (required)
   campus_id: string | null;                            // Campus ID for campus_admin users
   theme: 'light' | 'dark' | 'system';
+  notifications_enabled: boolean;                      // Whether user wants expiring warning notifications
   created_at: string;
   updated_at: string;
 };

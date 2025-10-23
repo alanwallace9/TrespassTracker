@@ -19,6 +19,7 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
+  const [showExpiringOnly, setShowExpiringOnly] = useState(false);
 
   // Debounce search query with 300ms delay
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -32,8 +33,24 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
     return record.expiration_date && new Date(record.expiration_date) < new Date();
   };
 
+  const isExpiringSoon = (record: TrespassRecord) => {
+    if (!record.expiration_date) return false;
+    const now = new Date();
+    const expirationDate = new Date(record.expiration_date);
+    const oneWeekFromNow = new Date();
+    oneWeekFromNow.setDate(now.getDate() + 7);
+
+    // Expiring soon if: not expired yet AND expires within 1 week
+    return expirationDate >= now && expirationDate <= oneWeekFromNow;
+  };
+
   const filteredRecords = initialRecords
     .filter((record) => {
+      // If showing expiring only, filter to only those expiring soon
+      if (showExpiringOnly) {
+        return record.status === 'active' && isExpiringSoon(record);
+      }
+
       // Only search if query is empty or has 4+ characters
       const matchesSearch =
         debouncedSearchQuery.length === 0 ||
@@ -61,6 +78,18 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
     inactive: initialRecords.filter((r) => r.status === 'inactive' || isExpired(r)).length,
   };
 
+  const handleShowExpiring = () => {
+    setShowExpiringOnly(true);
+    setStatusFilter('active'); // Reset to active filter
+    setSearchQuery(''); // Clear search
+  };
+
+  const handleStatusFilterChange = (filter: string) => {
+    setStatusFilter(filter);
+    // Clear expiring filter when user changes status filter manually
+    setShowExpiringOnly(false);
+  };
+
   return (
     <DashboardLayout
       onRefresh={onRefresh}
@@ -68,10 +97,13 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
       statusFilter={statusFilter}
-      onStatusFilterChange={setStatusFilter}
+      onStatusFilterChange={handleStatusFilterChange}
       viewMode={viewMode}
       onViewModeChange={setViewMode}
       filteredCount={filteredRecords.length}
+      records={initialRecords}
+      onShowExpiring={handleShowExpiring}
+      showExpiringOnly={showExpiringOnly}
     >
       <div className="space-y-6">
         {viewMode === 'list' ? (

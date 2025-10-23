@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 export type UserProfileUpdate = {
   display_name?: string;
   theme?: 'light' | 'dark' | 'system';
+  notifications_enabled?: boolean;
 };
 
 /**
