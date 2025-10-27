@@ -18,34 +18,51 @@ const supabaseAdmin = createClient(
  * - localhost:3000 → birdville (default for local dev)
  */
 async function getTenantIdFromSubdomain(): Promise<string> {
-  const headersList = await headers();
-  const host = headersList.get('host') || '';
+  try {
+    const headersList = await headers();
+    const host = headersList.get('host') || '';
 
-  // For local development, default to 'birdville'
-  if (host.includes('localhost') || host.includes('127.0.0.1')) {
-    return 'birdville';
+    logger.info('[getTenantIdFromSubdomain] Extracting tenant from host', { host });
+
+    // For local development, default to 'birdville'
+    if (host.includes('localhost') || host.includes('127.0.0.1')) {
+      logger.info('[getTenantIdFromSubdomain] Using default tenant for localhost');
+      return 'birdville';
+    }
+
+    // Extract subdomain from host
+    // birdville.districttracker.com → birdville
+    const subdomain = host.split('.')[0];
+
+    logger.info('[getTenantIdFromSubdomain] Extracted subdomain', { subdomain });
+
+    if (!subdomain) {
+      throw new Error('Could not determine tenant from subdomain');
+    }
+
+    // Verify tenant exists in database
+    const { data: tenant, error } = await supabaseAdmin
+      .from('tenants')
+      .select('id')
+      .eq('subdomain', subdomain)
+      .single();
+
+    if (error) {
+      logger.error('[getTenantIdFromSubdomain] Database error looking up tenant', { error: error.message, subdomain });
+      throw new Error(`Database error: ${error.message}`);
+    }
+
+    if (!tenant) {
+      logger.error('[getTenantIdFromSubdomain] Tenant not found in database', { subdomain });
+      throw new Error(`Invalid tenant: ${subdomain}`);
+    }
+
+    logger.info('[getTenantIdFromSubdomain] Found tenant', { tenantId: tenant.id, subdomain });
+    return tenant.id;
+  } catch (error: any) {
+    logger.error('[getTenantIdFromSubdomain] Fatal error', { error: error.message, stack: error.stack });
+    throw error;
   }
-
-  // Extract subdomain from host
-  // birdville.districttracker.com → birdville
-  const subdomain = host.split('.')[0];
-
-  if (!subdomain) {
-    throw new Error('Could not determine tenant from subdomain');
-  }
-
-  // Verify tenant exists in database
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('id')
-    .eq('subdomain', subdomain)
-    .single();
-
-  if (!tenant) {
-    throw new Error(`Invalid tenant: ${subdomain}`);
-  }
-
-  return tenant.id;
 }
 
 type InviteUserParams = {
@@ -62,14 +79,24 @@ type InviteUserParams = {
  * can only invite users to their own tenant.
  */
 export async function inviteUser({ email, role, campusId }: InviteUserParams) {
-  const { userId } = await auth();
+  try {
+    const { userId } = await auth();
 
-  if (!userId) {
-    throw new Error('Not authenticated');
-  }
+    if (!userId) {
+      throw new Error('Not authenticated');
+    }
 
-  // Get tenant_id from subdomain (this is the source of truth)
-  const subdomainTenantId = await getTenantIdFromSubdomain();
+    logger.info('[inviteUser] Starting invitation process', { email, role, campusId, userId });
+
+    // Get tenant_id from subdomain (this is the source of truth)
+    let subdomainTenantId: string;
+    try {
+      subdomainTenantId = await getTenantIdFromSubdomain();
+      logger.info('[inviteUser] Tenant ID from subdomain', { subdomainTenantId });
+    } catch (error: any) {
+      logger.error('[inviteUser] Failed to get tenant from subdomain', { error: error.message });
+      throw new Error(`Failed to determine your organization: ${error.message}`);
+    }
 
   // Get current user's profile to verify permissions
   const { data: adminProfile } = await supabaseAdmin
@@ -117,23 +144,29 @@ export async function inviteUser({ email, role, campusId }: InviteUserParams) {
     metadata.campus_id = campusId;
   }
 
-  try {
     // Create user in Clerk with metadata
     const client = await clerkClient();
+
+    logger.info('[inviteUser] Creating user in Clerk', { email, metadata });
     const clerkUser = await client.users.createUser({
       emailAddress: [email],
       publicMetadata: metadata,
       skipPasswordChecks: true, // Allow Clerk to send invitation email
     });
 
+    logger.info('[inviteUser] User created in Clerk', { clerkUserId: clerkUser.id });
+
     // Send invitation email
+    const redirectUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://birdville.districttracker.com';
+    logger.info('[inviteUser] Sending invitation email', { email, redirectUrl });
+
     await client.invitations.createInvitation({
       emailAddress: email,
       publicMetadata: metadata,
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/login`,
+      redirectUrl: `${redirectUrl}/login`,
     });
 
-    logger.info('User invited successfully', { invitedUserId: clerkUser.id, invitedBy: userId });
+    logger.info('[inviteUser] User invited successfully', { invitedUserId: clerkUser.id, invitedBy: userId });
 
     // Log to admin audit log
     await logAuditEvent({
@@ -156,13 +189,20 @@ export async function inviteUser({ email, role, campusId }: InviteUserParams) {
       message: `Invitation sent to ${email}`,
     };
   } catch (error: any) {
-    logger.error('Error inviting user', { error: error.message });
+    logger.error('[inviteUser] Error during invitation', {
+      error: error.message,
+      stack: error.stack,
+      clerkErrors: error.errors,
+      email,
+      role,
+    });
 
     // Handle specific Clerk errors
     if (error.errors?.[0]?.code === 'form_identifier_exists') {
       throw new Error('A user with this email already exists');
     }
 
+    // Return the full error message for debugging
     throw new Error(error.message || 'Failed to invite user');
   }
 }
