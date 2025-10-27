@@ -19,6 +19,7 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [viewMode, setViewMode] = useState<'list' | 'card'>('card');
+  const [showExpiringOnly, setShowExpiringOnly] = useState(false);
 
   // Debounce search query with 300ms delay
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -32,8 +33,22 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
     return record.expiration_date && new Date(record.expiration_date) < new Date();
   };
 
+  const isExpiringWithinWeek = (record: TrespassRecord) => {
+    if (!record.expiration_date || record.status !== 'active') return false;
+    const now = new Date();
+    const expirationDate = new Date(record.expiration_date);
+    const oneWeekFromNow = new Date();
+    oneWeekFromNow.setDate(now.getDate() + 7);
+    return expirationDate > now && expirationDate <= oneWeekFromNow;
+  };
+
   const filteredRecords = initialRecords
     .filter((record) => {
+      // Filter by expiring warnings if that view is active
+      if (showExpiringOnly && !isExpiringWithinWeek(record)) {
+        return false;
+      }
+
       // Only search if query is empty or has 4+ characters
       const matchesSearch =
         debouncedSearchQuery.length === 0 ||
@@ -61,6 +76,15 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
     inactive: initialRecords.filter((r) => r.status === 'inactive' || isExpired(r)).length,
   };
 
+  const handleShowExpiring = () => {
+    setShowExpiringOnly(!showExpiringOnly);
+    // Reset other filters when viewing expiring warnings
+    if (!showExpiringOnly) {
+      setSearchQuery('');
+      setStatusFilter('active');
+    }
+  };
+
   return (
     <DashboardLayout
       onRefresh={onRefresh}
@@ -72,6 +96,9 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
       viewMode={viewMode}
       onViewModeChange={setViewMode}
       filteredCount={filteredRecords.length}
+      records={initialRecords}
+      onShowExpiring={handleShowExpiring}
+      showExpiringOnly={showExpiringOnly}
     >
       <div className="space-y-6">
         {viewMode === 'list' ? (
