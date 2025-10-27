@@ -85,14 +85,44 @@ CREATE POLICY "Master admins can delete campuses"
   );
 
 -- ============================================================
--- STEP 4: Insert sample Birdville ISD campuses
+-- STEP 4: Insert official Birdville ISD campuses
 -- ============================================================
 INSERT INTO campuses (id, tenant_id, name, abbreviation, status) VALUES
-  ('bhs', 'birdville', 'Birdville High School', 'BHS', 'active'),
-  ('nhs', 'birdville', 'North High School', 'NHS', 'active'),
-  ('rhs', 'birdville', 'Richland High School', 'RHS', 'active'),
-  ('hms', 'birdville', 'Haltom Middle School', 'HMS', 'active'),
-  ('nms', 'birdville', 'North Ridge Middle School', 'NMS', 'active'),
-  ('sms', 'birdville', 'Shannon Middle School', 'SMS', 'active'),
-  ('all', 'birdville', 'All District Properties', 'ALL', 'active')
+  -- Elementary Schools
+  ('101', 'birdville', 'Birdville ES', '101', 'active'),
+  ('102', 'birdville', 'David E Smith ES', '102', 'active'),
+  ('104', 'birdville', 'Binion ES', '104', 'active'),
+  ('105', 'birdville', 'Mullendore ES', '105', 'active'),
+  ('107', 'birdville', 'Smithfield ES', '107', 'active'),
+  ('108', 'birdville', 'Snow Heights ES', '108', 'active'),
+  ('109', 'birdville', 'Cheney Hills ES', '109', 'active'),
+  ('110', 'birdville', 'Stowe ES', '110', 'active'),
+  ('111', 'birdville', 'West Birdville ES', '111', 'active'),
+  ('112', 'birdville', 'Holiday Heights ES', '112', 'active'),
+  ('113', 'birdville', 'Watauga ES', '113', 'active'),
+  ('114', 'birdville', 'Hardeman ES', '114', 'active'),
+  ('115', 'birdville', 'Porter ES', '115', 'active'),
+  ('116', 'birdville', 'ACFT ES', '116', 'active'),
+  ('117', 'birdville', 'Foster Village ES', '117', 'active'),
+  ('118', 'birdville', 'North Ridge ES', '118', 'active'),
+  ('119', 'birdville', 'Spicer ES', '119', 'active'),
+  ('120', 'birdville', 'Green Valley ES', '120', 'active'),
+  ('121', 'birdville', 'Walker Creek ES', '121', 'active'),
+  -- Middle Schools
+  ('041', 'birdville', 'Haltom MS', '041', 'active'),
+  ('042', 'birdville', 'North Richland MS', '042', 'active'),
+  ('043', 'birdville', 'Richland MS', '043', 'active'),
+  ('044', 'birdville', 'North Oaks MS', '044', 'active'),
+  ('045', 'birdville', 'Watauga MS', '045', 'active'),
+  ('046', 'birdville', 'Smithfield MS', '046', 'active'),
+  ('047', 'birdville', 'North Ridge MS', '047', 'active'),
+  -- High Schools
+  ('001', 'birdville', 'Haltom HS', '001', 'active'),
+  ('002', 'birdville', 'Richland HS', '002', 'active'),
+  ('010', 'birdville', 'Birdville HS', '010', 'active'),
+  ('012', 'birdville', 'Griggs HS', '012', 'active'),
+  -- Special Facilities
+  ('006', 'birdville', 'DAEP', '006', 'active'),
+  ('902', 'birdville', 'Kunkel', '902', 'active'),
+  ('000', 'birdville', 'District', '000', 'active')
 ON CONFLICT (id) DO NOTHING;
