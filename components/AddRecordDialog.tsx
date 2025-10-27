@@ -9,8 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { createTrespassRecord } from '@/app/actions/upload-records';
 import { Upload } from 'lucide-react';
 
 type AddRecordDialogProps = {
@@ -24,7 +23,6 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
   const [isDragging, setIsDragging] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { user } = useAuth();
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -80,7 +78,6 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
 
     if (!formData.first_name || !formData.last_name || !formData.date_of_birth || !formData.expiration_date || !formData.trespassed_from) {
       toast({
@@ -94,28 +91,26 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.from('trespass_records').insert({
-        user_id: user.id,
+      // Use server action to create record (handles auth and tenant_id automatically)
+      await createTrespassRecord({
         first_name: formData.first_name,
         last_name: formData.last_name,
-        aka: formData.aka || null,
-        date_of_birth: formData.date_of_birth || null,
-        school_id: formData.school_id || null,
-        known_associates: formData.known_associates || null,
-        current_school: formData.current_school || null,
-        guardian_first_name: formData.guardian_first_name || null,
-        guardian_last_name: formData.guardian_last_name || null,
-        guardian_phone: formData.guardian_phone || null,
-        contact_info: formData.contact_info || null,
-        expiration_date: formData.expiration_date || null,
+        school_id: formData.school_id || '',
+        expiration_date: formData.expiration_date,
         trespassed_from: formData.trespassed_from,
+        aka: formData.aka,
+        date_of_birth: formData.date_of_birth,
+        known_associates: formData.known_associates,
+        current_school: formData.current_school,
+        guardian_first_name: formData.guardian_first_name,
+        guardian_last_name: formData.guardian_last_name,
+        guardian_phone: formData.guardian_phone,
+        contact_info: formData.contact_info,
         is_former_student: formData.is_former_student,
-        notes: formData.notes || null,
-        photo_url: formData.photo_url || null,
+        notes: formData.notes,
+        photo_url: formData.photo_url,
         status: 'active',
       });
-
-      if (error) throw error;
 
       toast({
         title: 'Success',
@@ -147,7 +142,7 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to add record',
         variant: 'destructive',
       });
     } finally {
