@@ -4,11 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Upload, FileText, CircleAlert as AlertCircle, Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FieldMappingDialog } from '@/components/FieldMappingDialog';
+import { uploadTrespassRecords } from '@/app/actions/upload-records';
+import { getUserProfile } from '@/app/actions/users';
 
 type CSVUploadDialogProps = {
   open: boolean;
@@ -55,7 +56,6 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   const [error, setError] = useState<string>('');
   const [uploadType, setUploadType] = useState<'records' | 'users'>('records');
   const [userRole, setUserRole] = useState<string>('user');
-  const [userTenantId, setUserTenantId] = useState<string>('');
   const [rawCSVText, setRawCSVText] = useState<string>('');
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
@@ -63,7 +63,6 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
-  const supabase = useSupabaseClient();
 
   useEffect(() => {
     if (user) {
@@ -74,22 +73,13 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   const fetchUserProfile = async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('role, tenant_id')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      const profile = await getUserProfile(user.id);
+      if (profile) {
+        setUserRole(profile.role || 'user');
+      }
+    } catch (error) {
       console.error('Error fetching user profile:', error);
-      return;
-    }
-
-    if (data) {
-      setUserRole(data.role || 'user');
-      setUserTenantId(data.tenant_id || '');
-    } else {
-      console.warn('No user profile found for user:', user.id);
     }
   };
 
@@ -330,99 +320,36 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   const handleUpload = async () => {
     if (!user || (previewData.length === 0 && userPreviewData.length === 0)) return;
 
-    // Check if user has tenant_id for record uploads
-    if (uploadType === 'records' && !userTenantId) {
-      toast({
-        title: 'Error',
-        description: 'Your user profile is missing a tenant ID. Please contact your administrator.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
       if (uploadType === 'users') {
-        let successCount = 0;
-        for (const userRecord of userPreviewData) {
-          try {
-            const { data: authData, error: signUpError } = await supabase.auth.signUp({
-              email: userRecord.email,
-              password: userRecord.password,
-            });
-
-            if (signUpError) throw signUpError;
-
-            if (authData.user) {
-              await supabase.from('user_profiles').insert({
-                id: authData.user.id,
-                role: userRecord.role,
-                display_name: userRecord.display_name || null,
-              });
-              successCount++;
-            }
-          } catch (err: any) {
-            console.error(`Failed to create user ${userRecord.email}:`, err.message);
-          }
-        }
-
+        // TODO: Update to use Clerk invitation API
         toast({
-          title: 'Success',
-          description: `Successfully created ${successCount} of ${userPreviewData.length} users`,
+          title: 'Not Implemented',
+          description: 'User CSV upload is not yet implemented. Please use the "Invite User" dialog instead.',
+          variant: 'destructive',
         });
       } else {
-        const recordsToInsert = previewData.map(record => ({
-          user_id: user.id,
-          tenant_id: userTenantId,
-          first_name: record.first_name,
-          last_name: record.last_name,
-          school_id: record.school_id,
-          expiration_date: record.expiration_date,
-          trespassed_from: record.trespassed_from,
-          aka: record.aka || null,
-          date_of_birth: record.date_of_birth || null,
-          incident_date: record.incident_date || null,
-          location: record.location || null,
-          description: record.description || null,
-          status: record.status || 'active',
-          is_former_student: record.is_former_student || false,
-          known_associates: record.known_associates || null,
-          current_school: record.current_school || null,
-          guardian_first_name: record.guardian_first_name || null,
-          guardian_last_name: record.guardian_last_name || null,
-          guardian_phone: record.guardian_phone || null,
-          contact_info: record.contact_info || null,
-          notes: record.notes || null,
-          photo_url: record.photo_url || null,
-        }));
-
-        console.log('Inserting records with tenant_id:', userTenantId);
-        console.log('Sample record:', recordsToInsert[0]);
-
-        const { error } = await supabase.from('trespass_records').insert(recordsToInsert);
-
-        if (error) {
-          console.error('Insert error:', error);
-          throw error;
-        }
+        // Use server action for trespass records upload
+        const result = await uploadTrespassRecords(previewData);
 
         toast({
           title: 'Success',
-          description: `Successfully uploaded ${previewData.length} records`,
+          description: `Successfully uploaded ${result.count} records`,
         });
-      }
 
-      setPreviewData([]);
-      setUserPreviewData([]);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        setPreviewData([]);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        onRecordsUploaded();
+        onOpenChange(false);
       }
-      onRecordsUploaded();
-      onOpenChange(false);
     } catch (err: any) {
+      console.error('Upload error:', err);
       toast({
         title: 'Error',
-        description: err.message,
+        description: err.message || 'Failed to upload records',
         variant: 'destructive',
       });
     } finally {
