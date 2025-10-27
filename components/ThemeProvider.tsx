@@ -18,19 +18,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadTheme = async () => {
       if (!user) {
-        // Default to system theme for logged-out users
-        document.documentElement.setAttribute('data-theme', 'system');
+        // Default to light theme for logged-out users
+        document.documentElement.setAttribute('data-theme', 'light');
         return;
       }
 
       try {
         const profile = await getUserProfile(user.id);
-        const userTheme = profile?.theme || 'system';
+        const userTheme = profile?.theme || 'light';
         document.documentElement.setAttribute('data-theme', userTheme);
       } catch (error) {
         console.error('Error loading theme:', error);
-        // Fallback to system theme
-        document.documentElement.setAttribute('data-theme', 'system');
+        // Fallback to light theme
+        document.documentElement.setAttribute('data-theme', 'light');
       }
     };
 
