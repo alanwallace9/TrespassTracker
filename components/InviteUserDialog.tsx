@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { inviteUser } from '@/app/actions/invite-user';
+import { getCampuses, type Campus } from '@/app/actions/campuses';
 import { Mail, UserPlus } from 'lucide-react';
 
 type InviteUserDialogProps = {
@@ -21,7 +22,33 @@ export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUs
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'viewer' | 'campus_admin' | 'district_admin'>('viewer');
   const [campusId, setCampusId] = useState('');
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [loadingCampuses, setLoadingCampuses] = useState(false);
   const { toast } = useToast();
+
+  // Fetch campuses when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchCampuses();
+    }
+  }, [open]);
+
+  const fetchCampuses = async () => {
+    setLoadingCampuses(true);
+    try {
+      const data = await getCampuses();
+      setCampuses(data);
+    } catch (error: any) {
+      console.error('Error fetching campuses:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load campus list',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingCampuses(false);
+    }
+  };
 
   const handleInvite = async () => {
     if (!email) {
@@ -131,20 +158,30 @@ export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUs
             </p>
           </div>
 
-          {/* Campus ID (only for campus_admin) */}
+          {/* Campus Selection (only for campus_admin) */}
           {role === 'campus_admin' && (
             <div className="space-y-2">
               <Label htmlFor="campusId" className="text-sm font-medium">
-                Campus ID <span className="text-red-500">*</span>
+                Campus <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="campusId"
-                type="text"
-                placeholder="e.g., north-hs, south-ms"
+              <Select
                 value={campusId}
-                onChange={(e) => setCampusId(e.target.value)}
-                disabled={isLoading}
-              />
+                onValueChange={setCampusId}
+                disabled={isLoading || loadingCampuses}
+              >
+                <SelectTrigger id="campusId">
+                  <SelectValue placeholder={loadingCampuses ? "Loading campuses..." : "Select a campus"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {campuses
+                    .filter(c => c.status === 'active')
+                    .map((campus) => (
+                      <SelectItem key={campus.id} value={campus.id}>
+                        {campus.name} {campus.abbreviation ? `(${campus.abbreviation})` : ''}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-slate-500">
                 The campus this admin will manage
               </p>
