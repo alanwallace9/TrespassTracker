@@ -10,37 +10,30 @@ export type UserProfileUpdate = {
 
 /**
  * Update user profile (display name, theme, etc.)
- * Uses upsert to create profile if it doesn't exist
+ * Profile must already exist (created via webhook)
  */
 export async function updateUserProfile(userId: string, updates: UserProfileUpdate) {
   const supabase = await createServerClient();
 
-  // Get current user from Supabase to check if profile exists
+  // Check if profile exists
   const { data: existingProfile } = await supabase
     .from('user_profiles')
-    .select('*')
+    .select('id')
     .eq('id', userId)
     .maybeSingle();
 
-  // If profile doesn't exist, we need to create it with required fields
-  const upsertData = existingProfile
-    ? {
-        id: userId,
-        ...updates,
-        updated_at: new Date().toISOString(),
-      }
-    : {
-        id: userId,
-        email: null, // Will be populated from Clerk
-        role: 'viewer', // Default role
-        ...updates,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+  if (!existingProfile) {
+    throw new Error('User profile not found. Please sign out and sign in again to sync your profile.');
+  }
 
+  // Update only - never create
   const { data, error } = await supabase
     .from('user_profiles')
-    .upsert(upsertData)
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId)
     .select()
     .single();
 
