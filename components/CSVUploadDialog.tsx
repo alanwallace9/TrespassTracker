@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { useSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Upload, FileText, CircleAlert as AlertCircle, Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -59,9 +59,11 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   const [rawCSVText, setRawCSVText] = useState<string>('');
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const supabase = useSupabaseClient();
 
   useEffect(() => {
     if (user) {
@@ -72,15 +74,22 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   const fetchUserProfile = async () => {
     if (!user) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_profiles')
       .select('role, tenant_id')
       .eq('id', user.id)
       .maybeSingle();
 
+    if (error) {
+      console.error('Error fetching user profile:', error);
+      return;
+    }
+
     if (data) {
       setUserRole(data.role || 'user');
       setUserTenantId(data.tenant_id || '');
+    } else {
+      console.warn('No user profile found for user:', user.id);
     }
   };
 
@@ -114,59 +123,6 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
           password: record.password,
           role: record.role || 'user',
           display_name: record.display_name || undefined,
-        });
-      }
-    }
-
-    return records;
-  };
-
-  const parseCSV = (text: string): CSVRecord[] => {
-    const lines = text.split('\n').filter(line => line.trim());
-    if (lines.length < 2) {
-      throw new Error('CSV file must contain headers and at least one record');
-    }
-
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const records: CSVRecord[] = [];
-
-    const requiredFields = ['first_name', 'last_name', 'school_id', 'expiration_date', 'trespassed_from'];
-    const missingFields = requiredFields.filter(field => !headers.includes(field));
-
-    if (missingFields.length > 0) {
-      throw new Error(`Missing required columns: ${missingFields.join(', ')}`);
-    }
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim());
-      const record: any = {};
-
-      headers.forEach((header, index) => {
-        record[header] = values[index] || '';
-      });
-
-      if (record.first_name && record.last_name && record.school_id && record.expiration_date && record.trespassed_from) {
-        records.push({
-          first_name: record.first_name,
-          last_name: record.last_name,
-          school_id: record.school_id,
-          expiration_date: record.expiration_date,
-          trespassed_from: record.trespassed_from,
-          aka: record.aka || undefined,
-          date_of_birth: record.date_of_birth || undefined,
-          incident_date: record.incident_date || undefined,
-          location: record.location || undefined,
-          description: record.description || undefined,
-          status: record.status || 'active',
-          is_former_student: record.is_former_student === 'true' || record.is_former_student === '1',
-          known_associates: record.known_associates || undefined,
-          current_school: record.current_school || undefined,
-          guardian_first_name: record.guardian_first_name || undefined,
-          guardian_last_name: record.guardian_last_name || undefined,
-          guardian_phone: record.guardian_phone || undefined,
-          contact_info: record.contact_info || undefined,
-          notes: record.notes || undefined,
-          photo_url: record.photo_url || undefined,
         });
       }
     }
@@ -302,10 +258,7 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
     document.body.removeChild(link);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = (file: File) => {
     setError('');
     const reader = new FileReader();
 
@@ -339,8 +292,53 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
     reader.readAsText(file);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    // Check if it's a CSV file
+    if (!file.name.endsWith('.csv')) {
+      setError('Please upload a CSV file');
+      return;
+    }
+
+    processFile(file);
+  };
+
   const handleUpload = async () => {
     if (!user || (previewData.length === 0 && userPreviewData.length === 0)) return;
+
+    // Check if user has tenant_id for record uploads
+    if (uploadType === 'records' && !userTenantId) {
+      toast({
+        title: 'Error',
+        description: 'Your user profile is missing a tenant ID. Please contact your administrator.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -398,9 +396,15 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
           photo_url: record.photo_url || null,
         }));
 
+        console.log('Inserting records with tenant_id:', userTenantId);
+        console.log('Sample record:', recordsToInsert[0]);
+
         const { error } = await supabase.from('trespass_records').insert(recordsToInsert);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error:', error);
+          throw error;
+        }
 
         toast({
           title: 'Success',
@@ -431,20 +435,20 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Upload CSV File</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-2xl">Upload CSV File</DialogTitle>
+          <DialogDescription className="text-base pt-1">
             {uploadType === 'records'
-              ? 'Upload a CSV file with trespass records. Required columns: first_name, last_name, school_id, expiration_date, trespassed_from'
-              : 'Upload a CSV file with user accounts. Required columns: email, password. Optional: role, display_name'}
+              ? 'Upload a CSV file with trespass records. Required columns: First Name, Last Name, School ID, Expiration Date, Trespassed From'
+              : 'Upload a CSV file with user accounts. Required columns: Email, Password. Optional: Role, Display Name'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-6 pt-2">
           {(userRole === 'district_admin' || userRole === 'master_admin') && (
-            <div className="flex gap-2 border-b pb-4">
+            <div className="flex gap-3 p-1 bg-slate-100 rounded-lg">
               <Button
                 type="button"
-                variant={uploadType === 'records' ? 'default' : 'outline'}
+                variant={uploadType === 'records' ? 'default' : 'ghost'}
                 onClick={() => {
                   setUploadType('records');
                   setPreviewData([]);
@@ -452,12 +456,13 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
                   setError('');
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
+                className={uploadType === 'records' ? 'shadow-sm' : ''}
               >
                 Trespass Records
               </Button>
               <Button
                 type="button"
-                variant={uploadType === 'users' ? 'default' : 'outline'}
+                variant={uploadType === 'users' ? 'default' : 'ghost'}
                 onClick={() => {
                   setUploadType('users');
                   setPreviewData([]);
@@ -465,12 +470,22 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
                   setError('');
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
+                className={uploadType === 'users' ? 'shadow-sm' : ''}
               >
                 User Accounts
               </Button>
             </div>
           )}
-          <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-slate-400 transition-colors">
+          <div
+            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
+              isDragging
+                ? 'border-blue-500 bg-blue-50 scale-[1.01] shadow-lg'
+                : 'border-slate-300 bg-slate-50/80 hover:border-blue-400 hover:bg-blue-50/30'
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <input
               ref={fileInputRef}
               type="file"
@@ -480,9 +495,13 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
               id="csv-upload"
             />
             <label htmlFor="csv-upload" className="cursor-pointer">
-              <div className="flex flex-col items-center space-y-2">
-                <Upload className="w-12 h-12 text-slate-400" />
-                <div className="text-sm font-medium">Click to upload CSV file</div>
+              <div className="flex flex-col items-center space-y-3">
+                <div className={`p-3 rounded-full ${isDragging ? 'bg-blue-100' : 'bg-white shadow-sm border border-slate-200'} transition-all`}>
+                  <Upload className={`w-8 h-8 ${isDragging ? 'text-blue-600' : 'text-slate-400'}`} />
+                </div>
+                <div className="text-sm font-semibold text-slate-900">
+                  {isDragging ? 'Drop CSV file here' : 'Click to upload or drag and drop'}
+                </div>
                 <div className="text-xs text-slate-500">CSV format with required columns</div>
               </div>
             </label>
@@ -492,10 +511,10 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
             <div className="flex justify-center">
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={downloadTemplate}
-                className="gap-2"
+                className="gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
               >
                 <Download className="w-4 h-4" />
                 Download CSV Template
@@ -504,29 +523,29 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
           )}
 
           {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+            <Alert variant="destructive" className="border-red-200 bg-red-50">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
             </Alert>
           )}
 
           {uploadType === 'users' && userPreviewData.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-sm text-slate-600">
-                <FileText className="w-4 h-4" />
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2 text-sm font-medium text-slate-700">
+                <FileText className="w-4 h-4 text-blue-600" />
                 <span>{userPreviewData.length} users ready to create</span>
               </div>
-              <div className="max-h-60 overflow-y-auto border rounded-lg p-4 bg-slate-50">
+              <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-white shadow-sm">
                 <div className="space-y-2 text-sm">
-                  {userPreviewData.slice(0, 5).map((userRecord, index) => (
-                    <div key={index} className="p-2 bg-white rounded border">
-                      <div className="font-medium">{userRecord.email}</div>
-                      <div className="text-xs text-slate-500">Role: {userRecord.role}</div>
+                  {userPreviewData.slice(0, 3).map((userRecord, index) => (
+                    <div key={index} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors">
+                      <div className="font-semibold text-slate-900">{userRecord.email}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">Role: {userRecord.role}</div>
                     </div>
                   ))}
-                  {userPreviewData.length > 5 && (
-                    <div className="text-xs text-slate-500 text-center pt-2">
-                      And {userPreviewData.length - 5} more users...
+                  {userPreviewData.length > 3 && (
+                    <div className="text-xs text-slate-500 text-center pt-1 font-medium">
+                      And {userPreviewData.length - 3} more users...
                     </div>
                   )}
                 </div>
@@ -535,26 +554,26 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
           )}
 
           {uploadType === 'records' && previewData.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-sm text-slate-600">
-                <FileText className="w-4 h-4" />
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2 text-sm font-medium text-slate-700">
+                <FileText className="w-4 h-4 text-blue-600" />
                 <span>{previewData.length} records ready to upload</span>
               </div>
-              <div className="max-h-60 overflow-y-auto border rounded-lg p-4 bg-slate-50">
+              <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-white shadow-sm">
                 <div className="space-y-2 text-sm">
-                  {previewData.slice(0, 5).map((record, index) => (
-                    <div key={index} className="p-2 bg-white rounded border">
-                      <div className="font-medium">
+                  {previewData.slice(0, 3).map((record, index) => (
+                    <div key={index} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors">
+                      <div className="font-semibold text-slate-900">
                         {record.first_name} {record.last_name}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-500 mt-0.5">
                         ID: {record.school_id} | Trespassed from: {record.trespassed_from} | Expires: {record.expiration_date}
                       </div>
                     </div>
                   ))}
-                  {previewData.length > 5 && (
-                    <div className="text-xs text-slate-500 text-center pt-2">
-                      And {previewData.length - 5} more records...
+                  {previewData.length > 3 && (
+                    <div className="text-xs text-slate-500 text-center pt-1 font-medium">
+                      And {previewData.length - 3} more records...
                     </div>
                   )}
                 </div>
@@ -562,11 +581,11 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
             </div>
           )}
 
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+          <div className="flex justify-end space-x-3 pt-6 border-t">
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button onClick={handleUpload} disabled={isLoading || (previewData.length === 0 && userPreviewData.length === 0)}>
+            <Button onClick={handleUpload} disabled={isLoading || (previewData.length === 0 && userPreviewData.length === 0)} className="shadow-sm">
               {isLoading
                 ? uploadType === 'users'
                   ? 'Creating...'
