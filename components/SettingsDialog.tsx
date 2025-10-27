@@ -65,11 +65,11 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
       }
 
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving settings:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save settings. Please try again.',
+        description: error.message || 'Failed to save settings. Please try again.',
         variant: 'destructive',
       });
     } finally {
