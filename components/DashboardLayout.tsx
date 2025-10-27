@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Shield, LogOut, Settings, User, ChevronDown, Search, Plus, Upload, LayoutGrid, List, FileText, Power, History, MessageSquare } from 'lucide-react';
+import { Shield, LogOut, Settings, User, ChevronDown, Search, Plus, Upload, LayoutGrid, List, FileText, Power, History, MessageSquare, Bell } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { AddRecordDialog } from '@/components/AddRecordDialog';
@@ -15,6 +15,8 @@ import { InviteUserDialog } from '@/components/InviteUserDialog';
 import { StatsDropdown } from '@/components/StatsDropdown';
 import { AdminAuditLog } from '@/components/AdminAuditLog';
 import { getDisplayName } from '@/app/actions/users';
+import { TrespassRecord, UserProfile, supabase } from '@/lib/supabase';
+import { useExpiringWarnings } from '@/hooks/useExpiringWarnings';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -27,6 +29,9 @@ interface DashboardLayoutProps {
   viewMode?: 'list' | 'card';
   onViewModeChange?: (mode: 'list' | 'card') => void;
   filteredCount?: number;
+  records?: TrespassRecord[];
+  onShowExpiring?: () => void;
+  showExpiringOnly?: boolean;
 }
 
 export function DashboardLayout({
@@ -40,6 +45,9 @@ export function DashboardLayout({
   viewMode = 'card',
   onViewModeChange,
   filteredCount,
+  records = [],
+  onShowExpiring,
+  showExpiringOnly = false,
 }: DashboardLayoutProps) {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
@@ -51,6 +59,7 @@ export function DashboardLayout({
   const [auditLogOpen, setAuditLogOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('viewer');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   // Initialize theme state directly from localStorage (no useEffect delay)
   // The blocking script in layout.tsx already set the data-theme attribute
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -62,6 +71,9 @@ export function DashboardLayout({
   });
   const initializingRef = useRef(false);
   const initializedRef = useRef(false);
+
+  // Use the expiring warnings hook
+  const { count: expiringCount } = useExpiringWarnings(records, userProfile);
 
   // Removed client-side auth redirect - middleware handles authentication
   // This was causing a redirect loop after login because of timing issues
@@ -110,6 +122,22 @@ export function DashboardLayout({
     } catch (error) {
       // Silently fail - display name is optional
       setDisplayName(null);
+    }
+
+    // Fetch full user profile for notifications
+    try {
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) {
+        setUserProfile(profile);
+      }
+    } catch (error) {
+      // Silently fail - profile is optional for notifications
+      setUserProfile(null);
     }
   };
 
@@ -173,6 +201,23 @@ export function DashboardLayout({
                   }}
                 />
               </button>
+
+              {/* Notification Bell */}
+              {userProfile && userProfile.notifications_enabled && userProfile.role !== 'viewer' && expiringCount > 0 && (
+                <button
+                  onClick={onShowExpiring}
+                  className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all hover:scale-110 border border-birdville-light-gold bg-input relative ${showExpiringOnly ? 'ring-2 ring-primary' : ''}`}
+                  aria-label={`${expiringCount} trespass warning${expiringCount !== 1 ? 's' : ''} expiring soon`}
+                  title={`${expiringCount} warning${expiringCount !== 1 ? 's' : ''} expiring within 1 week`}
+                >
+                  <Bell className="w-5 h-5 text-foreground" />
+                  {expiringCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                      {expiringCount > 9 ? '9+' : expiringCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
