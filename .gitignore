@@ -78,3 +78,6 @@ coverage/
 
 # Security audit files (may contain sensitive information)
 .agents/doc/audit/
+
+# Planning documents (internal use only)
+adminsettings.md
