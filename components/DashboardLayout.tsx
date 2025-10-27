@@ -11,7 +11,7 @@ import { useEffect, useState, useRef } from 'react';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { AddRecordDialog } from '@/components/AddRecordDialog';
 import { CSVUploadDialog } from '@/components/CSVUploadDialog';
-import { AddUserDialog } from '@/components/AddUserDialog';
+import { InviteUserDialog } from '@/components/InviteUserDialog';
 import { StatsDropdown } from '@/components/StatsDropdown';
 import { AdminAuditLog } from '@/components/AdminAuditLog';
 import { getDisplayName } from '@/app/actions/users';
@@ -339,10 +339,10 @@ export function DashboardLayout({
         onOpenChange={setCSVDialogOpen}
         onRecordsUploaded={handleDialogClose}
       />
-      <AddUserDialog
+      <InviteUserDialog
         open={addUserDialogOpen}
         onOpenChange={setAddUserDialogOpen}
-        onUserAdded={handleDialogClose}
+        onUserInvited={handleDialogClose}
       />
       <AdminAuditLog
         open={auditLogOpen}

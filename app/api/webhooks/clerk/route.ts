@@ -71,15 +71,27 @@ export async function POST(req: Request) {
         const campusId = public_metadata?.campus_id as string | null;
         const tenantId = public_metadata?.tenant_id as string | null;
 
+        // Validate required metadata
+        if (!tenantId) {
+          logger.error('Missing required tenant_id in user metadata', { userId: id });
+          return new Response('User missing required tenant_id metadata. Users must be invited with proper tenant assignment.', { status: 400 });
+        }
+
+        // Validate campus_id for campus_admin role
+        if (role === 'campus_admin' && !campusId) {
+          logger.error('Missing required campus_id for campus_admin', { userId: id });
+          return new Response('Campus admin users must have campus_id metadata.', { status: 400 });
+        }
+
         // Log to server (no PII in console)
-        logger.info('Creating user profile', { userId: id, role });
+        logger.info('Creating user profile', { userId: id, role, tenantId });
 
         const { error } = await supabaseAdmin.from('user_profiles').insert({
           id: id,
           email: primaryEmail,
           role: role,
           campus_id: campusId || null,
-          tenant_id: tenantId || null,
+          tenant_id: tenantId,
           display_name: null,
           theme: 'system',
           created_at: new Date().toISOString(),
@@ -122,8 +134,20 @@ export async function POST(req: Request) {
         const campusId = public_metadata?.campus_id as string | null;
         const tenantId = public_metadata?.tenant_id as string | null;
 
+        // Validate required metadata
+        if (!tenantId) {
+          logger.error('Missing required tenant_id in user metadata', { userId: id });
+          return new Response('User missing required tenant_id metadata.', { status: 400 });
+        }
+
+        // Validate campus_id for campus_admin role
+        if (role === 'campus_admin' && !campusId) {
+          logger.error('Missing required campus_id for campus_admin', { userId: id });
+          return new Response('Campus admin users must have campus_id metadata.', { status: 400 });
+        }
+
         // Log to server (no PII in console)
-        logger.info('Updating user profile', { userId: id, role });
+        logger.info('Updating user profile', { userId: id, role, tenantId });
 
         const { error } = await supabaseAdmin
           .from('user_profiles')
@@ -131,7 +155,7 @@ export async function POST(req: Request) {
             email: primaryEmail,
             role: role,
             campus_id: campusId || null,
-            tenant_id: tenantId || null,
+            tenant_id: tenantId,
             updated_at: new Date().toISOString(),
           })
           .eq('id', id);
