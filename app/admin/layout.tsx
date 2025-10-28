@@ -19,8 +19,10 @@ export default function AdminLayout({
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) {
-      const role = user.user_metadata.role || 'viewer';
+    // Middleware already protects this route, so user will always be authenticated
+    // We just need to check the role
+    if (user) {
+      const role = (user.publicMetadata?.role as string) || 'viewer';
       setUserRole(role);
 
       // Only master_admin can access admin pages
@@ -30,13 +32,12 @@ export default function AdminLayout({
         // Redirect non-master admins to dashboard
         router.push('/dashboard');
       }
-    } else if (!loading && !user) {
-      // Redirect unauthenticated users to login
-      router.push('/login');
     }
-  }, [user, loading, router]);
+  }, [user, router]);
 
-  if (loading) {
+  // Show loading state while checking authorization
+  // Middleware ensures user is authenticated
+  if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -47,8 +48,16 @@ export default function AdminLayout({
     );
   }
 
+  // Don't render if not authorized (will redirect via useEffect)
   if (!isAuthorized) {
-    return null; // Will redirect via useEffect
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">Checking permissions...</p>
+        </div>
+      </div>
+    );
   }
 
   const navItems = [
