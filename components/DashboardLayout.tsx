@@ -14,8 +14,8 @@ import { CSVUploadDialog } from '@/components/CSVUploadDialog';
 import { InviteUserDialog } from '@/components/InviteUserDialog';
 import { StatsDropdown } from '@/components/StatsDropdown';
 import { AdminAuditLog } from '@/components/AdminAuditLog';
-import { getDisplayName } from '@/app/actions/users';
-import { TrespassRecord, UserProfile, supabase } from '@/lib/supabase';
+import { getDisplayName, getUserProfile } from '@/app/actions/users';
+import { TrespassRecord, UserProfile } from '@/lib/supabase';
 import { useExpiringWarnings } from '@/hooks/useExpiringWarnings';
 
 interface DashboardLayoutProps {
@@ -126,12 +126,7 @@ export function DashboardLayout({
 
     // Fetch full user profile for notifications
     try {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
+      const profile = await getUserProfile(user.id);
       if (profile) {
         setUserProfile(profile);
       }
@@ -212,8 +207,8 @@ export function DashboardLayout({
                 >
                   <Bell className="w-5 h-5 text-foreground" />
                   {expiringCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
-                      {expiringCount > 9 ? '9+' : expiringCount}
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                      {expiringCount > 99 ? '99+' : expiringCount}
                     </span>
                   )}
                 </button>

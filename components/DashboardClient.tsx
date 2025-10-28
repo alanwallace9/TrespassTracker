@@ -64,7 +64,14 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      // Sort alphabetically by last name, then first name
+      // If showing expiring only, sort by expiration date (earliest first)
+      if (showExpiringOnly) {
+        const dateA = a.expiration_date ? new Date(a.expiration_date).getTime() : Infinity;
+        const dateB = b.expiration_date ? new Date(b.expiration_date).getTime() : Infinity;
+        return dateA - dateB;
+      }
+
+      // Otherwise sort alphabetically by last name, then first name
       const lastNameCompare = a.last_name.toLowerCase().localeCompare(b.last_name.toLowerCase());
       if (lastNameCompare !== 0) return lastNameCompare;
       return a.first_name.toLowerCase().localeCompare(b.first_name.toLowerCase());
@@ -78,10 +85,11 @@ export function DashboardClient({ initialRecords, onRefresh }: DashboardClientPr
 
   const handleShowExpiring = () => {
     setShowExpiringOnly(!showExpiringOnly);
-    // Reset other filters when viewing expiring warnings
+    // Reset other filters and switch to list view when viewing expiring warnings
     if (!showExpiringOnly) {
       setSearchQuery('');
       setStatusFilter('active');
+      setViewMode('list');
     }
   };
 
