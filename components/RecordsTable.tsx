@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileDown, FileSpreadsheet } from 'lucide-react';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 type RecordsTableProps = {
   records: TrespassRecord[];
@@ -21,11 +22,10 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
     const rows = records.map((record) => {
       const expired = isExpired(record);
       const displayStatus = expired ? 'inactive' : record.status;
-      const shortId = record.id ? record.id.slice(-6).toUpperCase() : 'N/A';
 
       return [
         `"${record.first_name} ${record.last_name}"`,
-        shortId,
+        record.school_id || 'N/A',
         record.expiration_date ? format(new Date(record.expiration_date), 'MM/dd/yyyy') : 'N/A',
         record.date_of_birth ? format(new Date(record.date_of_birth), 'MM/dd/yyyy') : 'N/A',
         `"${record.trespassed_from || 'N/A'}"`,
@@ -51,9 +51,42 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
   };
 
   const exportToExcel = () => {
-    // For XLSX export, we'll use the same CSV format but with .xlsx extension
-    // In a production app, you'd want to use a library like xlsx or exceljs
-    exportToCSV();
+    // Create worksheet data
+    const data = records.map((record) => {
+      const expired = isExpired(record);
+      const displayStatus = expired ? 'inactive' : record.status;
+
+      return {
+        'Name': `${record.first_name} ${record.last_name}`,
+        'School ID': record.school_id || 'N/A',
+        'Expiration Date': record.expiration_date ? format(new Date(record.expiration_date), 'MM/dd/yyyy') : 'N/A',
+        'Birth Date': record.date_of_birth ? format(new Date(record.date_of_birth), 'MM/dd/yyyy') : 'N/A',
+        'Trespassed From': record.trespassed_from || 'N/A',
+        'Status': displayStatus,
+        'Location': record.location || 'N/A',
+        'Incident Date': record.incident_date ? format(new Date(record.incident_date), 'MM/dd/yyyy') : 'N/A',
+      };
+    });
+
+    // Create workbook and worksheet
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Trespass Records');
+
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 20 }, // Name
+      { wch: 12 }, // School ID
+      { wch: 15 }, // Expiration Date
+      { wch: 15 }, // Birth Date
+      { wch: 20 }, // Trespassed From
+      { wch: 10 }, // Status
+      { wch: 20 }, // Location
+      { wch: 15 }, // Incident Date
+    ];
+
+    // Generate file and download
+    XLSX.writeFile(workbook, `trespass-records-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
   const isExpired = (record: TrespassRecord) => {
     return record.expiration_date && new Date(record.expiration_date) < new Date();
@@ -127,15 +160,13 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
                   const expired = isExpired(record);
                   const displayStatus = expired ? 'inactive' : record.status;
                   const displayStatusText = displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1);
-                  // Show last 6 characters of ID
-                  const shortId = record.id ? record.id.slice(-6).toUpperCase() : 'N/A';
 
                   return (
                     <TableRow key={record.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onViewRecord(record)}>
                       <TableCell className="font-medium text-foreground">
                         {record.first_name.charAt(0).toUpperCase() + record.first_name.slice(1).toLowerCase()} {record.last_name.charAt(0).toUpperCase() + record.last_name.slice(1).toLowerCase()}
                       </TableCell>
-                      <TableCell className="text-foreground font-mono text-xs">{shortId}</TableCell>
+                      <TableCell className="text-foreground font-mono text-sm">{record.school_id || 'N/A'}</TableCell>
                       <TableCell className="text-foreground hidden md:table-cell">{record.expiration_date ? format(new Date(record.expiration_date), 'MMM d, yyyy') : 'N/A'}</TableCell>
                       <TableCell className="text-foreground">{record.trespassed_from || 'N/A'}</TableCell>
                       <TableCell>
