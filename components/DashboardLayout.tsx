@@ -60,6 +60,7 @@ export function DashboardLayout({
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('viewer');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [notificationDismissed, setNotificationDismissed] = useState(false);
   // Initialize theme state directly from localStorage (no useEffect delay)
   // The blocking script in layout.tsx already set the data-theme attribute
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -74,6 +75,14 @@ export function DashboardLayout({
 
   // Use the expiring warnings hook
   const { count: expiringCount } = useExpiringWarnings(records, userProfile);
+
+  // Check if notification was dismissed this session
+  useEffect(() => {
+    if (typeof window !== 'undefined' && user) {
+      const dismissed = sessionStorage.getItem(`notification-dismissed-${user.id}`);
+      setNotificationDismissed(dismissed === 'true');
+    }
+  }, [user]);
 
   // Removed client-side auth redirect - middleware handles authentication
   // This was causing a redirect loop after login because of timing issues
@@ -137,8 +146,24 @@ export function DashboardLayout({
   };
 
   const handleSignOut = async () => {
+    // Clear notification dismissed flag on logout
+    if (typeof window !== 'undefined' && user) {
+      sessionStorage.removeItem(`notification-dismissed-${user.id}`);
+    }
     await signOut();
     router.push('/login');
+  };
+
+  const handleBellClick = () => {
+    // Mark notification as dismissed for this session
+    if (typeof window !== 'undefined' && user) {
+      sessionStorage.setItem(`notification-dismissed-${user.id}`, 'true');
+      setNotificationDismissed(true);
+    }
+    // Call the original handler
+    if (onShowExpiring) {
+      onShowExpiring();
+    }
   };
 
   const toggleTheme = () => {
@@ -198,9 +223,9 @@ export function DashboardLayout({
               </button>
 
               {/* Notification Bell */}
-              {userProfile && userProfile.notifications_enabled && userProfile.role !== 'viewer' && expiringCount > 0 && (
+              {userProfile && userProfile.notifications_enabled && userProfile.role !== 'viewer' && expiringCount > 0 && !notificationDismissed && (
                 <button
-                  onClick={onShowExpiring}
+                  onClick={handleBellClick}
                   className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all hover:scale-110 border border-birdville-light-gold bg-input relative ${showExpiringOnly ? 'ring-2 ring-primary' : ''}`}
                   aria-label={`${expiringCount} trespass warning${expiringCount !== 1 ? 's' : ''} expiring soon`}
                   title={`${expiringCount} warning${expiringCount !== 1 ? 's' : ''} expiring within 1 week`}
