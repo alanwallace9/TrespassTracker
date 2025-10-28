@@ -13,6 +13,21 @@ type RecordsTableProps = {
   onViewRecord: (record: TrespassRecord) => void;
 };
 
+/**
+ * Format a date string from the database for display
+ * Handles date-only strings (YYYY-MM-DD) without timezone conversion
+ */
+function formatDateForDisplay(dateString: string | null | undefined, formatString: string = 'MMM d, yyyy'): string {
+  if (!dateString) return 'N/A';
+
+  // Parse the date as-is without timezone conversion
+  // For YYYY-MM-DD strings, treat them as local dates
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+
+  return format(date, formatString);
+}
+
 export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
   const exportToCSV = () => {
     // Create CSV headers
@@ -167,7 +182,7 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
                         {record.first_name.charAt(0).toUpperCase() + record.first_name.slice(1).toLowerCase()} {record.last_name.charAt(0).toUpperCase() + record.last_name.slice(1).toLowerCase()}
                       </TableCell>
                       <TableCell className="text-foreground font-mono text-sm">{record.school_id || 'N/A'}</TableCell>
-                      <TableCell className="text-foreground hidden md:table-cell">{record.expiration_date ? format(new Date(record.expiration_date), 'MMM d, yyyy') : 'N/A'}</TableCell>
+                      <TableCell className="text-foreground hidden md:table-cell">{formatDateForDisplay(record.expiration_date)}</TableCell>
                       <TableCell className="text-foreground">{record.trespassed_from || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(displayStatus)}>{displayStatusText}</Badge>
