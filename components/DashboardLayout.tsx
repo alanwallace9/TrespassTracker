@@ -12,6 +12,7 @@ import { SettingsDialog } from '@/components/SettingsDialog';
 import { AddRecordDialog } from '@/components/AddRecordDialog';
 import { CSVUploadDialog } from '@/components/CSVUploadDialog';
 import { InviteUserDialog } from '@/components/InviteUserDialog';
+import { BulkUserUploadDialog } from '@/components/admin/BulkUserUploadDialog';
 import { StatsDropdown } from '@/components/StatsDropdown';
 import { AdminAuditLog } from '@/components/AdminAuditLog';
 import { getDisplayName, getUserProfile } from '@/app/actions/users';
@@ -56,6 +57,7 @@ export function DashboardLayout({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [csvDialogOpen, setCSVDialogOpen] = useState(false);
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  const [bulkUserDialogOpen, setBulkUserDialogOpen] = useState(false);
   const [auditLogOpen, setAuditLogOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('viewer');
@@ -295,14 +297,24 @@ export function DashboardLayout({
                     Add Record
                   </DropdownMenuItem>
                   {(userRole === 'district_admin' || userRole === 'master_admin') && (
-                    <DropdownMenuItem onSelect={(e) => {
-                      e.preventDefault();
-                      setDropdownOpen(false);
-                      setTimeout(() => setAddUserDialogOpen(true), 150);
-                    }}>
-                      <User className="w-4 h-4 mr-2" />
-                      Invite User (Email)
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem onSelect={(e) => {
+                        e.preventDefault();
+                        setDropdownOpen(false);
+                        setTimeout(() => setAddUserDialogOpen(true), 150);
+                      }}>
+                        <User className="w-4 h-4 mr-2" />
+                        Invite User (Email)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e) => {
+                        e.preventDefault();
+                        setDropdownOpen(false);
+                        setTimeout(() => setBulkUserDialogOpen(true), 150);
+                      }}>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Invite Users (CSV)
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuSeparator />
                   {(userRole === 'district_admin' || userRole === 'master_admin') && (
@@ -408,6 +420,11 @@ export function DashboardLayout({
         open={addUserDialogOpen}
         onOpenChange={setAddUserDialogOpen}
         onUserInvited={handleDialogClose}
+      />
+      <BulkUserUploadDialog
+        open={bulkUserDialogOpen}
+        onOpenChange={setBulkUserDialogOpen}
+        onUsersInvited={handleDialogClose}
       />
       <AdminAuditLog
         open={auditLogOpen}

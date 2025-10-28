@@ -17,6 +17,7 @@ export type AuditEventType =
   | 'user.updated'
   | 'user.deleted'
   | 'user.invited'
+  | 'user.bulk_invited'
   | 'invitation.revoked'
   | 'record.created'
   | 'record.updated'

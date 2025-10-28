@@ -42,7 +42,9 @@ export type UserProfile = {
   tenant_id: string;                                   // Tenant ID for multi-tenancy (required)
   campus_id: string | null;                            // Campus ID for campus_admin users
   theme: 'light' | 'dark' | 'system';
+  status: 'active' | 'inactive' | 'invited';          // User account status
   notifications_enabled: boolean;                      // Whether user wants expiration notifications
+  deleted_at: string | null;                          // Soft delete timestamp
   created_at: string;
   updated_at: string;
 };
@@ -52,6 +54,17 @@ export type Tenant = {
   subdomain: string;                                   // Subdomain for routing (e.g., 'birdville')
   display_name: string;                                // Human-readable name (e.g., 'Birdville ISD')
   status: 'active' | 'suspended' | 'trial';
+  created_at: string;
+  updated_at: string;
+};
+
+export type Campus = {
+  id: string;                                          // Campus identifier (e.g., '010', '042')
+  tenant_id: string;                                   // Tenant ID for multi-tenancy
+  name: string;                                        // Human-readable name (e.g., 'Birdville HS')
+  abbreviation: string | null;                         // Short name or number (e.g., '010')
+  status: 'active' | 'inactive';
+  deleted_at: string | null;                          // Soft delete timestamp
   created_at: string;
   updated_at: string;
 };
