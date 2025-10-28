@@ -13,7 +13,7 @@ import { TrespassRecord, supabase, RecordPhoto, RecordDocument } from '@/lib/sup
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { updateRecord, deleteRecord } from '@/app/actions/records';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { X, Upload } from 'lucide-react';
 import { PhotoGallery } from '@/components/PhotoGallery';
 import { DocumentUpload } from '@/components/DocumentUpload';
@@ -25,6 +25,21 @@ type RecordDetailDialogProps = {
   onOpenChange: (open: boolean) => void;
   onRecordUpdated?: () => void;
 };
+
+/**
+ * Format a date string from the database for display
+ * Handles date-only strings (YYYY-MM-DD) without timezone conversion
+ */
+function formatDateForDisplay(dateString: string | null | undefined, formatString: string = 'MM/dd/yyyy'): string {
+  if (!dateString) return 'N/A';
+
+  // Parse the date as-is without timezone conversion
+  // For YYYY-MM-DD strings, treat them as local dates
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+
+  return format(date, formatString);
+}
 
 export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated }: RecordDetailDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -456,7 +471,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
                 <div className="flex-1 grid grid-cols-2 gap-x-8 gap-y-3">
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">Date of Birth</div>
-                    <div className="text-base">{currentRecord.date_of_birth ? format(new Date(currentRecord.date_of_birth), 'MM/dd/yyyy') : 'N/A'}</div>
+                    <div className="text-base">{formatDateForDisplay(currentRecord.date_of_birth)}</div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">Age</div>
@@ -494,7 +509,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
               <div className="grid grid-cols-2 gap-x-8 gap-y-3">
                 <div>
                   <div className="text-sm text-muted-foreground mb-1">Warning Expires</div>
-                  <div className="text-base">{currentRecord.expiration_date ? format(new Date(currentRecord.expiration_date), 'MM/dd/yyyy') : 'N/A'}</div>
+                  <div className="text-base">{formatDateForDisplay(currentRecord.expiration_date)}</div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground mb-1">Trespassed From</div>
