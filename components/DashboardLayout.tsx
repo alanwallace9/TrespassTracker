@@ -223,7 +223,7 @@ export function DashboardLayout({
               </button>
 
               {/* Notification Bell */}
-              {userProfile && userProfile.notifications_enabled && userProfile.role !== 'viewer' && expiringCount > 0 && !notificationDismissed && (
+              {userProfile && userProfile.notifications_enabled && userProfile.role !== 'viewer' && expiringCount > 0 && (
                 <button
                   onClick={handleBellClick}
                   className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all hover:scale-110 border border-birdville-light-gold bg-input relative ${showExpiringOnly ? 'ring-2 ring-primary' : ''}`}
@@ -231,7 +231,7 @@ export function DashboardLayout({
                   title={`${expiringCount} warning${expiringCount !== 1 ? 's' : ''} expiring within 1 week`}
                 >
                   <Bell className="w-5 h-5 text-foreground" />
-                  {expiringCount > 0 && (
+                  {expiringCount > 0 && !notificationDismissed && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
                       {expiringCount > 99 ? '99+' : expiringCount}
                     </span>
