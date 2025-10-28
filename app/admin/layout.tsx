@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@clerk/nextjs';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, isLoaded } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const [userRole, setUserRole] = useState<string>('viewer');
@@ -20,24 +20,32 @@ export default function AdminLayout({
 
   useEffect(() => {
     // Middleware already protects this route, so user will always be authenticated
-    // We just need to check the role
-    if (user) {
+    // We just need to check the role from Clerk's publicMetadata
+    if (isLoaded && user) {
       const role = (user.publicMetadata?.role as string) || 'viewer';
       setUserRole(role);
+
+      console.log('[Admin Layout] User loaded:', {
+        userId: user.id,
+        email: user.primaryEmailAddress?.emailAddress,
+        role: role,
+        publicMetadata: user.publicMetadata,
+      });
 
       // Only master_admin can access admin pages
       if (role === 'master_admin') {
         setIsAuthorized(true);
       } else {
+        console.log('[Admin Layout] Redirecting non-master_admin to dashboard');
         // Redirect non-master admins to dashboard
         router.push('/dashboard');
       }
     }
-  }, [user, router]);
+  }, [user, isLoaded, router]);
 
   // Show loading state while checking authorization
   // Middleware ensures user is authenticated
-  if (loading || !user) {
+  if (!isLoaded || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
