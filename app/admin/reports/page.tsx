@@ -38,6 +38,21 @@ export default function ReportsPage() {
   const [targetUserId, setTargetUserId] = useState('');
   const [targetRecordId, setTargetRecordId] = useState('');
 
+  // Quick Lookup state
+  const [quickLookupRecordId, setQuickLookupRecordId] = useState('');
+  const [quickLookupRecordName, setQuickLookupRecordName] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupResults, setLookupResults] = useState<any[]>([]);
+
+  // Custom report filters
+  const [customActorEmail, setCustomActorEmail] = useState('');
+  const [customRecordName, setCustomRecordName] = useState('');
+  const [customRecordId, setCustomRecordId] = useState('');
+  const [customEventTypes, setCustomEventTypes] = useState<string[]>([]);
+
+  // Anomalies
+  const [anomalies, setAnomalies] = useState<any[]>([]);
+
   const reports = [
     {
       id: 'ferpa_access' as ReportType,
@@ -152,7 +167,11 @@ export default function ReportsPage() {
           filters.eventTypes = ['record.created', 'record.updated', 'record.deleted'];
           break;
         case 'custom':
-          // Use all filters as-is
+          // Apply all custom filters
+          if (customActorEmail) filters.actorEmail = customActorEmail;
+          if (customRecordName) filters.recordSubjectName = customRecordName;
+          if (customRecordId) filters.recordId = customRecordId;
+          if (customEventTypes.length > 0) filters.eventTypes = customEventTypes;
           break;
       }
 
@@ -257,6 +276,85 @@ export default function ReportsPage() {
     }
   };
 
+  const handleQuickLookup = async () => {
+    setLookupLoading(true);
+    try {
+      const filters: AuditLogFilters = {
+        eventTypes: ['record.viewed', 'record.updated', 'record.created'],
+      };
+
+      if (quickLookupRecordId) {
+        filters.recordId = quickLookupRecordId;
+      }
+      if (quickLookupRecordName) {
+        filters.recordSubjectName = quickLookupRecordName;
+      }
+
+      const response = await getAuditLogs(filters, { page: 1, limit: 1000 });
+      setLookupResults(response.logs);
+
+      // Detect anomalies
+      const accessCount = response.logs.filter(l => l.event_type === 'record.viewed').length;
+      const uniqueUsers = new Set(response.logs.map(l => l.actor_email)).size;
+
+      const detectedAnomalies: any[] = [];
+
+      if (accessCount > 20) {
+        detectedAnomalies.push({
+          type: 'high_access',
+          message: `High access frequency: Record viewed ${accessCount} times`,
+          severity: 'warning',
+        });
+      }
+
+      if (uniqueUsers > 10) {
+        detectedAnomalies.push({
+          type: 'many_users',
+          message: `Record accessed by ${uniqueUsers} different users`,
+          severity: 'warning',
+        });
+      }
+
+      // Check for after-hours access (before 6am or after 10pm)
+      const afterHoursAccess = response.logs.filter(log => {
+        const hour = new Date(log.created_at).getHours();
+        return hour < 6 || hour > 22;
+      });
+
+      if (afterHoursAccess.length > 0) {
+        detectedAnomalies.push({
+          type: 'after_hours',
+          message: `${afterHoursAccess.length} after-hours access detected (before 6am or after 10pm)`,
+          severity: 'alert',
+        });
+      }
+
+      setAnomalies(detectedAnomalies);
+    } catch (error) {
+      console.error('Error in quick lookup:', error);
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const toggleCustomEventType = (eventType: string) => {
+    setCustomEventTypes(prev =>
+      prev.includes(eventType)
+        ? prev.filter(t => t !== eventType)
+        : [...prev, eventType]
+    );
+  };
+
+  const EVENT_TYPE_OPTIONS = [
+    { value: 'record.viewed', label: 'Record Viewed' },
+    { value: 'record.created', label: 'Record Created' },
+    { value: 'record.updated', label: 'Record Updated' },
+    { value: 'record.deleted', label: 'Record Deleted' },
+    { value: 'user.created', label: 'User Created' },
+    { value: 'user.updated', label: 'User Updated' },
+    { value: 'user.deleted', label: 'User Deleted' },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -265,6 +363,137 @@ export default function ReportsPage() {
           Pre-built compliance reports and analytics
         </p>
       </div>
+
+      {/* Quick Lookup Section */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Eye className="w-5 h-5 text-blue-600" />
+            Quick Lookup: Who Viewed This Record?
+          </CardTitle>
+          <CardDescription>
+            Search by Record ID or Student Name to see all access history
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-1">
+              <Label htmlFor="quickRecordId">Record ID</Label>
+              <Input
+                id="quickRecordId"
+                placeholder="Enter record ID..."
+                value={quickLookupRecordId}
+                onChange={(e) => setQuickLookupRecordId(e.target.value)}
+              />
+            </div>
+            <div className="md:col-span-1">
+              <Label htmlFor="quickRecordName">Or Student Name</Label>
+              <Input
+                id="quickRecordName"
+                placeholder="Enter student name..."
+                value={quickLookupRecordName}
+                onChange={(e) => setQuickLookupRecordName(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={handleQuickLookup}
+                disabled={lookupLoading || (!quickLookupRecordId && !quickLookupRecordName)}
+                className="w-full"
+              >
+                {lookupLoading ? 'Searching...' : 'Search Access History'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Anomaly Alerts */}
+          {anomalies.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm">⚠️ Unusual Activity Detected:</h4>
+              {anomalies.map((anomaly, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-lg text-sm ${
+                    anomaly.severity === 'alert'
+                      ? 'bg-red-100 text-red-800 border border-red-200'
+                      : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                  }`}
+                >
+                  {anomaly.message}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Lookup Results */}
+          {lookupResults.length > 0 && (
+            <div>
+              <h4 className="font-semibold mb-2">
+                Access History ({lookupResults.length} events found)
+              </h4>
+              <div className="border rounded-lg overflow-hidden max-h-[400px] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="text-left p-3 font-medium">Timestamp</th>
+                      <th className="text-left p-3 font-medium">Event</th>
+                      <th className="text-left p-3 font-medium">User</th>
+                      <th className="text-left p-3 font-medium">Role</th>
+                      <th className="text-left p-3 font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y bg-white">
+                    {lookupResults.map((log) => (
+                      <tr key={log.id} className="hover:bg-muted/50">
+                        <td className="p-3 whitespace-nowrap">
+                          {format(new Date(log.created_at), 'MMM d, yyyy HH:mm:ss')}
+                        </td>
+                        <td className="p-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            log.event_type === 'record.viewed'
+                              ? 'bg-purple-100 text-purple-800'
+                              : log.event_type === 'record.updated'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {log.event_type}
+                          </span>
+                        </td>
+                        <td className="p-3">{log.actor_email || log.actor_id}</td>
+                        <td className="p-3">{log.actor_role || 'N/A'}</td>
+                        <td className="p-3">{log.action}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    const csv = Papa.unparse(lookupResults.map(log => ({
+                      Timestamp: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss'),
+                      Event: log.event_type,
+                      User: log.actor_email || log.actor_id,
+                      Role: log.actor_role || 'N/A',
+                      Action: log.action,
+                    })));
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `record-access-history-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+                    link.click();
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export This History
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Report Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -353,6 +582,65 @@ export default function ReportsPage() {
                   value={targetUserId}
                   onChange={(e) => setTargetUserId(e.target.value)}
                 />
+              </div>
+            )}
+
+            {/* Custom Report Filters */}
+            {selectedReport === 'custom' && (
+              <div className="space-y-4 border-t pt-4">
+                <h4 className="font-semibold text-sm">Custom Filters</h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="customActorEmail">User Email</Label>
+                    <Input
+                      id="customActorEmail"
+                      placeholder="Filter by user email..."
+                      value={customActorEmail}
+                      onChange={(e) => setCustomActorEmail(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="customRecordName">Record/Student Name</Label>
+                    <Input
+                      id="customRecordName"
+                      placeholder="Filter by record name..."
+                      value={customRecordName}
+                      onChange={(e) => setCustomRecordName(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="customRecordId">Record ID</Label>
+                    <Input
+                      id="customRecordId"
+                      placeholder="Exact record ID..."
+                      value={customRecordId}
+                      onChange={(e) => setCustomRecordId(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Event Types (Select Multiple)</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                    {EVENT_TYPE_OPTIONS.map((type) => (
+                      <label
+                        key={type.value}
+                        className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-accent border"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={customEventTypes.includes(type.value)}
+                          onChange={() => toggleCustomEventType(type.value)}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{type.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
