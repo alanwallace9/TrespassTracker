@@ -3,15 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building2, FileText, Activity } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getAdminStats, type AdminStats } from '@/app/actions/admin/overview';
 
 export default function AdminOverview() {
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     activeUsers: 0,
     totalCampuses: 0,
@@ -22,21 +17,8 @@ export default function AdminOverview() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const [usersResult, campusesResult, recordsResult] = await Promise.all([
-          supabase.from('user_profiles').select('id, status, deleted_at', { count: 'exact' }),
-          supabase.from('campuses').select('id', { count: 'exact' }),
-          supabase.from('trespass_records').select('id', { count: 'exact' }),
-        ]);
-
-        const totalUsers = usersResult.count || 0;
-        const activeUsers = usersResult.data?.filter(u => !u.deleted_at && u.status === 'active').length || 0;
-
-        setStats({
-          totalUsers,
-          activeUsers,
-          totalCampuses: campusesResult.count || 0,
-          totalRecords: recordsResult.count || 0,
-        });
+        const data = await getAdminStats();
+        setStats(data);
       } catch (error) {
         console.error('Error fetching stats:', error);
       } finally {

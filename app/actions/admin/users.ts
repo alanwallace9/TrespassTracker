@@ -13,6 +13,7 @@ const supabaseAdmin = createClient(
 
 export type AdminUserListItem = UserProfile & {
   campus_name?: string;
+  last_sign_in_at?: string | null;
 };
 
 /**
@@ -58,10 +59,35 @@ export async function getUsersForAdmin(): Promise<AdminUserListItem[]> {
 
     const campusMap = new Map(campuses?.map(c => [c.id, c.name]) || []);
 
-    // Transform the data to include campus name
+    // Get last sign in timestamps from Clerk for all users
+    const client = await clerkClient();
+    const clerkUsersMap = new Map<string, number | null>();
+
+    try {
+      // Fetch users in batches from Clerk (max 500 at a time)
+      const userIds = users?.map(u => u.id) || [];
+      if (userIds.length > 0) {
+        const clerkUsersList = await client.users.getUserList({
+          userId: userIds,
+          limit: 500,
+        });
+
+        clerkUsersList.data.forEach(clerkUser => {
+          clerkUsersMap.set(clerkUser.id, clerkUser.lastSignInAt);
+        });
+      }
+    } catch (error) {
+      logger.error('[getUsersForAdmin] Error fetching Clerk data', error);
+      // Continue without last sign in data if Clerk fetch fails
+    }
+
+    // Transform the data to include campus name and last sign in
     const transformedUsers: AdminUserListItem[] = (users || []).map(user => ({
       ...user,
       campus_name: user.campus_id ? campusMap.get(user.campus_id) || null : null,
+      last_sign_in_at: clerkUsersMap.has(user.id)
+        ? (clerkUsersMap.get(user.id) ? new Date(clerkUsersMap.get(user.id)!).toISOString() : null)
+        : null,
     }));
 
     return transformedUsers;

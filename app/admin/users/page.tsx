@@ -239,6 +239,7 @@ export default function UsersManagementPage() {
                 <th className="text-left p-4 font-medium">Role</th>
                 <th className="text-left p-4 font-medium">Campus</th>
                 <th className="text-left p-4 font-medium">Status</th>
+                <th className="text-left p-4 font-medium">Last Login</th>
                 <th className="text-left p-4 font-medium">Created</th>
                 <th className="text-right p-4 font-medium">Actions</th>
               </tr>
@@ -276,6 +277,11 @@ export default function UsersManagementPage() {
                         {user.status}
                       </span>
                     )}
+                  </td>
+                  <td className="p-4 text-sm text-muted-foreground">
+                    {user.last_sign_in_at
+                      ? format(new Date(user.last_sign_in_at), 'MMM d, yyyy')
+                      : '—'}
                   </td>
                   <td className="p-4 text-sm text-muted-foreground">
                     {format(new Date(user.created_at), 'MMM d, yyyy')}
