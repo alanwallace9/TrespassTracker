@@ -20,14 +20,41 @@ export type AuditLog = {
   details: Record<string, any> | null;
   ip_address: string | null;
   user_agent: string | null;
+  record_subject_name: string | null;
+  tenant_id: string | null;
   created_at: string;
 };
 
+export type AuditLogFilters = {
+  actorEmail?: string;
+  recordSubjectName?: string;
+  recordId?: string;
+  eventTypes?: string[];
+  dateFrom?: string;
+  dateTo?: string;
+  campusId?: string;
+};
+
+export type PaginationParams = {
+  page?: number;
+  limit?: number;
+};
+
+export type AuditLogsResponse = {
+  logs: AuditLog[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
 /**
- * Get audit logs for admin view
+ * Get audit logs for admin view with filters and pagination
  * Only accessible by master_admin and district_admin
  */
-export async function getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+export async function getAuditLogs(
+  filters?: AuditLogFilters,
+  pagination?: PaginationParams
+): Promise<AuditLogsResponse> {
   try {
     const { userId } = await auth();
 
@@ -46,19 +73,64 @@ export async function getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
       throw new Error('Unauthorized: Admin access required');
     }
 
-    // Get audit logs
-    const { data: logs, error } = await supabaseAdmin
+    // Pagination params
+    const page = pagination?.page || 1;
+    const limit = pagination?.limit || 50;
+    const offset = (page - 1) * limit;
+
+    // Build query with filters
+    let query = supabaseAdmin
       .from('admin_audit_log')
-      .select('*')
+      .select('*', { count: 'exact' });
+
+    // Apply filters
+    if (filters?.actorEmail) {
+      query = query.ilike('actor_email', `%${filters.actorEmail}%`);
+    }
+
+    if (filters?.recordSubjectName) {
+      query = query.ilike('record_subject_name', `%${filters.recordSubjectName}%`);
+    }
+
+    if (filters?.recordId) {
+      query = query.eq('target_id', filters.recordId);
+    }
+
+    if (filters?.eventTypes && filters.eventTypes.length > 0) {
+      query = query.in('event_type', filters.eventTypes);
+    }
+
+    if (filters?.dateFrom) {
+      query = query.gte('created_at', filters.dateFrom);
+    }
+
+    if (filters?.dateTo) {
+      query = query.lte('created_at', filters.dateTo);
+    }
+
+    if (filters?.campusId) {
+      // Filter by campus through details JSONB field
+      query = query.contains('details', { campus_id: filters.campusId });
+    }
+
+    // Apply ordering and pagination
+    const { data: logs, error, count } = await query
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       logger.error('[getAuditLogs] Error fetching audit logs', error);
       throw new Error('Failed to fetch audit logs');
     }
 
-    return logs || [];
+    const totalPages = Math.ceil((count || 0) / limit);
+
+    return {
+      logs: logs || [],
+      total: count || 0,
+      page,
+      totalPages,
+    };
   } catch (error: any) {
     logger.error('[getAuditLogs] Error', { error: error.message });
     throw error;

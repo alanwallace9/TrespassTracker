@@ -21,7 +21,8 @@ export type AuditEventType =
   | 'invitation.revoked'
   | 'record.created'
   | 'record.updated'
-  | 'record.deleted';
+  | 'record.deleted'
+  | 'record.viewed';
 
 interface AuditLogEntry {
   eventType: AuditEventType;
@@ -31,6 +32,8 @@ interface AuditLogEntry {
   targetId?: string;
   action: string;
   details?: Record<string, any>;
+  recordSubjectName?: string;  // Student/record name for FERPA searches
+  tenantId?: string;            // Tenant ID for filtering
 }
 
 /**
@@ -48,6 +51,8 @@ export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
       target_id: entry.targetId,
       action: entry.action,
       details: entry.details,
+      record_subject_name: entry.recordSubjectName,
+      tenant_id: entry.tenantId,
     });
 
     if (error) {

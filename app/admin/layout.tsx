@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Building2, History, LayoutDashboard, ArrowLeft } from 'lucide-react';
+import { Shield, Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminLayout({
@@ -89,6 +89,11 @@ export default function AdminLayout({
       href: '/admin/audit-logs',
       label: 'Audit Logs',
       icon: History,
+    },
+    {
+      href: '/admin/reports',
+      label: 'Reports',
+      icon: FileBarChart,
     },
   ];
 
