@@ -41,12 +41,7 @@ export async function getUsersForAdmin(): Promise<AdminUserListItem[]> {
     // Get all users for the tenant (including soft-deleted)
     const { data: users, error } = await supabaseAdmin
       .from('user_profiles')
-      .select(`
-        *,
-        campuses:campus_id (
-          name
-        )
-      `)
+      .select('*')
       .eq('tenant_id', adminProfile.tenant_id)
       .order('created_at', { ascending: false });
 
@@ -55,10 +50,18 @@ export async function getUsersForAdmin(): Promise<AdminUserListItem[]> {
       throw new Error('Failed to fetch users');
     }
 
+    // Get all campuses for lookup
+    const { data: campuses } = await supabaseAdmin
+      .from('campuses')
+      .select('id, name')
+      .eq('tenant_id', adminProfile.tenant_id);
+
+    const campusMap = new Map(campuses?.map(c => [c.id, c.name]) || []);
+
     // Transform the data to include campus name
     const transformedUsers: AdminUserListItem[] = (users || []).map(user => ({
       ...user,
-      campus_name: (user.campuses as any)?.name || null,
+      campus_name: user.campus_id ? campusMap.get(user.campus_id) || null : null,
     }));
 
     return transformedUsers;
