@@ -69,16 +69,18 @@ type InviteUserParams = {
   email: string;
   role: 'viewer' | 'campus_admin' | 'district_admin';
   campusId?: string | null;
+  tenantId?: string | null; // Optional: master_admin can specify tenant, others use subdomain
 };
 
 /**
  * Invite a new user by creating them in Clerk with proper metadata
  * The user will receive an email to set their password
  *
- * Security: tenant_id is derived from the subdomain, ensuring admins
- * can only invite users to their own tenant.
+ * Security:
+ * - For district_admin/campus_admin: tenant_id is derived from subdomain (strict isolation)
+ * - For master_admin: can optionally specify tenantId to invite to any tenant they manage
  */
-export async function inviteUser({ email, role, campusId }: InviteUserParams) {
+export async function inviteUser({ email, role, campusId, tenantId }: InviteUserParams) {
   try {
     const { userId } = await auth();
 
@@ -86,59 +88,78 @@ export async function inviteUser({ email, role, campusId }: InviteUserParams) {
       throw new Error('Not authenticated');
     }
 
-    logger.info('[inviteUser] Starting invitation process', { email, role, campusId, userId });
+    logger.info('[inviteUser] Starting invitation process', { email, role, campusId, tenantId, userId });
 
-    // Get tenant_id from subdomain (this is the source of truth)
-    let subdomainTenantId: string;
-    try {
-      subdomainTenantId = await getTenantIdFromSubdomain();
-      logger.info('[inviteUser] Tenant ID from subdomain', { subdomainTenantId });
-    } catch (error: any) {
-      logger.error('[inviteUser] Failed to get tenant from subdomain', { error: error.message });
-      throw new Error(`Failed to determine your organization: ${error.message}`);
+    // Get current user's profile to verify permissions
+    const { data: adminProfile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('tenant_id, role')
+      .eq('id', userId)
+      .single();
+
+    if (!adminProfile) {
+      throw new Error('Admin profile not found');
     }
 
-  // Get current user's profile to verify permissions
-  const { data: adminProfile } = await supabaseAdmin
-    .from('user_profiles')
-    .select('tenant_id, role')
-    .eq('id', userId)
-    .single();
+    // Validate permissions
+    if (!['district_admin', 'master_admin'].includes(adminProfile.role)) {
+      throw new Error('Only district and master admins can invite users');
+    }
 
-  if (!adminProfile) {
-    throw new Error('Admin profile not found');
-  }
+    // Determine target tenant based on role
+    let targetTenantId: string;
 
-  // Validate permissions
-  if (!['district_admin', 'master_admin'].includes(adminProfile.role)) {
-    throw new Error('Only district and master admins can invite users');
-  }
+    if (adminProfile.role === 'master_admin' && tenantId) {
+      // Master admin can invite to specified tenant
+      // Validate that the tenant exists
+      const { data: tenant, error: tenantError } = await supabaseAdmin
+        .from('tenants')
+        .select('id')
+        .eq('id', tenantId)
+        .single();
 
-  // SECURITY: Verify admin's tenant matches the subdomain tenant
-  // This prevents cross-tenant invitation attacks
-  if (adminProfile.tenant_id !== subdomainTenantId) {
-    logger.error('Tenant mismatch during user invitation', {
-      adminTenant: adminProfile.tenant_id,
-      subdomainTenant: subdomainTenantId,
-      adminId: userId,
-    });
-    throw new Error('You can only invite users to your own organization');
-  }
+      if (tenantError || !tenant) {
+        throw new Error('Invalid tenant specified');
+      }
 
-  // Validate campus_id for campus_admin role
-  if (role === 'campus_admin' && !campusId) {
-    throw new Error('Campus admin users must have a campus assigned');
-  }
+      targetTenantId = tenantId;
+      logger.info('[inviteUser] Master admin inviting to specified tenant', { targetTenantId });
+    } else {
+      // District/campus admin: use subdomain (strict isolation)
+      // Master admin without tenantId: also use subdomain
+      try {
+        targetTenantId = await getTenantIdFromSubdomain();
+        logger.info('[inviteUser] Using tenant from subdomain', { targetTenantId });
+      } catch (error: any) {
+        logger.error('[inviteUser] Failed to get tenant from subdomain', { error: error.message });
+        throw new Error(`Failed to determine your organization: ${error.message}`);
+      }
 
-  // Prepare metadata using subdomain-derived tenant_id
-  const metadata: {
-    role: string;
-    tenant_id: string;
-    campus_id?: string;
-  } = {
-    role,
-    tenant_id: subdomainTenantId, // Use subdomain tenant, not admin's profile
-  };
+      // SECURITY: For non-master-admin, verify their tenant matches subdomain
+      if (adminProfile.role !== 'master_admin' && adminProfile.tenant_id !== targetTenantId) {
+        logger.error('Tenant mismatch during user invitation', {
+          adminTenant: adminProfile.tenant_id,
+          subdomainTenant: targetTenantId,
+          adminId: userId,
+        });
+        throw new Error('You can only invite users to your own organization');
+      }
+    }
+
+    // Validate campus_id for campus_admin role
+    if (role === 'campus_admin' && !campusId) {
+      throw new Error('Campus admin users must have a campus assigned');
+    }
+
+    // Prepare metadata using target tenant_id
+    const metadata: {
+      role: string;
+      tenant_id: string;
+      campus_id?: string;
+    } = {
+      role,
+      tenant_id: targetTenantId,
+    };
 
   if (campusId) {
     metadata.campus_id = campusId;
@@ -179,7 +200,7 @@ export async function inviteUser({ email, role, campusId }: InviteUserParams) {
         email,
         role,
         campusId,
-        tenantId: subdomainTenantId,
+        tenantId: targetTenantId,
       },
     });
 

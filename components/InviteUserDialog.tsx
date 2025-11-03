@@ -8,7 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { inviteUser } from '@/app/actions/invite-user';
-import { getCampuses, type Campus } from '@/app/actions/campuses';
+import { getCampuses } from '@/app/actions/admin/campuses';
+import { useAdminTenantOptional } from '@/contexts/AdminTenantContext';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Campus } from '@/lib/supabase';
 import { Mail, UserPlus } from 'lucide-react';
 
 type InviteUserDialogProps = {
@@ -18,6 +21,8 @@ type InviteUserDialogProps = {
 };
 
 export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUserDialogProps) {
+  const adminTenantContext = useAdminTenantOptional();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'viewer' | 'campus_admin' | 'district_admin'>('viewer');
@@ -26,17 +31,22 @@ export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUs
   const [loadingCampuses, setLoadingCampuses] = useState(false);
   const { toast } = useToast();
 
-  // Fetch campuses when dialog opens
+  const isMasterAdmin = user?.user_metadata?.role === 'master_admin';
+  // Use selected tenant from admin context if available, otherwise use user's tenant
+  const selectedTenantId = adminTenantContext?.selectedTenantId || user?.user_metadata?.tenant_id || null;
+
+  // Fetch campuses when dialog opens or tenant changes
   useEffect(() => {
-    if (open) {
+    if (open && selectedTenantId) {
       fetchCampuses();
     }
-  }, [open]);
+  }, [open, selectedTenantId]);
 
   const fetchCampuses = async () => {
+    if (!selectedTenantId) return;
     setLoadingCampuses(true);
     try {
-      const data = await getCampuses();
+      const data = await getCampuses(selectedTenantId);
       setCampuses(data);
     } catch (error: any) {
       console.error('Error fetching campuses:', error);
@@ -75,6 +85,8 @@ export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUs
         email,
         role,
         campusId: role === 'campus_admin' ? campusId : null,
+        // Master admin can invite to selected tenant, others use subdomain
+        tenantId: isMasterAdmin ? selectedTenantId : null,
       });
 
       toast({

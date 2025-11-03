@@ -19,8 +19,9 @@ export type AdminStats = {
 /**
  * Get overview statistics for admin dashboard
  * Only accessible by master_admin
+ * @param tenantId - Optional tenant ID to fetch stats for (defaults to user's tenant)
  */
-export async function getAdminStats(): Promise<AdminStats> {
+export async function getAdminStats(tenantId?: string): Promise<AdminStats> {
   try {
     const { userId } = await auth();
 
@@ -39,21 +40,24 @@ export async function getAdminStats(): Promise<AdminStats> {
       throw new Error('Unauthorized: Master admin access required');
     }
 
+    // Use provided tenantId or fall back to user's tenant_id
+    const targetTenantId = tenantId || adminProfile.tenant_id;
+
     // Get all stats for the tenant
     const [usersResult, campusesResult, recordsResult] = await Promise.all([
       supabaseAdmin
         .from('user_profiles')
         .select('id, status, deleted_at', { count: 'exact' })
-        .eq('tenant_id', adminProfile.tenant_id),
+        .eq('tenant_id', targetTenantId),
       supabaseAdmin
         .from('campuses')
         .select('id', { count: 'exact' })
-        .eq('tenant_id', adminProfile.tenant_id)
+        .eq('tenant_id', targetTenantId)
         .is('deleted_at', null),
       supabaseAdmin
         .from('trespass_records')
         .select('id', { count: 'exact' })
-        .eq('tenant_id', adminProfile.tenant_id),
+        .eq('tenant_id', targetTenantId),
     ]);
 
     const totalUsers = usersResult.count || 0;

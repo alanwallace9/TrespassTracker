@@ -15,6 +15,7 @@ export type BulkUserRow = {
   email: string;
   role: 'viewer' | 'campus_admin' | 'district_admin';
   campus_id?: string;
+  tenant_id?: string; // Optional: for master_admin to invite to specific tenant
 };
 
 export type BulkInviteResult = {
@@ -37,7 +38,12 @@ type BulkInviteResponse = {
 /**
  * Validate a single user row before processing
  */
-async function validateUserRow(row: BulkUserRow, validCampusIds: Set<string>): Promise<string | null> {
+async function validateUserRow(
+  row: BulkUserRow,
+  validCampusIds: Set<string>,
+  validTenantIds: Set<string>,
+  isMasterAdmin: boolean
+): Promise<string | null> {
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(row.email)) {
@@ -57,6 +63,16 @@ async function validateUserRow(row: BulkUserRow, validCampusIds: Set<string>): P
     }
     if (!validCampusIds.has(row.campus_id)) {
       return `Invalid campus_id: ${row.campus_id}`;
+    }
+  }
+
+  // Validate tenant_id if provided (only master_admin should use this)
+  if (row.tenant_id) {
+    if (!isMasterAdmin) {
+      return 'Only master_admin can specify tenant_id';
+    }
+    if (!validTenantIds.has(row.tenant_id)) {
+      return `Invalid tenant_id: ${row.tenant_id}`;
     }
   }
 
@@ -101,6 +117,8 @@ export async function bulkInviteUsers(users: BulkUserRow[]): Promise<BulkInviteR
       throw new Error('Only district and master admins can bulk invite users');
     }
 
+    const isMasterAdmin = adminProfile.role === 'master_admin';
+
     // Fetch valid campus IDs for validation
     const { data: campuses } = await supabaseAdmin
       .from('campuses')
@@ -113,10 +131,22 @@ export async function bulkInviteUsers(users: BulkUserRow[]): Promise<BulkInviteR
 
     logger.info('[bulkInviteUsers] Valid campuses loaded', { count: validCampusIds.size });
 
+    // Fetch valid tenant IDs if master_admin
+    let validTenantIds = new Set<string>();
+    if (isMasterAdmin) {
+      const { data: tenants } = await supabaseAdmin
+        .from('tenants')
+        .select('id')
+        .eq('status', 'active');
+
+      validTenantIds = new Set(tenants?.map(t => t.id) || []);
+      logger.info('[bulkInviteUsers] Valid tenants loaded', { count: validTenantIds.size });
+    }
+
     // Validate all rows first
     const validationErrors: Map<string, string> = new Map();
     for (const user of users) {
-      const error = await validateUserRow(user, validCampusIds);
+      const error = await validateUserRow(user, validCampusIds, validTenantIds, isMasterAdmin);
       if (error) {
         validationErrors.set(user.email, error);
       }
@@ -145,6 +175,7 @@ export async function bulkInviteUsers(users: BulkUserRow[]): Promise<BulkInviteR
           email: user.email,
           role: user.role,
           campusId: user.campus_id || null,
+          tenantId: user.tenant_id || null, // Master admin can specify tenant
         });
 
         results.push({

@@ -54,7 +54,7 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <head>
           {/* Load theme instantly from localStorage to prevent flash */}
           <script

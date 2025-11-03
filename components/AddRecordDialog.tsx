@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { createTrespassRecord } from '@/app/actions/upload-records';
+import { getCampuses, type Campus } from '@/app/actions/campuses';
+import { getUserProfile } from '@/app/actions/users';
+import { useUser } from '@clerk/nextjs';
 import { Upload } from 'lucide-react';
 
 type AddRecordDialogProps = {
@@ -22,8 +25,13 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
   const [isLoading, setIsLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [userRole, setUserRole] = useState<string>('');
+  const [userCampusId, setUserCampusId] = useState<string | null>(null);
+  const [campusesLoading, setCampusesLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { user } = useUser();
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -40,9 +48,50 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
     expiration_date: '',
     trespassed_from: '',
     is_former_student: false,
+    is_daep: false,
+    daep_expiration_date: '',
     notes: '',
     photo_url: '',
+    campus_id: '',
   });
+
+  // Fetch campuses and user profile when dialog opens
+  useEffect(() => {
+    if (open && user?.id) {
+      const fetchData = async () => {
+        setCampusesLoading(true);
+        try {
+          // Fetch user profile to get role and campus_id
+          const profile = await getUserProfile(user.id);
+          if (profile) {
+            setUserRole(profile.role);
+            setUserCampusId(profile.campus_id);
+
+            // Default campus_id to user's campus if available
+            if (profile.campus_id) {
+              setFormData(prev => ({ ...prev, campus_id: profile.campus_id }));
+            }
+          }
+
+          // Fetch all active campuses
+          const campusData = await getCampuses();
+          // Filter only active campuses
+          const activeCampuses = campusData.filter(c => c.status === 'active');
+          setCampuses(activeCampuses);
+        } catch (error: any) {
+          toast({
+            title: 'Error',
+            description: error.message || 'Failed to load campus data',
+            variant: 'destructive',
+          });
+        } finally {
+          setCampusesLoading(false);
+        }
+      };
+
+      fetchData();
+    }
+  }, [open, user, toast]);
 
   const handleFileChange = (file: File) => {
     if (file && file.type.startsWith('image/')) {
@@ -107,9 +156,12 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
         guardian_phone: formData.guardian_phone,
         contact_info: formData.contact_info,
         is_former_student: formData.is_former_student,
+        is_daep: formData.is_daep,
+        daep_expiration_date: formData.daep_expiration_date || undefined,
         notes: formData.notes,
         photo_url: formData.photo_url,
         status: 'active',
+        campus_id: formData.campus_id && formData.campus_id !== 'none' ? formData.campus_id : undefined,
       });
 
       toast({
@@ -132,8 +184,11 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
         expiration_date: '',
         trespassed_from: '',
         is_former_student: false,
+        is_daep: false,
+        daep_expiration_date: '',
         notes: '',
         photo_url: '',
+        campus_id: userCampusId || '', // Reset to user's campus or empty
       });
       setImagePreview(null);
 
@@ -211,9 +266,63 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox id="is_former_student" checked={formData.is_former_student} onCheckedChange={(checked) => setFormData({ ...formData, is_former_student: checked as boolean })} disabled={isLoading} />
-            <Label htmlFor="is_former_student" className="cursor-pointer font-normal">Former Student</Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox id="is_former_student" checked={formData.is_former_student} onCheckedChange={(checked) => setFormData({ ...formData, is_former_student: checked as boolean })} disabled={isLoading} />
+              <Label htmlFor="is_former_student" className="cursor-pointer font-normal">Former Student</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="is_daep" checked={formData.is_daep} onCheckedChange={(checked) => setFormData({ ...formData, is_daep: checked as boolean })} disabled={isLoading} />
+              <Label htmlFor="is_daep" className="cursor-pointer font-normal">DAEP</Label>
+            </div>
+          </div>
+
+          {formData.is_daep && (
+            <div className="space-y-2">
+              <Label htmlFor="daep_expiration_date">DAEP Expiration Date</Label>
+              <Input id="daep_expiration_date" type="date" value={formData.daep_expiration_date} onChange={(e) => setFormData({ ...formData, daep_expiration_date: e.target.value })} className="bg-input border-border" disabled={isLoading} />
+              <p className="text-xs text-muted-foreground">Separate from regular trespass expiration</p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="campus_id">Campus</Label>
+            <Select
+              value={formData.campus_id}
+              onValueChange={(value) => setFormData({ ...formData, campus_id: value })}
+              disabled={isLoading || campusesLoading || userRole === 'campus_admin'}
+            >
+              <SelectTrigger className="bg-input border-border">
+                <SelectValue placeholder={campusesLoading ? "Loading campuses..." : "Select campus (optional)"} />
+              </SelectTrigger>
+              <SelectContent>
+                {userRole === 'campus_admin' && userCampusId ? (
+                  // Campus admin: Show only their campus
+                  campuses
+                    .filter(c => c.id === userCampusId)
+                    .map(campus => (
+                      <SelectItem key={campus.id} value={campus.id}>
+                        {campus.name}
+                      </SelectItem>
+                    ))
+                ) : (
+                  // District/Master admin: Show all active campuses
+                  <>
+                    <SelectItem value="none">No Campus (Unassigned)</SelectItem>
+                    {campuses.map(campus => (
+                      <SelectItem key={campus.id} value={campus.id}>
+                        {campus.name}
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+              </SelectContent>
+            </Select>
+            {userRole === 'campus_admin' && (
+              <p className="text-xs text-muted-foreground">
+                Records will be assigned to your campus
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

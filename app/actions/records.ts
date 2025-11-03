@@ -50,6 +50,7 @@ export async function createRecord(data: Omit<TrespassRecord, 'id' | 'created_at
       targetId: record.id,
       action: `Created trespass record for ${data.first_name} ${data.last_name}`,
       recordSubjectName: `${data.first_name} ${data.last_name}`,
+      recordSchoolId: data.school_id,
       tenantId: userProfile?.tenant_id || undefined,
       details: {
         incident_date: data.incident_date,
@@ -120,6 +121,7 @@ export async function updateRecord(id: string, data: Partial<TrespassRecord>) {
       targetId: record.id,
       action: `Updated trespass record for ${record.first_name} ${record.last_name}`,
       recordSubjectName: `${record.first_name} ${record.last_name}`,
+      recordSchoolId: record.school_id,
       tenantId: userProfile?.tenant_id || undefined,
       details: {
         changes,
@@ -173,11 +175,13 @@ export async function deleteRecord(id: string) {
       targetId: record.id,
       action: `Deleted trespass record for ${record.first_name} ${record.last_name}`,
       recordSubjectName: `${record.first_name} ${record.last_name}`,
+      recordSchoolId: record.school_id,
       tenantId: userProfile?.tenant_id || undefined,
       details: {
         deletedRecord: {
           first_name: record.first_name,
           last_name: record.last_name,
+          school_id: record.school_id,
           incident_type: record.incident_type,
           incident_date: record.incident_date,
         },
@@ -224,6 +228,7 @@ export async function getRecord(id: string) {
       targetId: record.id,
       action: `Viewed trespass record for ${record.first_name} ${record.last_name}`,
       recordSubjectName: `${record.first_name} ${record.last_name}`,
+      recordSchoolId: record.school_id,
       tenantId: userProfile?.tenant_id || undefined,
       details: {
         access_method: 'direct_view',

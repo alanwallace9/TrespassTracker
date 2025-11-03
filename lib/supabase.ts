@@ -10,6 +10,7 @@ export type TrespassRecord = {
   id: string;
   user_id: string;
   tenant_id: string;                                   // Tenant ID for multi-tenancy (required)
+  campus_id: string | null;                            // Campus ID for campus assignment (optional)
   first_name: string;
   last_name: string;
   school_id: string;                                   // Required - Student ID
@@ -30,6 +31,8 @@ export type TrespassRecord = {
   photo_url: string | null;
   status: 'active' | 'inactive';
   is_former_student: boolean;
+  is_daep: boolean;                                    // DAEP assignment flag
+  daep_expiration_date: string | null;                 // DAEP assignment expiration date (separate from trespass)
   created_at: string;
   updated_at: string;
 };

@@ -13,6 +13,8 @@ import { TrespassRecord, supabase, RecordPhoto, RecordDocument } from '@/lib/sup
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { updateRecord, deleteRecord } from '@/app/actions/records';
+import { getCampuses, type Campus } from '@/app/actions/campuses';
+import { getUserProfile } from '@/app/actions/users';
 import { format, parseISO } from 'date-fns';
 import { X, Upload } from 'lucide-react';
 import { PhotoGallery } from '@/components/PhotoGallery';
@@ -51,6 +53,9 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
   const [photos, setPhotos] = useState<RecordPhoto[]>([]);
   const [documents, setDocuments] = useState<RecordDocument[]>([]);
   const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [userCampusId, setUserCampusId] = useState<string | null>(null);
+  const [campusesLoading, setCampusesLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -70,8 +75,11 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
     expiration_date: '',
     trespassed_from: '',
     is_former_student: false,
+    is_daep: false,
+    daep_expiration_date: '',
     notes: '',
     photo_url: '',
+    campus_id: '',
   });
 
   useEffect(() => {
@@ -81,10 +89,34 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
   }, [user]);
 
   useEffect(() => {
-    if (open) {
+    if (open && user) {
       setIsEditing(false);
+      // Fetch campuses and user profile when dialog opens
+      fetchCampusesData();
     }
-  }, [open]);
+  }, [open, user]);
+
+  const fetchCampusesData = async () => {
+    if (!user) return;
+
+    setCampusesLoading(true);
+    try {
+      // Fetch user profile to get role and campus_id
+      const profile = await getUserProfile(user.id);
+      if (profile) {
+        setUserCampusId(profile.campus_id);
+      }
+
+      // Fetch all active campuses
+      const campusData = await getCampuses();
+      const activeCampuses = campusData.filter(c => c.status === 'active');
+      setCampuses(activeCampuses);
+    } catch (error) {
+      console.error('Failed to load campuses:', error);
+    } finally {
+      setCampusesLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (record) {
@@ -104,8 +136,11 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
         expiration_date: record.expiration_date || '',
         trespassed_from: record.trespassed_from || '',
         is_former_student: record.is_former_student || false,
+        is_daep: record.is_daep || false,
+        daep_expiration_date: record.daep_expiration_date || '',
         notes: record.notes || '',
         photo_url: record.photo_url || '',
+        campus_id: record.campus_id || '',
       });
       setImagePreview(record.photo_url || null);
 
@@ -210,8 +245,11 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
         expiration_date: formData.expiration_date, // Required field
         trespassed_from: formData.trespassed_from,
         is_former_student: formData.is_former_student,
+        is_daep: formData.is_daep,
+        daep_expiration_date: formData.daep_expiration_date || null,
         notes: formData.notes || null,
         photo_url: formData.photo_url || null,
+        campus_id: formData.campus_id || null,
       });
 
       // Update local state with fresh data from database
@@ -345,10 +383,24 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox id="is_former_student" checked={formData.is_former_student} onCheckedChange={(checked) => setFormData({ ...formData, is_former_student: checked as boolean })} />
-              <Label htmlFor="is_former_student" className="cursor-pointer font-normal">Former Student</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="is_former_student" checked={formData.is_former_student} onCheckedChange={(checked) => setFormData({ ...formData, is_former_student: checked as boolean })} />
+                <Label htmlFor="is_former_student" className="cursor-pointer font-normal">Former Student</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="is_daep" checked={formData.is_daep} onCheckedChange={(checked) => setFormData({ ...formData, is_daep: checked as boolean })} />
+                <Label htmlFor="is_daep" className="cursor-pointer font-normal">DAEP</Label>
+              </div>
             </div>
+
+            {formData.is_daep && (
+              <div className="space-y-2">
+                <Label htmlFor="daep_expiration_date">DAEP Expiration Date</Label>
+                <Input id="daep_expiration_date" type="date" value={formData.daep_expiration_date} onChange={(e) => setFormData({ ...formData, daep_expiration_date: e.target.value })} className="bg-input border-border" />
+                <p className="text-xs text-muted-foreground">Separate from regular trespass expiration</p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -363,8 +415,43 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="current_school">Current School</Label>
-                <Input id="current_school" value={formData.current_school} onChange={(e) => setFormData({ ...formData, current_school: e.target.value })} className="bg-input border-border" />
+                <Label htmlFor="campus_id">Campus</Label>
+                <Select
+                  value={formData.campus_id || '__unassigned__'}
+                  onValueChange={(value) => setFormData({ ...formData, campus_id: value === '__unassigned__' ? '' : value })}
+                  disabled={campusesLoading || userRole === 'campus_admin'}
+                >
+                  <SelectTrigger className="bg-input border-border">
+                    <SelectValue placeholder={campusesLoading ? "Loading campuses..." : "Select campus (optional)"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userRole === 'campus_admin' && userCampusId ? (
+                      // Campus admin: Show only their campus
+                      campuses
+                        .filter(c => c.id === userCampusId)
+                        .map(campus => (
+                          <SelectItem key={campus.id} value={campus.id}>
+                            {campus.name}
+                          </SelectItem>
+                        ))
+                    ) : (
+                      // District/Master admin: Show all active campuses
+                      <>
+                        <SelectItem value="__unassigned__">No Campus (Unassigned)</SelectItem>
+                        {campuses.map(campus => (
+                          <SelectItem key={campus.id} value={campus.id}>
+                            {campus.name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+                {userRole === 'campus_admin' && (
+                  <p className="text-xs text-muted-foreground">
+                    Restricted to your campus
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="contact_info">School Contact</Label>
@@ -482,8 +569,22 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
                     <div className="text-base">{currentRecord.is_former_student ? 'Yes' : 'No'}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">Current School</div>
-                    <div className="text-base">{currentRecord.current_school || 'N/A'}</div>
+                    <div className="text-sm text-muted-foreground mb-1">DAEP</div>
+                    <div className="text-base">{currentRecord.is_daep ? 'Yes' : 'No'}</div>
+                  </div>
+                  {currentRecord.is_daep && currentRecord.daep_expiration_date && (
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">DAEP Expires</div>
+                      <div className="text-base">{formatDateForDisplay(currentRecord.daep_expiration_date)}</div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">Campus</div>
+                    <div className="text-base">
+                      {currentRecord.campus_id
+                        ? campuses.find(c => c.id === currentRecord.campus_id)?.name || currentRecord.campus_id
+                        : 'Unassigned'}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">School Contact</div>

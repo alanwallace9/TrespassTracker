@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   FileBarChart,
   Eye,
@@ -15,11 +16,21 @@ import {
   Building2,
   Calendar,
   Download,
-  Clock
+  Clock,
+  X,
+  Table,
+  FileText,
 } from 'lucide-react';
 import { format, subDays, subMonths, startOfDay, endOfDay } from 'date-fns';
 import { getAuditLogs, type AuditLogFilters } from '@/app/actions/admin/audit-logs';
+import { searchRecords, type RecordSearchResult } from '@/app/actions/admin/search-records';
+import { getCampusesWithCounts } from '@/app/actions/admin/campuses';
+import { useAdminTenant } from '@/contexts/AdminTenantContext';
+import { Campus } from '@/lib/supabase';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type ReportType =
   | 'ferpa_access'
@@ -30,6 +41,7 @@ type ReportType =
   | 'custom';
 
 export default function ReportsPage() {
+  const { selectedTenantId } = useAdminTenant();
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [generating, setGenerating] = useState(false);
   const [dateRange, setDateRange] = useState('last_7_days');
@@ -39,10 +51,19 @@ export default function ReportsPage() {
   const [targetRecordId, setTargetRecordId] = useState('');
 
   // Quick Lookup state
-  const [quickLookupRecordId, setQuickLookupRecordId] = useState('');
-  const [quickLookupRecordName, setQuickLookupRecordName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<RecordSearchResult[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<RecordSearchResult | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupResults, setLookupResults] = useState<any[]>([]);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  // Preview modal state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewReport, setPreviewReport] = useState<ReportType | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Custom report filters
   const [customActorEmail, setCustomActorEmail] = useState('');
@@ -50,8 +71,30 @@ export default function ReportsPage() {
   const [customRecordId, setCustomRecordId] = useState('');
   const [customEventTypes, setCustomEventTypes] = useState<string[]>([]);
 
+  // Campus selection
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [selectedCampusId, setSelectedCampusId] = useState('');
+
   // Anomalies
   const [anomalies, setAnomalies] = useState<any[]>([]);
+
+  // Ref for scrolling to report cards section
+  const reportCardsRef = useRef<HTMLDivElement>(null);
+
+  // Load campuses when tenant changes
+  useEffect(() => {
+    if (!selectedTenantId) return;
+
+    const loadCampuses = async () => {
+      try {
+        const campusesData = await getCampusesWithCounts(selectedTenantId);
+        setCampuses(campusesData);
+      } catch (error) {
+        console.error('Error loading campuses:', error);
+      }
+    };
+    loadCampuses();
+  }, [selectedTenantId]);
 
   const reports = [
     {
@@ -104,6 +147,22 @@ export default function ReportsPage() {
     },
   ];
 
+  // Helper function to format modification details
+  const formatModificationDetails = (log: any): string => {
+    if (log.event_type === 'record.updated' && log.details?.changes) {
+      const changes = Object.entries(log.details.changes)
+        .map(([field, value]: [string, any]) => {
+          return `${field}: "${value.from}" → "${value.to}"`;
+        })
+        .join('; ');
+      return changes || log.action;
+    } else if (log.event_type === 'record.deleted' && log.details?.deletedRecord) {
+      const deleted = log.details.deletedRecord;
+      return `Deleted record: ${deleted.first_name} ${deleted.last_name}`;
+    }
+    return log.action;
+  };
+
   const getDateRange = () => {
     const now = new Date();
     switch (dateRange) {
@@ -137,10 +196,18 @@ export default function ReportsPage() {
     }
   };
 
-  const generateReport = async (reportType: ReportType) => {
-    setGenerating(true);
+  const generatePreview = async (reportType: ReportType) => {
+    setPreviewLoading(true);
+    setPreviewReport(reportType);
+    setPreviewOpen(true);
+    setPreviewData([]);
+
     try {
+      console.log('[Preview] Generating report:', reportType);
+
       const dates = getDateRange();
+      console.log('[Preview] Date range:', dates);
+
       let filters: AuditLogFilters = {
         dateFrom: dates.from,
         dateTo: dates.to,
@@ -161,7 +228,9 @@ export default function ReportsPage() {
           // Will need to aggregate in post-processing
           break;
         case 'campus_activity':
-          // Campus filter is applied in the main filters
+          if (selectedCampusId) {
+            filters.campusId = selectedCampusId;
+          }
           break;
         case 'modification_history':
           filters.eventTypes = ['record.created', 'record.updated', 'record.deleted'];
@@ -175,12 +244,11 @@ export default function ReportsPage() {
           break;
       }
 
-      // Fetch data
-      const response = await getAuditLogs(filters, { page: 1, limit: 10000 });
+      // Fetch data (limited to 100 for preview)
+      const response = await getAuditLogs(selectedTenantId, filters, { page: 1, limit: 100 });
+      console.log('[Preview] Audit logs response:', response);
 
-      // Generate CSV
       let csvData: any[];
-      let filename = `${reportType}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
 
       switch (reportType) {
         case 'ferpa_access':
@@ -188,9 +256,9 @@ export default function ReportsPage() {
             Timestamp: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss'),
             'Accessed By': log.actor_email || log.actor_id,
             'User Role': log.actor_role || 'N/A',
-            'Record/Student Name': log.record_subject_name || 'N/A',
-            'Record ID': log.target_id || 'N/A',
-            Action: log.action,
+            'Student Name': log.record_subject_name || 'N/A',
+            'Student ID': log.record_school_id || 'N/A',
+            Action: formatModificationDetails(log),
           }));
           break;
 
@@ -236,16 +304,27 @@ export default function ReportsPage() {
             }));
           break;
 
+        case 'campus_activity':
+          csvData = response.logs.map(log => ({
+            Timestamp: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss'),
+            'Event Type': log.event_type,
+            'User': log.actor_email || log.actor_id,
+            'User Role': log.actor_role || 'N/A',
+            'Student Name': log.record_subject_name || 'N/A',
+            Action: formatModificationDetails(log),
+          }));
+          break;
+
         case 'modification_history':
           csvData = response.logs.map(log => ({
             Timestamp: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss'),
             'Event Type': log.event_type,
             'Modified By': log.actor_email || log.actor_id,
             'User Role': log.actor_role || 'N/A',
-            'Record/Subject': log.record_subject_name || 'N/A',
-            Action: log.action,
+            'Student Name': log.record_subject_name || 'N/A',
+            'Student ID': log.record_school_id || 'N/A',
             'Fields Changed': log.details?.fieldsUpdated?.join(', ') || 'N/A',
-            Details: JSON.stringify(log.details?.changes || {}),
+            'Changes (Before → After)': formatModificationDetails(log),
           }));
           break;
 
@@ -261,36 +340,113 @@ export default function ReportsPage() {
           }));
       }
 
-      // Download CSV
-      const csv = Papa.unparse(csvData);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      link.click();
+      // Set preview data
+      console.log('[Preview] CSV data generated:', csvData.length, 'rows');
+      console.log('[Preview] Sample row:', csvData[0]);
+      setPreviewData(csvData);
 
     } catch (error) {
-      console.error('Error generating report:', error);
+      console.error('[Preview] Error generating report:', error);
     } finally {
-      setGenerating(false);
+      setPreviewLoading(false);
     }
   };
 
+  const exportPreviewAs = (exportFormat: 'csv' | 'pdf') => {
+    if (!previewData || previewData.length === 0) return;
+
+    const reportName = reports.find(r => r.id === previewReport)?.title || 'Report';
+    const filename = `${reportName.toLowerCase().replace(/\s+/g, '-')}-${format(new Date(), 'yyyy-MM-dd')}`;
+
+    if (exportFormat === 'csv') {
+      const csv = Papa.unparse(previewData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${filename}.csv`;
+      link.click();
+    } else if (exportFormat === 'pdf') {
+      const doc = new jsPDF('l', 'mm', 'a4');
+
+      // Add title
+      doc.setFontSize(16);
+      doc.text(reportName, 14, 15);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${format(new Date(), 'yyyy-MM-dd HH:mm:ss')}`, 14, 22);
+
+      // Extract headers and data
+      const headers = previewData[0] ? Object.keys(previewData[0]) : [];
+      const rows = previewData.map(row => Object.values(row)) as any;
+
+      // Create table
+      autoTable(doc, {
+        head: [headers],
+        body: rows,
+        startY: 28,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+
+      doc.save(`${filename}.pdf`);
+    }
+  };
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.length >= 3) {
+        try {
+          const results = await searchRecords(searchQuery, selectedTenantId);
+          setSearchResults(results);
+          setShowDropdown(results.length > 0);
+        } catch (error) {
+          console.error('Search error:', error);
+        }
+      } else {
+        setSearchResults([]);
+        setShowDropdown(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelectRecord = (record: RecordSearchResult) => {
+    setSelectedRecord(record);
+    setSearchQuery(`${record.first_name} ${record.last_name} (ID: ${record.school_id})`);
+    setShowDropdown(false);
+  };
+
   const handleQuickLookup = async () => {
+    if (!selectedRecord) return;
+
     setLookupLoading(true);
+    setLookupResults([]);
+    setAnomalies([]);
+
     try {
+      console.log('[Quick Lookup] Searching for record:', selectedRecord);
+
       const filters: AuditLogFilters = {
         eventTypes: ['record.viewed', 'record.updated', 'record.created'],
+        recordId: selectedRecord.id,
       };
 
-      if (quickLookupRecordId) {
-        filters.recordId = quickLookupRecordId;
-      }
-      if (quickLookupRecordName) {
-        filters.recordSubjectName = quickLookupRecordName;
-      }
+      const response = await getAuditLogs(selectedTenantId, filters, { page: 1, limit: 1000 });
+      console.log('[Quick Lookup] Response:', response);
 
-      const response = await getAuditLogs(filters, { page: 1, limit: 1000 });
       setLookupResults(response.logs);
 
       // Detect anomalies
@@ -376,32 +532,63 @@ export default function ReportsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-1">
-              <Label htmlFor="quickRecordId">Record ID</Label>
-              <Input
-                id="quickRecordId"
-                placeholder="Enter record ID..."
-                value={quickLookupRecordId}
-                onChange={(e) => setQuickLookupRecordId(e.target.value)}
-              />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-3 relative" ref={searchRef}>
+              <Label htmlFor="quickSearch">Search by Student Name or Student ID</Label>
+              <div className="relative">
+                <Input
+                  id="quickSearch"
+                  placeholder="Type at least 3 characters to search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+                  autoComplete="off"
+                />
+                {selectedRecord && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                    onClick={() => {
+                      setSelectedRecord(null);
+                      setSearchQuery('');
+                      setLookupResults([]);
+                      setAnomalies([]);
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Dropdown */}
+              {showDropdown && searchResults.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-popover border rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+                  {searchResults.map((record) => (
+                    <button
+                      key={record.id}
+                      className="w-full text-left px-4 py-3 hover:bg-accent hover:text-accent-foreground border-b last:border-b-0 transition-colors text-foreground"
+                      onClick={() => handleSelectRecord(record)}
+                    >
+                      <div className="font-medium">
+                        {record.first_name} {record.last_name}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Student ID: {record.school_id} • Status: {record.status}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="md:col-span-1">
-              <Label htmlFor="quickRecordName">Or Student Name</Label>
-              <Input
-                id="quickRecordName"
-                placeholder="Enter student name..."
-                value={quickLookupRecordName}
-                onChange={(e) => setQuickLookupRecordName(e.target.value)}
-              />
-            </div>
+
             <div className="flex items-end">
               <Button
                 onClick={handleQuickLookup}
-                disabled={lookupLoading || (!quickLookupRecordId && !quickLookupRecordName)}
+                disabled={lookupLoading || !selectedRecord}
                 className="w-full"
               >
-                {lookupLoading ? 'Searching...' : 'Search Access History'}
+                {lookupLoading ? 'Searching...' : 'View Access History'}
               </Button>
             </div>
           </div>
@@ -422,6 +609,20 @@ export default function ReportsPage() {
                   {anomaly.message}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!lookupLoading && selectedRecord && lookupResults.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-sm">
+                No access history found for this record. This could mean:
+              </p>
+              <ul className="text-sm mt-2 space-y-1">
+                <li>• The record has not been viewed yet</li>
+                <li>• Audit logging was not enabled when the record was accessed</li>
+                <li>• The database migration for FERPA logging needs to be applied</li>
+              </ul>
             </div>
           )}
 
@@ -496,7 +697,7 @@ export default function ReportsPage() {
       </Card>
 
       {/* Report Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div ref={reportCardsRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {reports.map((report) => {
           const Icon = report.icon;
           return (
@@ -505,7 +706,13 @@ export default function ReportsPage() {
               className={`cursor-pointer transition-all hover:shadow-md ${
                 selectedReport === report.id ? 'ring-2 ring-primary' : ''
               }`}
-              onClick={() => setSelectedReport(report.id)}
+              onClick={() => {
+                setSelectedReport(report.id);
+                // Scroll to top of report cards section
+                setTimeout(() => {
+                  reportCardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+              }}
             >
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -585,6 +792,25 @@ export default function ReportsPage() {
               </div>
             )}
 
+            {/* Campus Activity Specific */}
+            {selectedReport === 'campus_activity' && (
+              <div>
+                <Label htmlFor="campusSelect">Campus (Required)</Label>
+                <Select value={selectedCampusId} onValueChange={setSelectedCampusId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a campus..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {campuses.map((campus) => (
+                      <SelectItem key={campus.id} value={campus.id}>
+                        {campus.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Custom Report Filters */}
             {selectedReport === 'custom' && (
               <div className="space-y-4 border-t pt-4">
@@ -646,10 +872,18 @@ export default function ReportsPage() {
 
             {/* Generate Button */}
             <div className="flex gap-2 pt-4">
-              <Button onClick={() => generateReport(selectedReport)} disabled={generating}>
-                <Download className="w-4 h-4 mr-2" />
-                {generating ? 'Generating...' : 'Generate & Download CSV'}
+              <Button
+                onClick={() => generatePreview(selectedReport)}
+                disabled={generating || (selectedReport === 'campus_activity' && !selectedCampusId)}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Preview Report
               </Button>
+              {selectedReport === 'campus_activity' && !selectedCampusId && (
+                <p className="text-sm text-muted-foreground self-center">
+                  Please select a campus
+                </p>
+              )}
               <Button variant="outline" onClick={() => setSelectedReport(null)}>
                 Cancel
               </Button>
@@ -689,6 +923,80 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Preview Modal */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-6xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>
+              Report Preview: {reports.find(r => r.id === previewReport)?.title}
+            </DialogTitle>
+            <DialogDescription>
+              Showing first 100 results. Export to download full report.
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground mt-4">Generating preview...</p>
+            </div>
+          ) : previewData.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">
+                No data found for this report with the selected date range.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Try selecting a different date range or check if audit logs are being recorded.
+              </p>
+              <Button className="mt-4" variant="outline" onClick={() => setPreviewOpen(false)}>
+                Close
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-y-auto max-h-[50vh] border rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      {previewData[0] && Object.keys(previewData[0]).map((header) => (
+                        <th key={header} className="text-left p-3 font-medium whitespace-nowrap">
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y bg-white">
+                    {previewData.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-muted/50">
+                        {Object.values(row).map((cell: any, cellIdx) => (
+                          <td key={cellIdx} className="p-3 whitespace-nowrap">
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-4 border-t">
+                <Button variant="outline" onClick={() => setPreviewOpen(false)}>
+                  Close
+                </Button>
+                <Button variant="outline" onClick={() => exportPreviewAs('csv')}>
+                  <Table className="w-4 h-4 mr-2" />
+                  Export as CSV
+                </Button>
+                <Button onClick={() => exportPreviewAs('pdf')}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export as PDF
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

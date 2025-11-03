@@ -117,7 +117,7 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
   };
 
   const downloadTemplate = () => {
-    const template = 'email,role,campus_id\nadmin@example.com,campus_admin,010\nviewer@example.com,viewer,\ndistrict@example.com,district_admin,';
+    const template = 'email,role,campus_id,tenant_id\nadmin@example.com,campus_admin,010,\nviewer@example.com,viewer,,\ndistrict@example.com,district_admin,,birdville';
     const blob = new Blob([template], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -207,6 +207,7 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
                   <li>• <strong>email</strong>: User's email address (required)</li>
                   <li>• <strong>role</strong>: viewer, campus_admin, or district_admin (required)</li>
                   <li>• <strong>campus_id</strong>: Campus number like 010, 042 (required for campus_admin only)</li>
+                  <li>• <strong>tenant_id</strong>: Tenant ID like birdville, demo (optional, master_admin only)</li>
                 </ul>
               </div>
             </div>
@@ -236,6 +237,7 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
                         <th className="text-left p-2 font-medium">Email</th>
                         <th className="text-left p-2 font-medium">Role</th>
                         <th className="text-left p-2 font-medium">Campus ID</th>
+                        <th className="text-left p-2 font-medium">Tenant ID</th>
                         <th className="text-left p-2 font-medium">Status</th>
                       </tr>
                     </thead>
@@ -249,6 +251,7 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
                           <td className="p-2">{row.email}</td>
                           <td className="p-2">{row.role}</td>
                           <td className="p-2">{row.campus_id || '—'}</td>
+                          <td className="p-2">{row.tenant_id || '—'}</td>
                           <td className="p-2">
                             {row.validationError ? (
                               <span className="flex items-center text-red-600 text-xs">

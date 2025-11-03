@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building2, FileText, Activity } from 'lucide-react';
 import { getAdminStats, type AdminStats } from '@/app/actions/admin/overview';
+import { useAdminTenant } from '@/contexts/AdminTenantContext';
 
 export default function AdminOverview() {
+  const { selectedTenantId } = useAdminTenant();
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     activeUsers: 0,
@@ -16,8 +18,11 @@ export default function AdminOverview() {
 
   useEffect(() => {
     async function fetchStats() {
+      if (!selectedTenantId) return;
+
       try {
-        const data = await getAdminStats();
+        setLoading(true);
+        const data = await getAdminStats(selectedTenantId);
         setStats(data);
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -27,7 +32,7 @@ export default function AdminOverview() {
     }
 
     fetchStats();
-  }, []);
+  }, [selectedTenantId]);
 
   const statCards = [
     {

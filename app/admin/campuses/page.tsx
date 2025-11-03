@@ -1,40 +1,63 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCampusesWithCounts, getUsersForCampus, getRecordsForCampus, type CampusWithCounts } from '@/app/actions/admin/campuses';
+import { getCampusesWithCounts, getUsersForCampus, getRecordsForCampus, activateCampus, type CampusWithCounts } from '@/app/actions/admin/campuses';
 import { type AdminUserListItem } from '@/app/actions/admin/users';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { RefreshCw, Search, Users, FileText } from 'lucide-react';
+import { AddCampusDialog } from '@/components/AddCampusDialog';
+import { EditCampusDialog } from '@/components/EditCampusDialog';
+import { RecordDetailDialog } from '@/components/RecordDetailDialog';
+import { useToast } from '@/hooks/use-toast';
+import { useAdminTenant } from '@/contexts/AdminTenantContext';
+import { RefreshCw, Search, Users, FileText, Plus, Pencil, CheckCircle, FileSpreadsheet, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function CampusesManagementPage() {
+  const { selectedTenantId } = useAdminTenant();
   const [campuses, setCampuses] = useState<CampusWithCounts[]>([]);
   const [filteredCampuses, setFilteredCampuses] = useState<CampusWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const { toast } = useToast();
 
   // Modal states
   const [usersModalOpen, setUsersModalOpen] = useState(false);
   const [recordsModalOpen, setRecordsModalOpen] = useState(false);
+  const [addCampusDialogOpen, setAddCampusDialogOpen] = useState(false);
+  const [editCampusDialogOpen, setEditCampusDialogOpen] = useState(false);
+  const [recordDetailOpen, setRecordDetailOpen] = useState(false);
   const [selectedCampus, setSelectedCampus] = useState<CampusWithCounts | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [modalUsers, setModalUsers] = useState<AdminUserListItem[]>([]);
   const [modalRecords, setModalRecords] = useState<any[]>([]);
   const [modalLoading, setModalLoading] = useState(false);
 
+  // Pagination states
+  const [usersPage, setUsersPage] = useState(1);
+  const [recordsPage, setRecordsPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
+
   useEffect(() => {
-    fetchCampuses();
-  }, []);
+    if (selectedTenantId) {
+      fetchCampuses();
+    }
+  }, [selectedTenantId]);
 
   useEffect(() => {
     filterCampuses();
   }, [campuses, searchQuery]);
 
   const fetchCampuses = async () => {
+    if (!selectedTenantId) return;
+
     setLoading(true);
     try {
-      const data = await getCampusesWithCounts();
+      const data = await getCampusesWithCounts(selectedTenantId);
       setCampuses(data);
     } catch (error) {
       console.error('Error fetching campuses:', error);
@@ -61,6 +84,7 @@ export default function CampusesManagementPage() {
     setSelectedCampus(campus);
     setUsersModalOpen(true);
     setModalLoading(true);
+    setUsersPage(1); // Reset to first page
 
     try {
       const users = await getUsersForCampus(campus.id);
@@ -76,6 +100,7 @@ export default function CampusesManagementPage() {
     setSelectedCampus(campus);
     setRecordsModalOpen(true);
     setModalLoading(true);
+    setRecordsPage(1); // Reset to first page
 
     try {
       const records = await getRecordsForCampus(campus.id);
@@ -87,6 +112,160 @@ export default function CampusesManagementPage() {
     }
   };
 
+  const handleRecordClick = (record: any) => {
+    setSelectedRecord(record);
+    setRecordDetailOpen(true);
+  };
+
+  const handleRecordDetailClose = async (open: boolean) => {
+    setRecordDetailOpen(open);
+    if (!open) {
+      setSelectedRecord(null);
+
+      // Refresh the records list in case the record was edited
+      if (selectedCampus) {
+        setModalLoading(true);
+        try {
+          const records = await getRecordsForCampus(selectedCampus.id);
+          setModalRecords(records);
+        } catch (error) {
+          console.error('Error refreshing records:', error);
+        } finally {
+          setModalLoading(false);
+        }
+      }
+
+      // Also refresh the campus counts in case status changed
+      fetchCampuses();
+    }
+  };
+
+  const handleEditClick = (campus: CampusWithCounts) => {
+    setSelectedCampus(campus);
+    setEditCampusDialogOpen(true);
+  };
+
+  const handleActivateClick = async (campus: CampusWithCounts) => {
+    try {
+      await activateCampus(campus.id);
+      toast({
+        title: 'Success',
+        description: 'Campus activated successfully',
+      });
+      fetchCampuses();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to activate campus',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDialogSuccess = () => {
+    fetchCampuses();
+  };
+
+  const exportRecordsToExcel = (records: any[], campusName: string) => {
+    const data = records.map(r => ({
+      'Student ID': r.school_id,
+      'First Name': r.first_name,
+      'Last Name': r.last_name,
+      'Date of Birth': r.date_of_birth ? format(new Date(r.date_of_birth), 'yyyy-MM-dd') : '',
+      'Incident Date': r.incident_date ? format(new Date(r.incident_date), 'yyyy-MM-dd') : '',
+      'Expiration Date': format(new Date(r.expiration_date), 'yyyy-MM-dd'),
+      'Status': r.status,
+      'Trespassed From': r.trespassed_from,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Records');
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 12 }, // Student ID
+      { wch: 15 }, // First Name
+      { wch: 15 }, // Last Name
+      { wch: 12 }, // DOB
+      { wch: 12 }, // Incident Date
+      { wch: 12 }, // Expiration
+      { wch: 10 }, // Status
+      { wch: 25 }, // Trespassed From
+    ];
+
+    XLSX.writeFile(wb, `${campusName.replace(/\s+/g, '-')}-records-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+
+    toast({
+      title: 'Success',
+      description: `Exported ${records.length} records to Excel`,
+    });
+  };
+
+  const exportRecordsToPDF = (records: any[], campusName: string) => {
+    const doc = new jsPDF('landscape');
+
+    // Add header
+    doc.setFontSize(16);
+    doc.text(`Trespass Records at ${campusName}`, 14, 15);
+
+    doc.setFontSize(10);
+    doc.setTextColor(220, 38, 38); // Red color
+    doc.text('CONFIDENTIAL - FERPA PROTECTED', 14, 22);
+
+    doc.setTextColor(0, 0, 0); // Reset to black
+    doc.text(`Generated: ${format(new Date(), 'MMM dd, yyyy HH:mm')}`, 14, 28);
+    doc.text(`Total Records: ${records.length}`, 14, 34);
+
+    // Prepare table data
+    const tableData = records.map(r => [
+      r.school_id,
+      `${r.first_name} ${r.last_name}`,
+      r.date_of_birth ? format(new Date(r.date_of_birth), 'MM/dd/yyyy') : '',
+      r.incident_date ? format(new Date(r.incident_date), 'MM/dd/yyyy') : '',
+      format(new Date(r.expiration_date), 'MM/dd/yyyy'),
+      r.status,
+    ]);
+
+    // Add table
+    autoTable(doc, {
+      startY: 38,
+      head: [['Student ID', 'Name', 'DOB', 'Incident Date', 'Expires', 'Status']],
+      body: tableData,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [220, 38, 38] }, // Red header for FERPA
+    });
+
+    // Add footer watermark
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      doc.text('CONFIDENTIAL', (doc as any).internal.pageSize.width / 2, (doc as any).internal.pageSize.height - 10, { align: 'center' });
+    }
+
+    doc.save(`${campusName.replace(/\s+/g, '-')}-records-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+
+    toast({
+      title: 'Success',
+      description: `Exported ${records.length} records to PDF`,
+    });
+  };
+
+  // Pagination calculations
+  const paginatedUsers = modalUsers.slice(
+    (usersPage - 1) * ITEMS_PER_PAGE,
+    usersPage * ITEMS_PER_PAGE
+  );
+  const totalUsersPages = Math.ceil(modalUsers.length / ITEMS_PER_PAGE);
+
+  const paginatedRecords = modalRecords.slice(
+    (recordsPage - 1) * ITEMS_PER_PAGE,
+    recordsPage * ITEMS_PER_PAGE
+  );
+  const totalRecordsPages = Math.ceil(modalRecords.length / ITEMS_PER_PAGE);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -96,10 +275,16 @@ export default function CampusesManagementPage() {
             Manage campus locations and assignments
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchCampuses}>
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchCampuses}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button size="sm" onClick={() => setAddCampusDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Campus
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -133,6 +318,7 @@ export default function CampusesManagementPage() {
                 <th className="text-left p-4 font-medium">Number of Users</th>
                 <th className="text-left p-4 font-medium">Number of Records</th>
                 <th className="text-left p-4 font-medium">Created</th>
+                <th className="text-left p-4 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -174,6 +360,28 @@ export default function CampusesManagementPage() {
                   <td className="p-4 text-sm text-muted-foreground">
                     {format(new Date(campus.created_at), 'MMM d, yyyy')}
                   </td>
+                  <td className="p-4">
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEditClick(campus)}
+                      >
+                        <Pencil className="w-3 h-3 mr-1" />
+                        Edit
+                      </Button>
+                      {campus.status === 'inactive' && (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleActivateClick(campus)}
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Activate
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -199,38 +407,80 @@ export default function CampusesManagementPage() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
             </div>
           ) : (
-            <div className="overflow-y-auto max-h-[60vh]">
-              <table className="w-full">
-                <thead className="bg-muted sticky top-0">
-                  <tr>
-                    <th className="text-left p-3 font-medium">Name</th>
-                    <th className="text-left p-3 font-medium">Email</th>
-                    <th className="text-left p-3 font-medium">Role</th>
-                    <th className="text-left p-3 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {modalUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td className="p-3">{user.display_name || '—'}</td>
-                      <td className="p-3 text-sm">{user.email}</td>
-                      <td className="p-3 text-sm">{user.role.replace('_', ' ')}</td>
-                      <td className="p-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          user.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : user.status === 'invited'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {user.status}
-                        </span>
-                      </td>
+            <>
+              <div className="overflow-y-auto max-h-[60vh]">
+                <table className="w-full">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="text-left p-3 font-medium">Name</th>
+                      <th className="text-left p-3 font-medium">Email</th>
+                      <th className="text-left p-3 font-medium">Role</th>
+                      <th className="text-left p-3 font-medium">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {paginatedUsers.length > 0 ? (
+                      paginatedUsers.map((user) => (
+                        <tr key={user.id}>
+                          <td className="p-3">{user.display_name || '—'}</td>
+                          <td className="p-3 text-sm">{user.email}</td>
+                          <td className="p-3 text-sm">{user.role.replace('_', ' ')}</td>
+                          <td className="p-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              user.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : user.status === 'invited'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {user.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                          No users assigned to this campus
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalUsersPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(usersPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(usersPage * ITEMS_PER_PAGE, modalUsers.length)} of {modalUsers.length} users
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUsersPage(p => Math.max(1, p - 1))}
+                      disabled={usersPage === 1}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Previous
+                    </Button>
+                    <div className="text-sm">
+                      Page {usersPage} of {totalUsersPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUsersPage(p => Math.min(totalUsersPages, p + 1))}
+                      disabled={usersPage === totalUsersPages}
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -238,54 +488,162 @@ export default function CampusesManagementPage() {
       {/* Records Modal */}
       <Dialog open={recordsModalOpen} onOpenChange={setRecordsModalOpen}>
         <DialogContent className="max-w-6xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Trespass Records at {selectedCampus?.name}</DialogTitle>
-            <DialogDescription>
-              {selectedCampus?.record_count} record{selectedCampus?.record_count !== 1 ? 's' : ''} for this campus
-            </DialogDescription>
+          <DialogHeader className="pb-4 border-b">
+            <div className="flex items-end justify-between">
+              <div className="flex-1">
+                <DialogTitle>Trespass Records at {selectedCampus?.name}</DialogTitle>
+                <DialogDescription>
+                  {selectedCampus?.record_count} record{selectedCampus?.record_count !== 1 ? 's' : ''} for this campus
+                </DialogDescription>
+              </div>
+              {/* Export Buttons */}
+              {!modalLoading && (
+                <div className="flex gap-2 mt-8">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportRecordsToExcel(modalRecords, selectedCampus?.name || 'Campus')}
+                    disabled={modalRecords.length === 0}
+                  >
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    Export Excel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportRecordsToPDF(modalRecords, selectedCampus?.name || 'Campus')}
+                    disabled={modalRecords.length === 0}
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Export PDF
+                  </Button>
+                </div>
+              )}
+            </div>
           </DialogHeader>
           {modalLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
             </div>
           ) : (
-            <div className="overflow-y-auto max-h-[60vh]">
-              <table className="w-full text-sm">
-                <thead className="bg-muted sticky top-0">
-                  <tr>
-                    <th className="text-left p-3 font-medium">Name</th>
-                    <th className="text-left p-3 font-medium">Incident Date</th>
-                    <th className="text-left p-3 font-medium">Type</th>
-                    <th className="text-left p-3 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {modalRecords.map((record) => (
-                    <tr key={record.id}>
-                      <td className="p-3">
-                        {record.first_name} {record.last_name}
-                      </td>
-                      <td className="p-3">{format(new Date(record.incident_date), 'MMM d, yyyy')}</td>
-                      <td className="p-3">{record.incident_type}</td>
-                      <td className="p-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                          record.status === 'active'
-                            ? 'bg-red-100 text-red-800'
-                            : record.status === 'expired'
-                            ? 'bg-gray-100 text-gray-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {record.status}
-                        </span>
-                      </td>
+            <>
+              {/* FERPA Warning Banner */}
+              <div className="flex items-start gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-yellow-900">FERPA Protected Data</p>
+                  <p className="text-xs text-yellow-800 mt-1">
+                    This information contains student educational records. Handle according to FERPA guidelines and your district's privacy policies. All access is logged.
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-y-auto max-h-[60vh]">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>
+                      <th className="text-left p-3 font-medium">Name</th>
+                      <th className="text-left p-3 font-medium">Incident Date</th>
+                      <th className="text-left p-3 font-medium">Expiration Date</th>
+                      <th className="text-left p-3 font-medium">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {paginatedRecords.length > 0 ? (
+                      paginatedRecords.map((record) => (
+                        <tr
+                          key={record.id}
+                          onClick={() => handleRecordClick(record)}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        >
+                          <td className="p-3">
+                            {record.first_name} {record.last_name}
+                          </td>
+                          <td className="p-3">
+                            {record.incident_date ? format(new Date(record.incident_date), 'MMM d, yyyy') : 'N/A'}
+                          </td>
+                          <td className="p-3">{format(new Date(record.expiration_date), 'MMM d, yyyy')}</td>
+                          <td className="p-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              record.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : record.status === 'expired'
+                                ? 'bg-gray-100 text-gray-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {record.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                          No records found for this campus
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalRecordsPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(recordsPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(recordsPage * ITEMS_PER_PAGE, modalRecords.length)} of {modalRecords.length} records
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRecordsPage(p => Math.max(1, p - 1))}
+                      disabled={recordsPage === 1}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Previous
+                    </Button>
+                    <div className="text-sm">
+                      Page {recordsPage} of {totalRecordsPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setRecordsPage(p => Math.min(totalRecordsPages, p + 1))}
+                      disabled={recordsPage === totalRecordsPages}
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add Campus Dialog */}
+      <AddCampusDialog
+        open={addCampusDialogOpen}
+        onOpenChange={setAddCampusDialogOpen}
+        onSuccess={handleDialogSuccess}
+      />
+
+      {/* Edit Campus Dialog */}
+      <EditCampusDialog
+        open={editCampusDialogOpen}
+        onOpenChange={setEditCampusDialogOpen}
+        campus={selectedCampus}
+        onSuccess={handleDialogSuccess}
+      />
+
+      {/* Record Detail Dialog */}
+      <RecordDetailDialog
+        record={selectedRecord}
+        open={recordDetailOpen}
+        onOpenChange={handleRecordDetailClose}
+      />
     </div>
   );
 }

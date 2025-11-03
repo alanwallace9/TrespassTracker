@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getAuditLogs, type AuditLog, type AuditLogFilters } from '@/app/actions/admin/audit-logs';
 import { getCampuses, type Campus } from '@/app/actions/campuses';
+import { useAdminTenant } from '@/contexts/AdminTenantContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +28,7 @@ const EVENT_TYPES = [
 ];
 
 export default function AuditLogsPage() {
+  const { selectedTenantId } = useAdminTenant();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,12 +51,16 @@ export default function AuditLogsPage() {
   const [selectedCampus, setSelectedCampus] = useState('');
 
   useEffect(() => {
-    fetchCampuses();
-  }, []);
+    if (selectedTenantId) {
+      fetchCampuses();
+    }
+  }, [selectedTenantId]);
 
   useEffect(() => {
-    fetchLogs();
-  }, [filters, page, limit]);
+    if (selectedTenantId) {
+      fetchLogs();
+    }
+  }, [selectedTenantId, filters, page, limit]);
 
   const fetchCampuses = async () => {
     try {
@@ -66,9 +72,11 @@ export default function AuditLogsPage() {
   };
 
   const fetchLogs = async () => {
+    if (!selectedTenantId) return;
+
     setLoading(true);
     try {
-      const response = await getAuditLogs(filters, { page, limit });
+      const response = await getAuditLogs(selectedTenantId, filters, { page, limit });
       setLogs(response.logs);
       setTotal(response.total);
       setTotalPages(response.totalPages);

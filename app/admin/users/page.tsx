@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { getUsersForAdmin, updateUserRole, deleteUser, type AdminUserListItem } from '@/app/actions/admin/users';
-import { getCampuses, type Campus } from '@/app/actions/campuses';
+import { getCampuses } from '@/app/actions/admin/campuses';
+import { useAdminTenant } from '@/contexts/AdminTenantContext';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Campus } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +18,8 @@ import { BulkUserUploadDialog } from '@/components/admin/BulkUserUploadDialog';
 import { format } from 'date-fns';
 
 export default function UsersManagementPage() {
+  const { selectedTenantId } = useAdminTenant();
+  const { user } = useAuth();
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<AdminUserListItem[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -32,20 +37,25 @@ export default function UsersManagementPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
 
+  const isMasterAdmin = user?.user_metadata?.role === 'master_admin';
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (selectedTenantId) {
+      fetchData();
+    }
+  }, [selectedTenantId]);
 
   useEffect(() => {
     filterUsers();
   }, [users, searchQuery, roleFilter, statusFilter]);
 
   const fetchData = async () => {
+    if (!selectedTenantId) return;
     setLoading(true);
     try {
       const [usersData, campusesData] = await Promise.all([
-        getUsersForAdmin(),
-        getCampuses(),
+        getUsersForAdmin(selectedTenantId),
+        getCampuses(selectedTenantId),
       ]);
       setUsers(usersData);
       setCampuses(campusesData);
@@ -204,7 +214,9 @@ export default function UsersManagementPage() {
             <SelectItem value="viewer">Viewer</SelectItem>
             <SelectItem value="campus_admin">Campus Admin</SelectItem>
             <SelectItem value="district_admin">District Admin</SelectItem>
-            <SelectItem value="master_admin">Master Admin</SelectItem>
+            {isMasterAdmin && (
+              <SelectItem value="master_admin">Master Admin</SelectItem>
+            )}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -341,7 +353,9 @@ export default function UsersManagementPage() {
                   <SelectItem value="viewer">Viewer</SelectItem>
                   <SelectItem value="campus_admin">Campus Admin</SelectItem>
                   <SelectItem value="district_admin">District Admin</SelectItem>
-                  <SelectItem value="master_admin">Master Admin</SelectItem>
+                  {isMasterAdmin && (
+                    <SelectItem value="master_admin">Master Admin</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

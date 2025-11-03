@@ -19,6 +19,8 @@ export type CSVRecordInput = {
   description?: string;
   status?: string;
   is_former_student?: boolean;
+  is_daep?: boolean;
+  daep_expiration_date?: string;
   known_associates?: string;
   current_school?: string;
   guardian_first_name?: string;
@@ -27,6 +29,7 @@ export type CSVRecordInput = {
   contact_info?: string;
   notes?: string;
   photo_url?: string;
+  campus_id?: string;
 };
 
 /**
@@ -78,6 +81,8 @@ export async function uploadTrespassRecords(records: CSVRecordInput[]) {
     description: record.description || null,
     status: record.status || 'active',
     is_former_student: record.is_former_student || false,
+    is_daep: record.is_daep || false,
+    daep_expiration_date: record.daep_expiration_date || null,
     known_associates: record.known_associates || null,
     current_school: record.current_school || null,
     guardian_first_name: record.guardian_first_name || null,
@@ -86,6 +91,7 @@ export async function uploadTrespassRecords(records: CSVRecordInput[]) {
     contact_info: record.contact_info || null,
     notes: record.notes || null,
     photo_url: record.photo_url || null,
+    campus_id: record.campus_id || null,
   }));
 
   console.log('[uploadTrespassRecords] Inserting records:', {
@@ -173,6 +179,8 @@ export async function createTrespassRecord(record: CSVRecordInput) {
       description: record.description || null,
       status: record.status || 'active',
       is_former_student: record.is_former_student || false,
+      is_daep: record.is_daep || false,
+      daep_expiration_date: record.daep_expiration_date || null,
       known_associates: record.known_associates || null,
       current_school: record.current_school || null,
       guardian_first_name: record.guardian_first_name || null,
@@ -181,6 +189,7 @@ export async function createTrespassRecord(record: CSVRecordInput) {
       contact_info: record.contact_info || null,
       notes: record.notes || null,
       photo_url: record.photo_url || null,
+      campus_id: record.campus_id || null,
     };
 
     console.log('[createTrespassRecord] Inserting record:', {

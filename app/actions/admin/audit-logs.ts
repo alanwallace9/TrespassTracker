@@ -21,6 +21,7 @@ export type AuditLog = {
   ip_address: string | null;
   user_agent: string | null;
   record_subject_name: string | null;
+  record_school_id: string | null;
   tenant_id: string | null;
   created_at: string;
 };
@@ -50,8 +51,10 @@ export type AuditLogsResponse = {
 /**
  * Get audit logs for admin view with filters and pagination
  * Only accessible by master_admin and district_admin
+ * @param tenantId - Optional tenant ID to fetch logs for (defaults to user's tenant)
  */
 export async function getAuditLogs(
+  tenantId?: string,
   filters?: AuditLogFilters,
   pagination?: PaginationParams
 ): Promise<AuditLogsResponse> {
@@ -65,7 +68,7 @@ export async function getAuditLogs(
     // Verify admin permission
     const { data: adminProfile } = await supabaseAdmin
       .from('user_profiles')
-      .select('role')
+      .select('role, tenant_id')
       .eq('id', userId)
       .single();
 
@@ -73,15 +76,19 @@ export async function getAuditLogs(
       throw new Error('Unauthorized: Admin access required');
     }
 
+    // Use provided tenantId or fall back to user's tenant_id
+    const targetTenantId = tenantId || adminProfile.tenant_id;
+
     // Pagination params
     const page = pagination?.page || 1;
     const limit = pagination?.limit || 50;
     const offset = (page - 1) * limit;
 
-    // Build query with filters
+    // Build query with filters - CRITICAL: Filter by tenant_id first
     let query = supabaseAdmin
       .from('admin_audit_log')
-      .select('*', { count: 'exact' });
+      .select('*', { count: 'exact' })
+      .eq('tenant_id', targetTenantId);
 
     // Apply filters
     if (filters?.actorEmail) {

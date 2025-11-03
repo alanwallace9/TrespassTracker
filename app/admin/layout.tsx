@@ -4,10 +4,12 @@ import { useUser } from '@clerk/nextjs';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Shield, Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Shield, Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart, Building } from 'lucide-react';
 import Link from 'next/link';
+import { AdminTenantProvider, useAdminTenant } from '@/contexts/AdminTenantContext';
 
-export default function AdminLayout({
+function AdminLayoutInner({
   children,
 }: {
   children: React.ReactNode;
@@ -17,6 +19,7 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [userRole, setUserRole] = useState<string>('viewer');
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const { tenants, selectedTenantId, setSelectedTenantId, tenantsLoading } = useAdminTenant();
 
   useEffect(() => {
     // Middleware already protects this route, so user will always be authenticated
@@ -119,12 +122,34 @@ export default function AdminLayout({
                 <p className="text-xs text-muted-foreground">Master Admin Controls</p>
               </div>
             </div>
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
+
+            <div className="flex items-center gap-4">
+              {/* Tenant Selector - Only for master_admin with multiple tenants */}
+              {userRole === 'master_admin' && tenants.length > 1 && !tenantsLoading && selectedTenantId && (
+                <div className="flex items-center gap-2">
+                  <Building className="w-4 h-4 text-muted-foreground" />
+                  <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select District" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenants.map((tenant) => (
+                        <SelectItem key={tenant.id} value={tenant.id}>
+                          {tenant.display_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Link href="/dashboard">
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -162,5 +187,17 @@ export default function AdminLayout({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <AdminTenantProvider>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </AdminTenantProvider>
   );
 }
