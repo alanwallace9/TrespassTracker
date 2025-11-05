@@ -126,7 +126,7 @@ export default function LoginPage() {
           <p className="text-xs text-slate-600">
             powered by{' '}
             <a
-              href="https://districttracker.com/trespass"
+              href="https://districttracker.com"
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 hover:underline font-medium"
