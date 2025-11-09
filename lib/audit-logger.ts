@@ -28,7 +28,8 @@ export type AuditEventType =
   | 'campus.activated'
   | 'campus.deactivated'
   | 'campus.users_exported'
-  | 'campus.records_exported';
+  | 'campus.records_exported'
+  | 'tenant.switched';
 
 interface AuditLogEntry {
   eventType: AuditEventType;

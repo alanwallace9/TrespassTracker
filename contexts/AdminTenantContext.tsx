@@ -1,21 +1,26 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useTransition } from 'react';
 import { getTenants, type Tenant } from '@/app/actions/admin/tenants';
+import { switchActiveTenant, getActiveTenant } from '@/app/actions/admin/switch-tenant';
+import { useRouter } from 'next/navigation';
 
 type AdminTenantContextType = {
   selectedTenantId: string | null;
-  setSelectedTenantId: (tenantId: string) => void;
+  setSelectedTenantId: (tenantId: string) => Promise<void>;
   tenants: Tenant[];
   tenantsLoading: boolean;
+  switching: boolean;
 };
 
 const AdminTenantContext = createContext<AdminTenantContextType | undefined>(undefined);
 
 export function AdminTenantProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantIdState] = useState<string | null>(null);
   const [tenantsLoading, setTenantsLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     loadTenants();
@@ -24,16 +29,19 @@ export function AdminTenantProvider({ children }: { children: ReactNode }) {
   const loadTenants = async () => {
     try {
       setTenantsLoading(true);
+
+      // Load all tenants
       const data = await getTenants();
       setTenants(data);
 
-      // Load selected tenant from localStorage or use first tenant
-      const savedTenantId = localStorage.getItem('selectedTenantId');
-      if (savedTenantId && data.some(t => t.id === savedTenantId)) {
-        setSelectedTenantIdState(savedTenantId);
+      // Get active tenant from database (source of truth)
+      const { tenantId } = await getActiveTenant();
+
+      if (tenantId) {
+        setSelectedTenantIdState(tenantId);
       } else if (data.length > 0) {
+        // Fallback to first tenant if no active tenant set
         setSelectedTenantIdState(data[0].id);
-        localStorage.setItem('selectedTenantId', data[0].id);
       }
     } catch (error) {
       console.error('[AdminTenantContext] Error loading tenants:', error);
@@ -42,9 +50,24 @@ export function AdminTenantProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const setSelectedTenantId = (tenantId: string) => {
+  const setSelectedTenantId = async (tenantId: string) => {
+    // Optimistically update UI
     setSelectedTenantIdState(tenantId);
-    localStorage.setItem('selectedTenantId', tenantId);
+
+    // Call server action to update database
+    startTransition(async () => {
+      const result = await switchActiveTenant(tenantId);
+
+      if (result.success) {
+        // Refresh the page to reload data with new tenant
+        router.refresh();
+      } else {
+        // Revert on error
+        console.error('[AdminTenantContext] Failed to switch tenant:', result.error);
+        // Reload to get correct state from database
+        await loadTenants();
+      }
+    });
   };
 
   return (
@@ -54,6 +77,7 @@ export function AdminTenantProvider({ children }: { children: ReactNode }) {
         setSelectedTenantId,
         tenants,
         tenantsLoading,
+        switching: isPending,
       }}
     >
       {children}

@@ -56,6 +56,43 @@
 
 ---
 
+## 🚀 IN PROGRESS - Pre-Demo Upgrades (2025-11-09)
+
+**Reference**: See `IMPLEMENTATION_PLAN_2025-11-09.md` for complete details
+
+### Phase 1: Secure Tenant Switching (CRITICAL - DO FIRST)
+- [ ] Create migration: Add `active_tenant_id` column to user_profiles
+- [ ] Update `get_my_tenant_id()` RLS function to check active_tenant_id
+- [ ] Create server action: `switchActiveTenant()` with audit logging
+- [ ] Update AdminTenantContext to use server action (remove localStorage)
+- [ ] Test tenant switching with bulk operations
+
+### Phase 2: Tenants Management Page
+- [ ] Create server actions: createTenant, updateTenant, deactivateTenant
+- [ ] Build Tenants admin page (table + create/edit dialogs)
+- [ ] Add "Tenants" to admin sidebar (master_admin only)
+- [ ] Test full onboarding workflow
+
+### Phase 3: Demo Environment
+- [ ] Create demo RLS policies (SELECT, INSERT, UPDATE for all auth users)
+- [ ] Build DemoRoleContext (viewer, campus_admin, district_admin switcher)
+- [ ] Create DemoBanner component with role dropdown
+- [ ] Create demo how-to page (`app/(demo)/demo-guide/page.tsx`)
+- [ ] Update demo reset cron (delete records/campuses, preserve user_profiles)
+
+### Phase 4: Feedback UX
+- [ ] Install sonner: `npm install sonner`
+- [ ] Add toast to UpvoteButton (non-auth users)
+- [ ] Update CommentsSection (clean FeedBear design)
+- [ ] Add future task: Resend email integration
+
+### Phase 5: Admin Panel Polish
+- [ ] Update logo to logo1.svg + "District Tracker" text
+- [ ] Allow district_admin access (no tenant dropdown, limited nav)
+- [ ] Filter navigation based on role (hide Feedback for district_admin)
+
+---
+
 ## 🎯 Week 1: Demo Environment Setup
 
 ### Demo Tenant & Data
