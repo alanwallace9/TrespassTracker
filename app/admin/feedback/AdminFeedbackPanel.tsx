@@ -111,13 +111,19 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
   const handleSaveEdit = async () => {
     if (!editingItem) return;
 
+    console.log('[Admin] Saving feedback:', { editingItem: editingItem.id, editForm });
+
     // Filter out empty status
     const updateData = {
       ...editForm,
       status: editForm.status || undefined,
     };
 
+    console.log('[Admin] Update data:', updateData);
+
     const result = await adminUpdateFeedback(editingItem.id, updateData as any);
+
+    console.log('[Admin] Save result:', result);
 
     if (result.success) {
       // Update local state
@@ -128,7 +134,9 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
       );
       setEditingItem(null);
       router.refresh();
+      console.log('[Admin] Save successful, dialog closed');
     } else {
+      console.error('[Admin] Save failed:', result.error);
       alert(`Error: ${result.error}`);
     }
   };
