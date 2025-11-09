@@ -50,13 +50,13 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted }: FeedbackDetai
   const statusConfig = STATUS_CONFIG[feedback.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.under_review;
   const typeLabel = TYPE_LABELS[feedback.feedback_type as keyof typeof TYPE_LABELS] || feedback.feedback_type;
 
-  const userName = feedback.user?.display_name || 'Alan';
+  const userName = feedback.user?.display_name || 'Anonymous';
   const userRole = feedback.user?.role
     ? feedback.user.role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-    : null;
+    : 'User';
   const userOrg = (feedback.user?.show_organization && feedback.user?.display_organization)
     ? feedback.user.display_organization
-    : 'DistrictTracker';
+    : null;
 
   return (
     <div className="min-h-screen bg-[#f9fafb]">
@@ -102,14 +102,14 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted }: FeedbackDetai
               {/* Meta Info */}
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <span>By {userName}</span>
-                {userRole && (
+                <span>•</span>
+                <span>{userRole}</span>
+                {userOrg && (
                   <>
                     <span>•</span>
-                    <span>{userRole}</span>
+                    <span>{userOrg}</span>
                   </>
                 )}
-                <span>•</span>
-                <span>{userOrg}</span>
                 <span>•</span>
                 <span>{formatDistanceToNow(new Date(feedback.created_at), { addSuffix: true })}</span>
               </div>
