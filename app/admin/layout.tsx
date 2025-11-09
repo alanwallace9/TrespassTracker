@@ -5,8 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Shield, Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart, Building, MessageSquare } from 'lucide-react';
+import { Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart, Building, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { AdminTenantProvider, useAdminTenant } from '@/contexts/AdminTenantContext';
 
 function AdminLayoutInner({
@@ -35,12 +36,12 @@ function AdminLayoutInner({
         publicMetadata: user.publicMetadata,
       });
 
-      // Only master_admin can access admin pages
-      if (role === 'master_admin') {
+      // Allow master_admin and district_admin to access admin pages
+      if (role === 'master_admin' || role === 'district_admin') {
         setIsAuthorized(true);
       } else {
-        console.log('[Admin Layout] Redirecting non-master_admin to dashboard');
-        // Redirect non-master admins to dashboard
+        console.log('[Admin Layout] Redirecting non-admin to dashboard');
+        // Redirect non-admins to dashboard
         router.push('/dashboard');
       }
     }
@@ -126,12 +127,18 @@ function AdminLayoutInner({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center border bg-primary">
-                <Shield className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <Image
+                src="/assets/logo1.svg"
+                alt="District Tracker Logo"
+                width={40}
+                height={40}
+                className="w-10 h-10"
+              />
               <div>
-                <h1 className="text-xl font-bold text-foreground">Admin Panel</h1>
-                <p className="text-xs text-muted-foreground">Master Admin Controls</p>
+                <h1 className="text-xl font-bold text-foreground">District Tracker</h1>
+                <p className="text-xs text-muted-foreground">
+                  {userRole === 'master_admin' ? 'Master Admin Panel' : 'Admin Panel'}
+                </p>
               </div>
             </div>
 
