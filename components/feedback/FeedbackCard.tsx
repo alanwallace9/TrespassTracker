@@ -64,8 +64,9 @@ export function FeedbackCard({ feedback, isUpvoted }: FeedbackCardProps) {
   const statusConfig = STATUS_CONFIG[feedback.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.under_review;
   const typeLabel = TYPE_LABELS[feedback.feedback_type as keyof typeof TYPE_LABELS] || feedback.feedback_type;
 
-  // Format user attribution (handle null user data gracefully)
-  const userName = feedback.user?.display_name || 'Anonymous';
+  // Format user attribution: Show display name if available, otherwise just role and org
+  const hasDisplayName = feedback.user?.display_name && feedback.user.display_name.trim() !== '';
+  const userName = hasDisplayName ? feedback.user.display_name : null;
   const userRole = feedback.user?.role
     ? feedback.user.role.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
     : 'User';
@@ -132,10 +133,12 @@ export function FeedbackCard({ feedback, isUpvoted }: FeedbackCardProps) {
 
           {/* Meta Info */}
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-            <span>
-              By {userName}
-            </span>
-            <span>•</span>
+            {userName && (
+              <>
+                <span>By {userName}</span>
+                <span>•</span>
+              </>
+            )}
             <span>{userRole}</span>
             {userOrg && (
               <>

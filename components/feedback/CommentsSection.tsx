@@ -139,7 +139,9 @@ export function CommentsSection({ feedbackId, comments: initialComments }: Comme
       ) : (
         <div className="space-y-6">
           {initialComments.map((comment) => {
-            const userName = comment.user?.display_name || 'Anonymous';
+            // User attribution: Show display name if available, otherwise just role and org
+            const hasDisplayName = comment.user?.display_name && comment.user?.display_name.trim() !== '';
+            const userName = hasDisplayName ? comment.user?.display_name : null;
 
             // Format role display: "District Admin • Birdville ISD" or "Campus Admin • Campus Name"
             let roleDisplay = 'User';
@@ -163,12 +165,16 @@ export function CommentsSection({ feedbackId, comments: initialComments }: Comme
                 {/* Comment Header */}
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-sm">
-                    {userName.charAt(0).toUpperCase()}
+                    {(userName || roleDisplay).charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-slate-900">{userName}</span>
-                      <span className="text-slate-400">·</span>
+                      {userName && (
+                        <>
+                          <span className="font-semibold text-slate-900">{userName}</span>
+                          <span className="text-slate-400">·</span>
+                        </>
+                      )}
                       <span className="text-sm text-slate-600">{roleDisplay}</span>
                       <span className="text-slate-400">·</span>
                       <span className="text-sm text-slate-500">

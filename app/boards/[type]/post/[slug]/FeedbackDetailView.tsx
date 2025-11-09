@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShareButtons } from '@/components/feedback/ShareButtons';
 import { ArrowLeft } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 interface FeedbackDetailViewProps {
   feedback: any;
@@ -51,7 +51,9 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted, comments }: Fee
   const statusConfig = STATUS_CONFIG[feedback.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.under_review;
   const typeLabel = TYPE_LABELS[feedback.feedback_type as keyof typeof TYPE_LABELS] || feedback.feedback_type;
 
-  const userName = feedback.user?.display_name || 'Anonymous';
+  // User attribution: Show display name if available, otherwise just role and district
+  const hasDisplayName = feedback.user?.display_name && feedback.user.display_name.trim() !== '';
+  const userName = hasDisplayName ? feedback.user.display_name : null;
 
   // Format role display: "District Admin • Birdville ISD" or "Campus Admin • Campus Name"
   let roleDisplay = 'User';
@@ -129,8 +131,12 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted, comments }: Fee
 
                   {/* Meta Info */}
                   <div className="flex items-center gap-2 text-sm text-slate-600 mb-4">
-                    <span>By {userName}</span>
-                    <span>•</span>
+                    {userName && (
+                      <>
+                        <span>By {userName}</span>
+                        <span>•</span>
+                      </>
+                    )}
                     <span>{roleDisplay}</span>
                     <span>•</span>
                     <span>{formatDistanceToNow(new Date(feedback.created_at), { addSuffix: true })}</span>
@@ -159,7 +165,12 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted, comments }: Fee
                   <p className="text-sm text-green-800 whitespace-pre-wrap">{feedback.roadmap_notes}</p>
                   {feedback.planned_release && (
                     <p className="text-xs text-green-700 mt-2">
-                      Planned for: <span className="font-semibold">{feedback.planned_release}</span>
+                      {feedback.status === 'completed' || new Date(feedback.planned_release) < new Date()
+                        ? 'Completed: '
+                        : 'Planned for: '}
+                      <span className="font-semibold">
+                        {format(new Date(feedback.planned_release), 'MM-dd-yyyy')}
+                      </span>
                     </p>
                   )}
                 </div>
