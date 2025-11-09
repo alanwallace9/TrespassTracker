@@ -75,7 +75,7 @@
 - [x] Subdomain validation and duplicate detection
 - [x] Comprehensive audit logging for tenant operations
 - [ ] Test full onboarding workflow (Phase 2.1 - Next Session)
-- **Commit**: TBD - will be added after commit
+- **Commit**: 38c935f - feat: implement comprehensive tenants management system (Phase 2)
 
 ### Phase 3: Demo Environment
 - [ ] Create demo RLS policies (SELECT, INSERT, UPDATE for all auth users)

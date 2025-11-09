@@ -75,7 +75,7 @@ File: `contexts/AdminTenantContext.tsx`
 ---
 
 ### **Phase 2: Tenants Management Page** ✅ COMPLETED (2025-11-09) 🏢
-**Commit**: TBD - will be added after commit
+**Commit**: 38c935f - feat: implement comprehensive tenants management system (Phase 2)
 
 #### **2.1 Server Actions**
 File: `app/actions/admin/tenants.ts`
