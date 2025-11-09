@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Master admin-only access with role-based navigation filtering
   - Comprehensive audit logging for all tenant operations
   - Display full subdomain URLs (e.g., "greenville.districttracker.com")
+- **Demo Environment (Phase 3)**:
+  - Public demo access RLS policies for all authenticated users
+  - DemoRoleContext for client-side role switching (viewer, campus_admin, district_admin)
+  - DemoBanner component with role dropdown and reset notification
+  - Demo how-to page at `/demo-guide` with role descriptions and quick start guide
+  - Enhanced demo reset cron job that deletes/recreates campuses and records
+  - Preserves user_profiles across resets (users can log back in)
+  - Session-based role persistence (resets when browser closes)
+  - Demo tenant isolation with full CRUD permissions for all auth users
+  - RLS policies for trespass_records, campuses, record_photos, record_documents
 
 ### Security (2025-11-09)
 - **Comprehensive Security Enhancements**:

@@ -77,12 +77,15 @@
 - [ ] Test full onboarding workflow (Phase 2.1 - Next Session)
 - **Commit**: 38c935f - feat: implement comprehensive tenants management system (Phase 2)
 
-### Phase 3: Demo Environment
-- [ ] Create demo RLS policies (SELECT, INSERT, UPDATE for all auth users)
-- [ ] Build DemoRoleContext (viewer, campus_admin, district_admin switcher)
-- [ ] Create DemoBanner component with role dropdown
-- [ ] Create demo how-to page (`app/(demo)/demo-guide/page.tsx`)
-- [ ] Update demo reset cron (delete records/campuses, preserve user_profiles)
+### Phase 3: Demo Environment ✅ COMPLETED
+- [x] Create demo RLS policies (SELECT, INSERT, UPDATE for all auth users)
+- [x] Build DemoRoleContext (viewer, campus_admin, district_admin switcher)
+- [x] Create DemoBanner component with role dropdown
+- [x] Create demo how-to page (`app/(demo)/demo-guide/page.tsx`)
+- [x] Update demo reset cron (delete records/campuses, preserve user_profiles)
+- [x] Session-based role persistence
+- [x] Demo tenant isolation with full CRUD permissions
+- **Commit**: TBD - will be added after commit
 
 ### Phase 4: Feedback UX
 - [ ] Install sonner: `npm install sonner`

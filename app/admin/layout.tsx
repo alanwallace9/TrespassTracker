@@ -89,12 +89,6 @@ function AdminLayoutInner({
       icon: Building2,
     },
     {
-      href: '/admin/tenants',
-      label: 'Tenants',
-      icon: Building,
-      masterAdminOnly: true,
-    },
-    {
       href: '/admin/audit-logs',
       label: 'Audit Logs',
       icon: History,
@@ -108,6 +102,12 @@ function AdminLayoutInner({
       href: '/admin/feedback',
       label: 'Feedback',
       icon: MessageSquare,
+      masterAdminOnly: true,
+    },
+    {
+      href: '/admin/tenants',
+      label: 'Tenants',
+      icon: Building,
       masterAdminOnly: true,
     },
   ];
