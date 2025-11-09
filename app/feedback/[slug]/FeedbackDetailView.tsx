@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { UpvoteButton } from '@/components/feedback/UpvoteButton';
 import { ShareButtons } from '@/components/feedback/ShareButtons';
 import { ArrowLeft } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 interface FeedbackDetailViewProps {
   feedback: any;
@@ -50,13 +50,13 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted }: FeedbackDetai
   const statusConfig = STATUS_CONFIG[feedback.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.under_review;
   const typeLabel = TYPE_LABELS[feedback.feedback_type as keyof typeof TYPE_LABELS] || feedback.feedback_type;
 
-  const userName = feedback.user?.display_name || 'Anonymous';
+  const userName = feedback.user?.display_name || 'Alan';
   const userRole = feedback.user?.role
     ? feedback.user.role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-    : 'User';
+    : null;
   const userOrg = (feedback.user?.show_organization && feedback.user?.display_organization)
     ? feedback.user.display_organization
-    : null;
+    : 'DistrictTracker';
 
   return (
     <div className="min-h-screen bg-[#f9fafb]">
@@ -102,14 +102,14 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted }: FeedbackDetai
               {/* Meta Info */}
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <span>By {userName}</span>
-                <span>•</span>
-                <span>{userRole}</span>
-                {userOrg && (
+                {userRole && (
                   <>
                     <span>•</span>
-                    <span>{userOrg}</span>
+                    <span>{userRole}</span>
                   </>
                 )}
+                <span>•</span>
+                <span>{userOrg}</span>
                 <span>•</span>
                 <span>{formatDistanceToNow(new Date(feedback.created_at), { addSuffix: true })}</span>
               </div>
@@ -146,7 +146,10 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted }: FeedbackDetai
               <p className="text-sm text-green-800 whitespace-pre-wrap">{feedback.roadmap_notes}</p>
               {feedback.planned_release && (
                 <p className="text-xs text-green-700 mt-2">
-                  Planned for: <span className="font-semibold">{feedback.planned_release}</span>
+                  {feedback.status === 'completed' ? 'Completed: ' : 'Planned for: '}
+                  <span className="font-semibold">
+                    {format(new Date(feedback.planned_release), 'MM-dd-yyyy')}
+                  </span>
                 </p>
               )}
             </div>

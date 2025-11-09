@@ -65,13 +65,13 @@ export function FeedbackCard({ feedback, isUpvoted }: FeedbackCardProps) {
   const typeLabel = TYPE_LABELS[feedback.feedback_type as keyof typeof TYPE_LABELS] || feedback.feedback_type;
 
   // Format user attribution (handle null user data gracefully)
-  const userName = feedback.user?.display_name || 'Anonymous';
+  const userName = feedback.user?.display_name || 'Alan';
   const userRole = feedback.user?.role
     ? feedback.user.role.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-    : 'User';
+    : null;
   const userOrg = (feedback.user?.show_organization && feedback.user?.display_organization)
     ? feedback.user.display_organization
-    : null;
+    : 'DistrictTracker';
 
   // Determine the type slug for URL
   const typeSlug = feedback.feedback_type === 'bug' ? 'bug-report' : 'feature-request';
@@ -135,14 +135,14 @@ export function FeedbackCard({ feedback, isUpvoted }: FeedbackCardProps) {
             <span>
               By {userName}
             </span>
-            <span>•</span>
-            <span>{userRole}</span>
-            {userOrg && (
+            {userRole && (
               <>
                 <span>•</span>
-                <span>{userOrg}</span>
+                <span>{userRole}</span>
               </>
             )}
+            <span>•</span>
+            <span>{userOrg}</span>
             <span>•</span>
             <span>{formatDistanceToNow(new Date(feedback.created_at), { addSuffix: true })}</span>
           </div>
