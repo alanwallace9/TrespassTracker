@@ -60,18 +60,22 @@
 
 **Reference**: See `IMPLEMENTATION_PLAN_2025-11-09.md` for complete details
 
-### Phase 1: Secure Tenant Switching (CRITICAL - DO FIRST)
-- [ ] Create migration: Add `active_tenant_id` column to user_profiles
-- [ ] Update `get_my_tenant_id()` RLS function to check active_tenant_id
-- [ ] Create server action: `switchActiveTenant()` with audit logging
-- [ ] Update AdminTenantContext to use server action (remove localStorage)
-- [ ] Test tenant switching with bulk operations
+### Phase 1: Secure Tenant Switching ✅ COMPLETED
+- [x] Create migration: Add `active_tenant_id` column to user_profiles
+- [x] Update `get_my_tenant_id()` RLS function to check active_tenant_id
+- [x] Create server action: `switchActiveTenant()` with audit logging
+- [x] Update AdminTenantContext to use server action (remove localStorage)
+- [x] Test tenant switching with bulk operations
+- **Commit**: d0ce87b - feat: implement secure database-backed tenant switching
 
-### Phase 2: Tenants Management Page
-- [ ] Create server actions: createTenant, updateTenant, deactivateTenant
-- [ ] Build Tenants admin page (table + create/edit dialogs)
-- [ ] Add "Tenants" to admin sidebar (master_admin only)
-- [ ] Test full onboarding workflow
+### Phase 2: Tenants Management Page ✅ COMPLETED
+- [x] Create server actions: createTenant, updateTenant, deactivateTenant, reactivateTenant
+- [x] Build Tenants admin page (table + create/edit dialogs)
+- [x] Add "Tenants" to admin sidebar (master_admin only)
+- [x] Subdomain validation and duplicate detection
+- [x] Comprehensive audit logging for tenant operations
+- [ ] Test full onboarding workflow (Phase 2.1 - Next Session)
+- **Commit**: TBD - will be added after commit
 
 ### Phase 3: Demo Environment
 - [ ] Create demo RLS policies (SELECT, INSERT, UPDATE for all auth users)

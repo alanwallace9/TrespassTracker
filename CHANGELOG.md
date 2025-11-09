@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2025-11-09)
+- **Secure Tenant Switching for Master Admins (Phase 1)**:
+  - Database-backed tenant switching with `active_tenant_id` column in user_profiles
+  - Server action `switchActiveTenant()` with master_admin validation
+  - Complete FERPA-compliant audit trail for all tenant switches
+  - Updated `get_my_tenant_id()` RLS function to prioritize active_tenant_id
+  - AdminTenantContext now uses database as source of truth (removed localStorage)
+  - Optimistic UI updates with error handling and rollback
+  - New audit event type: `tenant.switched`
+  - Commit: d0ce87b - feat: implement secure database-backed tenant switching
+- **Tenants Management Page (Phase 2)**:
+  - Full CRUD operations for tenant management (create, update, activate/deactivate)
+  - Tenants admin page at `/admin/tenants` with table view and search
+  - Server actions: `createTenant()`, `updateTenant()`, `deactivateTenant()`, `reactivateTenant()`
+  - Subdomain validation (lowercase alphanumeric and hyphens only)
+  - Duplicate subdomain and tenant ID detection
+  - Create and edit dialogs with form validation
+  - Status toggle buttons for activating/deactivating tenants
+  - Sortable columns (display name, subdomain, ID, status, created date)
+  - Master admin-only access with role-based navigation filtering
+  - Comprehensive audit logging for all tenant operations
+  - Display full subdomain URLs (e.g., "greenville.districttracker.com")
+
 ### Security (2025-11-09)
 - **Comprehensive Security Enhancements**:
   - **Input Validation**: Added Zod validation schemas for all user inputs

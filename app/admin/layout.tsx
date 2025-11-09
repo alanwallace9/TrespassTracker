@@ -89,6 +89,12 @@ function AdminLayoutInner({
       icon: Building2,
     },
     {
+      href: '/admin/tenants',
+      label: 'Tenants',
+      icon: Building,
+      masterAdminOnly: true,
+    },
+    {
       href: '/admin/audit-logs',
       label: 'Audit Logs',
       icon: History,
@@ -102,6 +108,7 @@ function AdminLayoutInner({
       href: '/admin/feedback',
       label: 'Feedback',
       icon: MessageSquare,
+      masterAdminOnly: true,
     },
   ];
 
@@ -168,26 +175,28 @@ function AdminLayoutInner({
           {/* Sidebar Navigation */}
           <aside className="w-64 flex-shrink-0">
             <nav className="space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href, item.exact);
+              {navItems
+                .filter((item) => !item.masterAdminOnly || userRole === 'master_admin')
+                .map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href, item.exact);
 
-                return (
-                  <Link key={item.href} href={item.href}>
-                    <Button
-                      variant={active ? 'secondary' : 'ghost'}
-                      className={`w-full justify-start rounded-xl ${
-                        active
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'text-slate-700 hover:bg-white hover:text-slate-900 border border-transparent hover:border-slate-200'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 mr-3" />
-                      {item.label}
-                    </Button>
-                  </Link>
-                );
-              })}
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <Button
+                        variant={active ? 'secondary' : 'ghost'}
+                        className={`w-full justify-start rounded-xl ${
+                          active
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-slate-700 hover:bg-white hover:text-slate-900 border border-transparent hover:border-slate-200'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4 mr-3" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  );
+                })}
             </nav>
           </aside>
 
