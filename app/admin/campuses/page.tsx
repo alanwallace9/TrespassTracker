@@ -11,18 +11,25 @@ import { EditCampusDialog } from '@/components/EditCampusDialog';
 import { RecordDetailDialog } from '@/components/RecordDetailDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminTenant } from '@/contexts/AdminTenantContext';
-import { RefreshCw, Search, Users, FileText, Plus, Pencil, CheckCircle, FileSpreadsheet, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Search, Users, FileText, Plus, Pencil, CheckCircle, FileSpreadsheet, AlertTriangle, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+type SortKey = 'id' | 'name' | 'status' | 'user_count' | 'record_count' | 'created_at';
+
 export default function CampusesManagementPage() {
   const { selectedTenantId } = useAdminTenant();
+  const filterFieldClasses = 'bg-white border border-slate-300 shadow-sm text-slate-900 placeholder:text-slate-500';
   const [campuses, setCampuses] = useState<CampusWithCounts[]>([]);
   const [filteredCampuses, setFilteredCampuses] = useState<CampusWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({
+    key: 'name',
+    direction: 'asc',
+  });
   const { toast } = useToast();
 
   // Modal states
@@ -50,7 +57,7 @@ export default function CampusesManagementPage() {
 
   useEffect(() => {
     filterCampuses();
-  }, [campuses, searchQuery]);
+  }, [campuses, searchQuery, sortConfig]);
 
   const fetchCampuses = async () => {
     if (!selectedTenantId) return;
@@ -77,7 +84,29 @@ export default function CampusesManagementPage() {
       );
     }
 
-    setFilteredCampuses(filtered);
+    const sorted = [...filtered].sort((a, b) => {
+      const { key, direction } = sortConfig;
+      const multiplier = direction === 'asc' ? 1 : -1;
+
+      const valueA = a[key];
+      const valueB = b[key];
+
+      if (key === 'created_at') {
+        const dateA = valueA ? new Date(valueA).getTime() : 0;
+        const dateB = valueB ? new Date(valueB as string).getTime() : 0;
+        return (dateA - dateB) * multiplier;
+      }
+
+      if (typeof valueA === 'number' && typeof valueB === 'number') {
+        return (valueA - valueB) * multiplier;
+      }
+
+      const stringA = String(valueA ?? '').toLowerCase();
+      const stringB = String(valueB ?? '').toLowerCase();
+      return stringA.localeCompare(stringB) * multiplier;
+    });
+
+    setFilteredCampuses(sorted);
   };
 
   const handleUsersClick = async (campus: CampusWithCounts) => {
@@ -266,6 +295,33 @@ export default function CampusesManagementPage() {
   );
   const totalRecordsPages = Math.ceil(modalRecords.length / ITEMS_PER_PAGE);
 
+  const handleSort = (key: SortKey) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const renderSortableHeader = (label: string, key: SortKey) => {
+    const isActive = sortConfig.key === key;
+    return (
+      <button
+        type="button"
+        onClick={() => handleSort(key)}
+        className="flex items-center gap-1 text-left text-sm font-semibold text-slate-600 hover:text-slate-900"
+      >
+        <span>{label}</span>
+        {isActive ? (
+          <span className="text-xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+        ) : (
+          <ArrowUpDown className="w-3 h-3 text-slate-400" />
+        )}
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -276,7 +332,12 @@ export default function CampusesManagementPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchCampuses}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchCampuses}
+            className="bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300"
+          >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -294,7 +355,7 @@ export default function CampusesManagementPage() {
           placeholder="Search by campus name or ID..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
+          className={`pl-10 ${filterFieldClasses}`}
         />
       </div>
 
@@ -308,84 +369,89 @@ export default function CampusesManagementPage() {
           <p className="text-muted-foreground">No campuses found</p>
         </div>
       ) : (
-        <div className="border rounded-lg overflow-hidden bg-card">
-          <table className="w-full">
-            <thead className="bg-muted">
-              <tr>
-                <th className="text-left p-4 font-medium">ID</th>
-                <th className="text-left p-4 font-medium">Name</th>
-                <th className="text-left p-4 font-medium">Status</th>
-                <th className="text-left p-4 font-medium">Number of Users</th>
-                <th className="text-left p-4 font-medium">Number of Records</th>
-                <th className="text-left p-4 font-medium">Created</th>
-                <th className="text-left p-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredCampuses.map((campus) => (
-                <tr key={campus.id} className="hover:bg-muted/50">
-                  <td className="p-4 font-mono text-sm">{campus.id}</td>
-                  <td className="p-4 font-medium">{campus.name}</td>
-                  <td className="p-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      campus.status === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {campus.status}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <Button
-                      variant="link"
-                      className="p-0 h-auto font-medium text-blue-600 hover:text-blue-800"
-                      onClick={() => handleUsersClick(campus)}
-                      disabled={campus.user_count === 0}
-                    >
-                      <Users className="w-4 h-4 mr-1" />
-                      {campus.user_count}
-                    </Button>
-                  </td>
-                  <td className="p-4">
-                    <Button
-                      variant="link"
-                      className="p-0 h-auto font-medium text-blue-600 hover:text-blue-800"
-                      onClick={() => handleRecordsClick(campus)}
-                      disabled={campus.record_count === 0}
-                    >
-                      <FileText className="w-4 h-4 mr-1" />
-                      {campus.record_count}
-                    </Button>
-                  </td>
-                  <td className="p-4 text-sm text-muted-foreground">
-                    {format(new Date(campus.created_at), 'MMM d, yyyy')}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEditClick(campus)}
-                      >
-                        <Pencil className="w-3 h-3 mr-1" />
-                        Edit
-                      </Button>
-                      {campus.status === 'inactive' && (
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleActivateClick(campus)}
-                        >
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Activate
-                        </Button>
-                      )}
-                    </div>
-                  </td>
+        <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+          <div className="overflow-x-auto overflow-y-auto max-h-[640px]">
+            <table className="w-full">
+              <thead className="bg-slate-100">
+                <tr>
+                  <th className="text-left p-4 font-medium">{renderSortableHeader('ID', 'id')}</th>
+                  <th className="text-left p-4 font-medium">{renderSortableHeader('Name', 'name')}</th>
+                  <th className="text-left p-4 font-medium">{renderSortableHeader('Status', 'status')}</th>
+                  <th className="text-left p-4 font-medium w-[120px]">{renderSortableHeader('Users', 'user_count')}</th>
+                  <th className="text-left p-4 font-medium w-[120px]">{renderSortableHeader('Records', 'record_count')}</th>
+                  <th className="text-left p-4 font-medium">{renderSortableHeader('Created', 'created_at')}</th>
+                  <th className="text-left p-4 font-medium">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {filteredCampuses.map((campus, index) => {
+                  const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                  return (
+                    <tr key={campus.id} className={`${rowBg} hover:bg-slate-100 transition-colors`}>
+                      <td className="p-4 font-mono text-sm w-[120px]">{campus.id}</td>
+                      <td className="p-4 font-medium w-[280px]">{campus.name}</td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                          campus.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {campus.status}
+                        </span>
+                      </td>
+                      <td className="p-4 w-[120px]">
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-medium text-blue-600 hover:text-blue-800"
+                          onClick={() => handleUsersClick(campus)}
+                          disabled={campus.user_count === 0}
+                        >
+                          <Users className="w-4 h-4 mr-1" />
+                          {campus.user_count}
+                        </Button>
+                      </td>
+                      <td className="p-4 w-[120px]">
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-medium text-blue-600 hover:text-blue-800"
+                          onClick={() => handleRecordsClick(campus)}
+                          disabled={campus.record_count === 0}
+                        >
+                          <FileText className="w-4 h-4 mr-1" />
+                          {campus.record_count}
+                        </Button>
+                      </td>
+                      <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(campus.created_at), 'MMM d, yyyy')}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditClick(campus)}
+                          >
+                            <Pencil className="w-3 h-3 mr-1" />
+                            Edit
+                          </Button>
+                          {campus.status === 'inactive' && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleActivateClick(campus)}
+                            >
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Activate
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

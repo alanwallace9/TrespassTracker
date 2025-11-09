@@ -6,6 +6,7 @@ import { TrespassRecord } from '@/lib/supabase';
 import { auth } from '@clerk/nextjs/server';
 import { logAuditEvent } from '@/lib/audit-logger';
 import { createClient } from '@supabase/supabase-js';
+import { CreateRecordSchema, UpdateRecordSchema, validateData } from '@/lib/validation/schemas';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,8 +20,14 @@ export async function createRecord(data: Omit<TrespassRecord, 'id' | 'created_at
   const supabase = await createServerClient();
   const { userId } = await auth();
 
+  // Validate input data
+  const validation = validateData(CreateRecordSchema, data);
+  if (!validation.success) {
+    throw new Error(`Validation failed: ${validation.error}`);
+  }
+
   // Remove any fields that shouldn't be in the insert
-  const { id, created_at, updated_at, ...insertData } = data as any;
+  const { id, created_at, updated_at, ...insertData } = validation.data as any;
 
   const { data: record, error } = await supabase
     .from('trespass_records')
@@ -71,6 +78,12 @@ export async function updateRecord(id: string, data: Partial<TrespassRecord>) {
   const supabase = await createServerClient();
   const { userId } = await auth();
 
+  // Validate input data
+  const validation = validateData(UpdateRecordSchema, data);
+  if (!validation.success) {
+    throw new Error(`Validation failed: ${validation.error}`);
+  }
+
   // Get the record before update to capture changes
   const { data: beforeRecord } = await supabase
     .from('trespass_records')
@@ -79,7 +92,7 @@ export async function updateRecord(id: string, data: Partial<TrespassRecord>) {
     .single();
 
   // Remove fields that shouldn't be updated
-  const { id: _id, created_at, updated_at, user_id, status, ...updateData } = data as any;
+  const { id: _id, created_at, updated_at, user_id, status, ...updateData } = validation.data as any;
 
   const { data: record, error } = await supabase
     .from('trespass_records')

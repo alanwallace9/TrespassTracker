@@ -24,12 +24,10 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
   const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
   const [fileName, setFileName] = useState('');
   const [uploadResults, setUploadResults] = useState<BulkInviteResult[] | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
 
-  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const processFile = useCallback((file: File) => {
     setFileName(file.name);
     setUploadResults(null);
 
@@ -73,10 +71,38 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
         });
       },
     });
+  }, [toast]);
 
+  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    processFile(file);
     // Reset file input
     event.target.value = '';
-  }, [toast]);
+  }, [processFile]);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.name.endsWith('.csv')) {
+      processFile(file);
+    }
+  };
 
   const handleBulkInvite = async () => {
     const validRows = parsedData.filter(row => !row.validationError);
@@ -152,7 +178,7 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[#F9FAFB]">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
             <Users className="w-6 h-6 text-blue-600" />
@@ -167,9 +193,20 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
           {/* Upload Section */}
           {parsedData.length === 0 && !uploadResults && (
             <div className="space-y-4">
-              <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center">
-                <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-sm font-medium mb-2">Upload CSV File</p>
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
+                  isDragging
+                    ? 'border-blue-400 bg-blue-50'
+                    : 'border-slate-300 hover:border-slate-400'
+                }`}
+              >
+                <Upload className={`w-12 h-12 mx-auto mb-4 ${isDragging ? 'text-blue-500' : 'text-slate-400'}`} />
+                <p className="text-sm font-medium mb-2">
+                  {isDragging ? 'Drop CSV file here' : 'Drag & drop CSV file or click to browse'}
+                </p>
                 <p className="text-xs text-slate-500 mb-4">
                   File must contain: email, role, campus_id (optional)
                 </p>

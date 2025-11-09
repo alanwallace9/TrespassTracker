@@ -7,7 +7,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security (2025-11-09)
+- **Comprehensive Security Enhancements**:
+  - **Input Validation**: Added Zod validation schemas for all user inputs
+    - Email format validation, phone number validation (10 digits)
+    - ZIP code validation, date format validation
+    - String length limits to prevent buffer overflow attacks
+    - Prevents SQL injection and malformed data
+  - **Content Security Policy (CSP)**: Added comprehensive security headers
+    - Prevents XSS (Cross-Site Scripting) attacks
+    - Blocks unauthorized resource loading
+    - Clickjacking protection (X-Frame-Options: DENY)
+    - MIME-type sniffing protection
+    - Enforces HTTPS connections
+  - **Rate Limiting**: Implemented request throttling (production-ready)
+    - Feedback submissions: 10 requests/minute per user
+    - Comments: 10 requests/minute per user
+    - Webhooks: 100 requests/minute per IP
+    - Protects against spam, brute force, and DoS attacks
+  - **Webhook Security**: Enhanced Clerk webhook validation
+    - Role whitelist validation
+    - Database verification for tenant_id and campus_id
+    - Prevents unauthorized user creation and privilege escalation
+  - **Data Storage**: Migrated from localStorage to sessionStorage
+    - Reduces PII exposure window
+    - Auto-cleanup on successful submission
+    - 10-minute expiration for pending data
+
+### Added (2025-11-09)
+- **Feedback System - Authentication UX Improvements**:
+  - Hidden Name, Email, and Terms checkbox fields for authenticated users
+  - Streamlined feedback submission form for logged-in users
+  - Implicit terms agreement for authenticated users (agreed during initial signup)
+  - Conditional validation logic based on authentication state
+  - Enhanced user experience with cleaner form layout
+- **Feedback System - Visual Consistency**:
+  - Changelog page color scheme updated to match feedback system standards
+  - Standardized border colors (#828282) across all feedback components
+  - White backgrounds for filters, cards, and content areas
+  - Blue theme for buttons and call-to-action sections
+  - Consistent hover states and transitions
+  - Improved visual hierarchy and readability
+
 ### Added
+- **Public Feedback System (Feedbear-style)**:
+  - Two-panel layout with form on left (380px), list on right
+  - Separate pages for feature requests (`/feedback/features`) and bug reports (`/feedback/bugs`)
+  - Top navigation bar with DistrictTracker logo, dropdown menu, and auth button
+  - Blue gradient hero sections on feedback pages
+  - Upvoting system with optimistic UI updates
+  - Filter dropdowns with icons (TrendingUp, colored status dots)
+  - Sort by: Trending, Most votes, Recent
+  - Status filters with color-coded badges (Purple, Blue, Yellow, Green, Red)
+  - View filters: All, My ideas, Voted for
+  - Roadmap page with 3-column layout (Planned | In Progress | Done)
+  - Changelog page grouped by month
+  - Admin feedback management panel with full CRUD operations
+  - Service role authentication for admin panel access
+- **Feedback System - Individual Post Pages (2025-11-09)**:
+  - New URL structure: `/boards/[type]/post/[slug]` (e.g., `/boards/feature-request/post/test-this-app`)
+  - FeedBear-inspired layout with vote counter on LEFT, content flowing RIGHT
+  - Blue vote counter styling (bg-blue-50, border-blue-200, text-blue-900)
+  - Vote counter displays as card element with count and "vote/votes" label
+  - Removed breadcrumbs from individual feedback pages for cleaner UI
+  - Right sidebar simplified to Share section only (removed voter list/avatars)
+  - Sticky sidebar behavior for better UX on scroll
+  - Admin response and roadmap notes sections display full-width below content
+- **Enhanced Social Sharing (2025-11-09)**:
+  - Open Graph metadata for rich social media previews (Facebook, LinkedIn, Twitter)
+  - Twitter sharing with pre-filled text mentioning @DistrictTracker
+  - LinkedIn sharing with title and summary using official shareArticle API
+  - Facebook sharing using official sharer.php with Open Graph preview
+  - Email sharing with pre-filled subject and detailed body text
+  - Copy link functionality with visual confirmation
+  - All share dialogs open in popup windows (626x436px)
+- **Comments System (2025-11-09)**:
+  - Created `feedback_comments` database table with full audit trail
+  - Comment submission form with 5000 character limit and counter
+  - Login requirement - redirects to `/login` if user not authenticated
+  - Real-time comment display with formatted timestamps (e.g., "2 hours ago")
+  - User attribution with display name, role, and organization
+  - Server actions: `createFeedbackComment`, `getFeedbackComments`
+  - RLS policies adapted for Clerk authentication (using service role for user lookups)
+  - Empty state message: "No comments yet. Be the first to share your thoughts!"
+  - Placeholder for future image attachment support in comments
+- **Enhanced User Role Display (2025-11-09)**:
+  - Campus admins display as "Campus Admin • [Campus Name]" (e.g., "Campus Admin • Birdville ES")
+  - District admins display as "District Admin • [District Name]" (e.g., "District Admin • Birdville ISD")
+  - Master admins display as "District Admin • [District Name]" for consistency
+  - Updated `getFeedbackComments` to fetch tenant and campus names via JOIN queries
+  - Updated `getFeedbackBySlug` to include tenant/campus data for feedback authors
+  - Consistent role formatting across feedback posts, comments, and all views
+- **Feedback System - Roadmap Redesign (Phase 4 - IN PROGRESS)**:
+  - Integrated upvote button into card border (left side, blue styling)
+  - Image attachment support with drag-and-drop upload
+  - Supabase Storage integration for feedback images
+  - Facebook share button added to social sharing options
+  - Enhanced Clerk auth flow for feedback-only users (TODO)
+  - Email verification and password setup for new feedback users (TODO)
+  - Tenant isolation preventing feedback users from accessing tenant dashboards (TODO)
+- **Admin Panel Styling Enhancements**:
+  - Consistent #F9FAFB background across all admin pages
+  - White rounded boxes with slate borders
+  - Standardized button hover states (slate-100 background, slate-900 text)
+  - Drag-and-drop CSV upload for bulk user and feedback imports
+  - Compact modals without unnecessary scrolling
 - **Master Admin Tenant Isolation & User Management**:
   - Tenant-aware user invitation system for master_admin
   - Master admin can use tenant selector when inviting single users
@@ -22,6 +126,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Storage buckets and RLS policies for secure file access
 
 ### Changed
+- **Feedback UI Enhancements**:
+  - Form contact section (Name, Email, Terms) now has grey background box
+  - All input fields have white backgrounds (#FFFFFF) and grey borders (#CBCFD4)
+  - Navigation dropdown shows current page ("Bug Reports" vs "Feature Requests")
+  - Status filter text remains black, only dots are colored
+  - Filter dropdown modals have white backgrounds
+  - Page background updated to #f9fafb
 - Enhanced RecordDetailDialog with photo/document tabs
 - Responsive search box with flex layout (min-width 150px, expands on desktop)
 - **User Invitation Security Model**:

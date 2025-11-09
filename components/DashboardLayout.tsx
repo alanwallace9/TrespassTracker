@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -200,9 +201,13 @@ export function DashboardLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center border" style={{ backgroundColor: 'var(--birdville-blue)', borderColor: 'var(--birdville-light-gold)' }}>
-                <Shield className="w-5 h-5" style={{ color: 'var(--birdville-light-gold)', stroke: 'var(--birdville-light-gold)', strokeWidth: '2' }} />
-              </div>
+              <Image
+                src="/assets/logo1.svg"
+                alt="DistrictTracker"
+                width={40}
+                height={40}
+                className="w-10 h-10"
+              />
               <div>
                 <h1 className="text-xl font-bold text-foreground">BISD Trespass Management</h1>
                 <p className="text-xs text-muted-foreground">powered by <a href="https://DistrictTracker.com" className="underline hover:no-underline">DistrictTracker.com</a></p>
@@ -249,10 +254,10 @@ export function DashboardLayout({
                     <ChevronDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 bg-white">
                   <DropdownMenuLabel >
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{displayName || 'User'}</p>
+                      <p className="text-sm font-medium text-slate-900">{displayName || 'User'}</p>
                       <p className="text-xs text-slate-500">{user.email}</p>
                     </div>
                   </DropdownMenuLabel>
@@ -261,20 +266,20 @@ export function DashboardLayout({
                     <>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-foreground">Total Records</span>
-                          <span className="font-semibold text-foreground">{stats.total}</span>
+                          <span className="text-slate-700">Total Records</span>
+                          <span className="font-semibold text-slate-900">{stats.total}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-status-active">Active</span>
-                          <span className="font-semibold text-status-active">{stats.active}</span>
+                          <span className="text-green-600">Active</span>
+                          <span className="font-semibold text-green-600">{stats.active}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-status-warning">Inactive</span>
-                          <span className="font-semibold text-status-warning">{stats.inactive}</span>
+                          <span className="text-orange-600">Inactive</span>
+                          <span className="font-semibold text-orange-600">{stats.inactive}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -296,42 +301,19 @@ export function DashboardLayout({
                     <Plus className="w-4 h-4 mr-2" />
                     Add Record
                   </DropdownMenuItem>
-                  {(userRole === 'district_admin' || userRole === 'master_admin') && (
-                    <>
-                      <DropdownMenuItem onSelect={(e) => {
-                        e.preventDefault();
-                        setDropdownOpen(false);
-                        setTimeout(() => setAddUserDialogOpen(true), 150);
-                      }}>
-                        <User className="w-4 h-4 mr-2" />
-                        Invite User (Email)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={(e) => {
-                        e.preventDefault();
-                        setDropdownOpen(false);
-                        setTimeout(() => setBulkUserDialogOpen(true), 150);
-                      }}>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Invite Users (CSV)
-                      </DropdownMenuItem>
-                    </>
-                  )}
                   <DropdownMenuSeparator />
-                  {(userRole === 'district_admin' || userRole === 'master_admin') && (
-                    <DropdownMenuItem onSelect={(e) => {
-                      e.preventDefault();
-                      setDropdownOpen(false);
-                      setTimeout(() => setAuditLogOpen(true), 150);
-                    }}>
-                      <History className="w-4 h-4 mr-2" />
-                      Changelog
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuItem onSelect={(e) => {
                     e.preventDefault();
                     setDropdownOpen(false);
-                    // TODO: Open feedback form (Google Form or similar)
-                    window.open('https://forms.google.com/placeholder', '_blank');
+                    window.open('https://districttracker.com/feedback/changelog', '_blank');
+                  }}>
+                    <History className="w-4 h-4 mr-2" />
+                    Changelog
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => {
+                    e.preventDefault();
+                    setDropdownOpen(false);
+                    window.open('https://districttracker.com/feedback', '_blank');
                   }}>
                     <MessageSquare className="w-4 h-4 mr-2" />
                     Send Feedback

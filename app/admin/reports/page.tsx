@@ -42,6 +42,8 @@ type ReportType =
 
 export default function ReportsPage() {
   const { selectedTenantId } = useAdminTenant();
+  const fieldClasses = 'bg-white border border-slate-300 shadow-sm text-slate-900 placeholder:text-slate-500';
+  const selectClasses = 'bg-white border border-slate-300 shadow-sm text-slate-900 focus:ring-2 focus:ring-slate-200';
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [generating, setGenerating] = useState(false);
   const [dateRange, setDateRange] = useState('last_7_days');
@@ -245,7 +247,7 @@ export default function ReportsPage() {
       }
 
       // Fetch data (limited to 100 for preview)
-      const response = await getAuditLogs(selectedTenantId, filters, { page: 1, limit: 100 });
+      const response = await getAuditLogs(selectedTenantId || undefined, filters, { page: 1, limit: 100 });
       console.log('[Preview] Audit logs response:', response);
 
       let csvData: any[];
@@ -396,7 +398,7 @@ export default function ReportsPage() {
     const timer = setTimeout(async () => {
       if (searchQuery.length >= 3) {
         try {
-          const results = await searchRecords(searchQuery, selectedTenantId);
+          const results = await searchRecords(searchQuery, selectedTenantId || undefined);
           setSearchResults(results);
           setShowDropdown(results.length > 0);
         } catch (error) {
@@ -444,7 +446,7 @@ export default function ReportsPage() {
         recordId: selectedRecord.id,
       };
 
-      const response = await getAuditLogs(selectedTenantId, filters, { page: 1, limit: 1000 });
+      const response = await getAuditLogs(selectedTenantId || undefined, filters, { page: 1, limit: 1000 });
       console.log('[Quick Lookup] Response:', response);
 
       setLookupResults(response.logs);
@@ -521,7 +523,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Quick Lookup Section */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-blue-50 border border-blue-200 shadow-sm rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Eye className="w-5 h-5 text-blue-600" />
@@ -543,6 +545,7 @@ export default function ReportsPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
                   autoComplete="off"
+                  className={fieldClasses}
                 />
                 {selectedRecord && (
                   <Button
@@ -672,6 +675,7 @@ export default function ReportsPage() {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-50"
                   onClick={async () => {
                     const csv = Papa.unparse(lookupResults.map(log => ({
                       Timestamp: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss'),
@@ -703,7 +707,7 @@ export default function ReportsPage() {
           return (
             <Card
               key={report.id}
-              className={`cursor-pointer transition-all hover:shadow-md ${
+              className={`cursor-pointer transition-all hover:shadow-md bg-white border border-slate-200 shadow-sm rounded-2xl ${
                 selectedReport === report.id ? 'ring-2 ring-primary' : ''
               }`}
               onClick={() => {
@@ -730,7 +734,7 @@ export default function ReportsPage() {
 
       {/* Report Configuration */}
       {selectedReport && (
-        <Card>
+        <Card className="bg-white border border-slate-200 shadow-sm rounded-2xl">
           <CardHeader>
             <CardTitle>Configure Report</CardTitle>
             <CardDescription>
@@ -742,7 +746,7 @@ export default function ReportsPage() {
             <div>
               <Label htmlFor="dateRange">Date Range</Label>
               <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger>
+                <SelectTrigger className={selectClasses}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -765,6 +769,7 @@ export default function ReportsPage() {
                     type="date"
                     value={customDateFrom}
                     onChange={(e) => setCustomDateFrom(e.target.value)}
+                    className={fieldClasses}
                   />
                 </div>
                 <div>
@@ -774,6 +779,7 @@ export default function ReportsPage() {
                     type="date"
                     value={customDateTo}
                     onChange={(e) => setCustomDateTo(e.target.value)}
+                    className={fieldClasses}
                   />
                 </div>
               </div>
@@ -788,6 +794,7 @@ export default function ReportsPage() {
                   placeholder="Filter by specific user email..."
                   value={targetUserId}
                   onChange={(e) => setTargetUserId(e.target.value)}
+                  className={fieldClasses}
                 />
               </div>
             )}
@@ -797,7 +804,7 @@ export default function ReportsPage() {
               <div>
                 <Label htmlFor="campusSelect">Campus (Required)</Label>
                 <Select value={selectedCampusId} onValueChange={setSelectedCampusId}>
-                  <SelectTrigger>
+                  <SelectTrigger className={selectClasses}>
                     <SelectValue placeholder="Select a campus..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -824,6 +831,7 @@ export default function ReportsPage() {
                       placeholder="Filter by user email..."
                       value={customActorEmail}
                       onChange={(e) => setCustomActorEmail(e.target.value)}
+                      className={fieldClasses}
                     />
                   </div>
 
@@ -834,6 +842,7 @@ export default function ReportsPage() {
                       placeholder="Filter by record name..."
                       value={customRecordName}
                       onChange={(e) => setCustomRecordName(e.target.value)}
+                      className={fieldClasses}
                     />
                   </div>
 
@@ -844,6 +853,7 @@ export default function ReportsPage() {
                       placeholder="Exact record ID..."
                       value={customRecordId}
                       onChange={(e) => setCustomRecordId(e.target.value)}
+                      className={fieldClasses}
                     />
                   </div>
                 </div>
@@ -884,7 +894,7 @@ export default function ReportsPage() {
                   Please select a campus
                 </p>
               )}
-              <Button variant="outline" onClick={() => setSelectedReport(null)}>
+              <Button variant="outline" className="bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300" onClick={() => setSelectedReport(null)}>
                 Cancel
               </Button>
             </div>
@@ -894,7 +904,7 @@ export default function ReportsPage() {
 
       {/* Quick Access Guide */}
       {!selectedReport && (
-        <Card>
+        <Card className="bg-white border border-slate-200 shadow-sm rounded-2xl">
           <CardHeader>
             <CardTitle>Report Types</CardTitle>
             <CardDescription>Select a report type above to get started</CardDescription>
@@ -949,7 +959,7 @@ export default function ReportsPage() {
               <p className="text-sm text-muted-foreground mt-2">
                 Try selecting a different date range or check if audit logs are being recorded.
               </p>
-              <Button className="mt-4" variant="outline" onClick={() => setPreviewOpen(false)}>
+              <Button variant="outline" className="mt-4 bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300" onClick={() => setPreviewOpen(false)}>
                 Close
               </Button>
             </div>
@@ -981,10 +991,10 @@ export default function ReportsPage() {
               </div>
 
               <div className="flex gap-2 justify-end pt-4 border-t">
-                <Button variant="outline" onClick={() => setPreviewOpen(false)}>
+                <Button variant="outline" className="bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300" onClick={() => setPreviewOpen(false)}>
                   Close
                 </Button>
-                <Button variant="outline" onClick={() => exportPreviewAs('csv')}>
+                <Button variant="outline" className="bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300" onClick={() => exportPreviewAs('csv')}>
                   <Table className="w-4 h-4 mr-2" />
                   Export as CSV
                 </Button>

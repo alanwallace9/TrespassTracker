@@ -70,13 +70,13 @@ export default function AdminOverview() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
+            <Card key={i} className="animate-pulse border border-slate-200 bg-white shadow-sm">
               <CardHeader className="pb-3">
-                <div className="h-4 bg-slate-200 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-slate-200 rounded w-1/3"></div>
+                <div className="h-4 bg-slate-100 rounded w-1/2 mb-2"></div>
+                <div className="h-8 bg-slate-100 rounded w-1/3"></div>
               </CardHeader>
               <CardContent>
-                <div className="h-3 bg-slate-200 rounded w-2/3"></div>
+                <div className="h-3 bg-slate-100 rounded w-2/3"></div>
               </CardContent>
             </Card>
           ))}
@@ -86,7 +86,7 @@ export default function AdminOverview() {
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
-              <Card key={stat.title}>
+              <Card key={stat.title} className="border border-slate-200 bg-white shadow-sm rounded-2xl">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -94,7 +94,7 @@ export default function AdminOverview() {
                     </CardTitle>
                     <Icon className={`w-5 h-5 ${stat.color}`} />
                   </div>
-                  <div className="text-3xl font-bold text-foreground">{stat.value}</div>
+                  <div className="text-3xl font-bold text-slate-900">{stat.value}</div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-xs text-muted-foreground">{stat.description}</p>
@@ -105,10 +105,10 @@ export default function AdminOverview() {
         </div>
       )}
 
-      <Card>
+      <Card className="border border-slate-200 bg-white shadow-sm rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Activity className="w-5 h-5" />
+            <Activity className="w-5 h-5 text-slate-700" />
             Quick Actions
           </CardTitle>
           <CardDescription>Common administrative tasks</CardDescription>
@@ -117,28 +117,28 @@ export default function AdminOverview() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <a
               href="/admin/users"
-              className="p-4 border rounded-lg hover:bg-accent transition-colors"
+              className="p-4 border border-slate-200 rounded-2xl hover:border-slate-300 hover:bg-slate-50 transition-colors"
             >
-              <h3 className="font-semibold text-foreground mb-1">Manage Users</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="font-semibold text-slate-900 mb-1">Manage Users</h3>
+              <p className="text-sm text-slate-500">
                 View, edit, invite, or remove users
               </p>
             </a>
             <a
               href="/admin/campuses"
-              className="p-4 border rounded-lg hover:bg-accent transition-colors"
+              className="p-4 border border-slate-200 rounded-2xl hover:border-slate-300 hover:bg-slate-50 transition-colors"
             >
-              <h3 className="font-semibold text-foreground mb-1">Manage Campuses</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="font-semibold text-slate-900 mb-1">Manage Campuses</h3>
+              <p className="text-sm text-slate-500">
                 Add, edit, or deactivate campus locations
               </p>
             </a>
             <a
               href="/admin/audit-logs"
-              className="p-4 border rounded-lg hover:bg-accent transition-colors"
+              className="p-4 border border-slate-200 rounded-2xl hover:border-slate-300 hover:bg-slate-50 transition-colors"
             >
-              <h3 className="font-semibold text-foreground mb-1">View Audit Logs</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="font-semibold text-slate-900 mb-1">View Audit Logs</h3>
+              <p className="text-sm text-slate-500">
                 Review system activity and changes
               </p>
             </a>

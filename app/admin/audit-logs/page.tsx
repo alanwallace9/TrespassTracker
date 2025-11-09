@@ -29,6 +29,8 @@ const EVENT_TYPES = [
 
 export default function AuditLogsPage() {
   const { selectedTenantId } = useAdminTenant();
+  const fieldClasses = 'bg-white border border-slate-300 shadow-sm text-slate-900 placeholder:text-slate-500';
+  const selectClasses = 'bg-white border border-slate-300 shadow-sm text-slate-900 focus:ring-2 focus:ring-slate-200';
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export default function AuditLogsPage() {
 
   // Pagination state
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(15);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
@@ -126,7 +128,7 @@ export default function AuditLogsPage() {
     setExporting(true);
     try {
       // Fetch all logs with current filters (no pagination)
-      const response = await getAuditLogs(filters, { page: 1, limit: 10000 });
+      const response = await getAuditLogs(undefined, filters, { page: 1, limit: 10000 });
 
       const csvData = response.logs.map(log => ({
         Timestamp: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss'),
@@ -155,7 +157,7 @@ export default function AuditLogsPage() {
     setExporting(true);
     try {
       // Fetch all logs with current filters (no pagination)
-      const response = await getAuditLogs(filters, { page: 1, limit: 10000 });
+      const response = await getAuditLogs(undefined, filters, { page: 1, limit: 10000 });
 
       const excelData = response.logs.map(log => ({
         Timestamp: format(new Date(log.created_at), 'yyyy-MM-dd HH:mm:ss'),
@@ -188,7 +190,7 @@ export default function AuditLogsPage() {
     setExporting(true);
     try {
       // Fetch all logs with current filters (no pagination)
-      const response = await getAuditLogs(filters, { page: 1, limit: 10000 });
+      const response = await getAuditLogs(undefined, filters, { page: 1, limit: 10000 });
 
       const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
 
@@ -251,7 +253,13 @@ export default function AuditLogsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchLogs}
+            disabled={loading}
+            className="bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300"
+          >
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -259,7 +267,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Filters */}
-      <div className="border rounded-lg p-4 bg-card space-y-4">
+      <div className="border border-slate-200 rounded-2xl p-6 bg-white shadow-sm space-y-4">
         <h3 className="font-semibold text-foreground">Filters</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -270,6 +278,7 @@ export default function AuditLogsPage() {
               placeholder="Search by user email..."
               value={actorEmailInput}
               onChange={(e) => setActorEmailInput(e.target.value)}
+              className={fieldClasses}
             />
           </div>
 
@@ -280,6 +289,7 @@ export default function AuditLogsPage() {
               placeholder="Search by record name..."
               value={recordNameInput}
               onChange={(e) => setRecordNameInput(e.target.value)}
+              className={fieldClasses}
             />
           </div>
 
@@ -290,6 +300,7 @@ export default function AuditLogsPage() {
               placeholder="Exact record ID..."
               value={recordIdInput}
               onChange={(e) => setRecordIdInput(e.target.value)}
+              className={fieldClasses}
             />
           </div>
 
@@ -300,6 +311,7 @@ export default function AuditLogsPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
+              className={fieldClasses}
             />
           </div>
 
@@ -310,13 +322,14 @@ export default function AuditLogsPage() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
+              className={fieldClasses}
             />
           </div>
 
           <div>
             <Label htmlFor="campus">Campus</Label>
             <Select value={selectedCampus} onValueChange={setSelectedCampus}>
-              <SelectTrigger>
+              <SelectTrigger className={selectClasses}>
                 <SelectValue placeholder="All Campuses" />
               </SelectTrigger>
               <SelectContent>
@@ -404,10 +417,10 @@ export default function AuditLogsPage() {
           <p className="text-muted-foreground">No audit logs found</p>
         </div>
       ) : (
-        <div className="border rounded-lg overflow-hidden bg-card">
-          <div className="overflow-x-auto">
+        <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+          <div className="overflow-x-auto overflow-y-auto max-h-[680px]">
             <table className="w-full">
-              <thead className="bg-muted sticky top-0">
+              <thead className="bg-slate-100 sticky top-0">
                 <tr>
                   <th className="text-left p-4 font-medium">Timestamp</th>
                   <th className="text-left p-4 font-medium">Event</th>
@@ -417,8 +430,10 @@ export default function AuditLogsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-muted/50">
+                {logs.map((log, index) => {
+                  const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                  return (
+                    <tr key={log.id} className={`${rowBg} hover:bg-slate-100`}>
                     <td className="p-4 text-sm text-muted-foreground whitespace-nowrap">
                       {format(new Date(log.created_at), 'MMM d, yyyy HH:mm:ss')}
                     </td>
@@ -437,8 +452,9 @@ export default function AuditLogsPage() {
                       {log.record_subject_name || '—'}
                     </td>
                     <td className="p-4 text-sm">{log.action}</td>
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -446,24 +462,24 @@ export default function AuditLogsPage() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="pageSize">Show:</Label>
-            <Select value={limit.toString()} onValueChange={(val) => setLimit(Number(val))}>
-              <SelectTrigger className="w-[100px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-                <SelectItem value="200">200</SelectItem>
-                <SelectItem value="500">500</SelectItem>
-              </SelectContent>
-            </Select>
-            <span className="text-sm text-muted-foreground">per page</span>
-          </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="pageSize">Show:</Label>
+          <Select value={limit.toString()} onValueChange={(val) => setLimit(Number(val))}>
+            <SelectTrigger className={`w-[120px] ${selectClasses}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="15">15</SelectItem>
+              <SelectItem value="30">30</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground">per page</span>
+        </div>
 
+        {totalPages > 1 && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -487,8 +503,8 @@ export default function AuditLogsPage() {
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

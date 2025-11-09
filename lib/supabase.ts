@@ -42,8 +42,11 @@ export type UserProfile = {
   email: string | null;                                // User email from Clerk
   display_name: string | null;
   role: 'viewer' | 'campus_admin' | 'district_admin' | 'master_admin';
-  tenant_id: string;                                   // Tenant ID for multi-tenancy (required)
+  tenant_id: string | null;                            // Tenant ID (nullable for feedback-only users)
   campus_id: string | null;                            // Campus ID for campus_admin users
+  user_type: 'tenant_user' | 'feedback_user';         // User type: tenant or feedback-only
+  display_organization: string | null;                 // Organization name shown publicly
+  show_organization: boolean;                          // Whether to show org name on feedback
   theme: 'light' | 'dark' | 'system';
   status: 'active' | 'inactive' | 'invited';          // User account status
   notifications_enabled: boolean;                      // Whether user wants expiration notifications
@@ -96,4 +99,72 @@ export type RecordDocument = {
   uploaded_by: string;
   created_at: string;
   updated_at: string;
+};
+
+// =====================================================
+// FEEDBACK SYSTEM TYPES
+// =====================================================
+
+export type FeedbackCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FeedbackSubmission = {
+  id: string;
+  user_id: string;
+  tenant_id: string | null;
+  category_id: string;
+  feedback_type: 'bug' | 'feature_request' | 'improvement' | 'question' | 'other';
+  title: string;
+  slug: string;
+  description: string | null;
+  status: 'under_review' | 'planned' | 'in_progress' | 'completed' | 'declined';
+  status_changed_at: string;
+  roadmap_notes: string | null;
+  planned_release: string | null;
+  admin_notes: string | null;
+  admin_response: string | null;
+  upvote_count: number;
+  comment_count: number;
+  share_count: number;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FeedbackUpvote = {
+  id: string;
+  feedback_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+export type FeedbackImage = {
+  id: string;
+  feedback_id: string;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  uploaded_by: string;
+  created_at: string;
+};
+
+export type FeedbackComment = {
+  id: string;
+  feedback_id: string;
+  user_id: string;
+  parent_comment_id: string | null;
+  content: string;
+  is_admin_response: boolean;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
 };

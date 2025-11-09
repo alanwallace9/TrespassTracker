@@ -20,6 +20,8 @@ import { format } from 'date-fns';
 export default function UsersManagementPage() {
   const { selectedTenantId } = useAdminTenant();
   const { user } = useAuth();
+  const filterFieldClasses = 'bg-white border border-slate-300 shadow-sm text-slate-900 placeholder:text-slate-500';
+  const selectFieldClasses = 'bg-white border border-slate-300 shadow-sm text-slate-900 focus:ring-2 focus:ring-slate-200';
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<AdminUserListItem[]>([]);
   const [campuses, setCampuses] = useState<Campus[]>([]);
@@ -175,7 +177,12 @@ export default function UsersManagementPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchData}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            className="bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300"
+          >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -183,6 +190,7 @@ export default function UsersManagementPage() {
             variant="outline"
             size="sm"
             onClick={() => setBulkUploadDialogOpen(true)}
+            className="bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300"
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Bulk Upload
@@ -202,11 +210,11 @@ export default function UsersManagementPage() {
             placeholder="Search by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className={`pl-10 ${filterFieldClasses}`}
           />
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className={`w-[180px] ${selectFieldClasses}`}>
             <SelectValue placeholder="All Roles" />
           </SelectTrigger>
           <SelectContent>
@@ -220,7 +228,7 @@ export default function UsersManagementPage() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className={`w-[180px] ${selectFieldClasses}`}>
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -243,9 +251,10 @@ export default function UsersManagementPage() {
           <p className="text-muted-foreground">No users found</p>
         </div>
       ) : (
-        <div className="border rounded-lg overflow-hidden bg-card">
-          <table className="w-full">
-            <thead className="bg-muted">
+        <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+          <div className="overflow-x-auto overflow-y-auto max-h-[640px]">
+            <table className="w-full">
+              <thead className="bg-slate-100">
               <tr>
                 <th className="text-left p-4 font-medium">User</th>
                 <th className="text-left p-4 font-medium">Role</th>
@@ -255,73 +264,62 @@ export default function UsersManagementPage() {
                 <th className="text-left p-4 font-medium">Created</th>
                 <th className="text-right p-4 font-medium">Actions</th>
               </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-muted/50">
-                  <td className="p-4">
-                    <div>
-                      <div className="font-medium">{user.display_name || 'N/A'}</div>
-                      <div className="text-sm text-muted-foreground">{user.email}</div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {user.role.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="p-4 text-sm">
-                    {user.campus_name || '—'}
-                  </td>
-                  <td className="p-4">
-                    {user.deleted_at ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        Deleted
-                      </span>
-                    ) : (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : user.status === 'invited'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {user.status}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-4 text-sm text-muted-foreground">
-                    {user.last_sign_in_at
-                      ? format(new Date(user.last_sign_in_at), 'MMM d, yyyy')
-                      : '—'}
-                  </td>
-                  <td className="p-4 text-sm text-muted-foreground">
-                    {format(new Date(user.created_at), 'MMM d, yyyy')}
-                  </td>
-                  <td className="p-4 text-right">
-                    {!user.deleted_at && (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditClick(user)}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteClick(user)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </Button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {filteredUsers.map((user, index) => {
+                  const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                  return (
+                    <tr key={user.id} className={`${rowBg} hover:bg-slate-100 transition-colors`}>
+                      <td className="p-4">
+                        <div>
+                          <div className="font-medium">{user.display_name || 'N/A'}</div>
+                          <div className="text-sm text-muted-foreground">{user.email}</div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-100 text-blue-800 leading-tight">
+                          {user.role.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="p-4 text-xs text-slate-600">{user.campus_name || '—'}</td>
+                      <td className="p-4">
+                        {user.deleted_at ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-100 text-red-800">
+                            Deleted
+                          </span>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                              user.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : user.status === 'invited'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {user.status}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-xs text-muted-foreground">
+                        {user.last_sign_in_at ? format(new Date(user.last_sign_in_at), 'MMM d, yyyy') : '—'}
+                      </td>
+                      <td className="p-4 text-xs text-muted-foreground">
+                        {format(new Date(user.created_at), 'MMM d, yyyy')}
+                      </td>
+                      <td className="p-4 text-right">
+                        {!user.deleted_at && (
+                          <Button variant="ghost" size="sm" onClick={() => handleEditClick(user)}>
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -341,12 +339,12 @@ export default function UsersManagementPage() {
           <div className="space-y-4 py-4">
             <div>
               <Label>Email</Label>
-              <Input value={selectedUser?.email || ''} disabled />
+              <Input value={selectedUser?.email || ''} disabled className={filterFieldClasses} />
             </div>
             <div>
               <Label>Role</Label>
               <Select value={editRole} onValueChange={setEditRole}>
-                <SelectTrigger>
+                <SelectTrigger className={selectFieldClasses}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -363,7 +361,7 @@ export default function UsersManagementPage() {
               <div>
                 <Label>Campus</Label>
                 <Select value={editCampusId} onValueChange={setEditCampusId}>
-                  <SelectTrigger>
+                  <SelectTrigger className={selectFieldClasses}>
                     <SelectValue placeholder="Select campus" />
                   </SelectTrigger>
                   <SelectContent>
@@ -379,7 +377,15 @@ export default function UsersManagementPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex w-full items-center justify-between">
+            <Button
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => selectedUser && handleDeleteClick(selectedUser)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete User
+            </Button>
             <Button variant="ghost" onClick={() => setEditDialogOpen(false)}>
               Cancel
             </Button>

@@ -33,7 +33,7 @@ export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUs
 
   const isMasterAdmin = user?.user_metadata?.role === 'master_admin';
   // Use selected tenant from admin context if available, otherwise use user's tenant
-  const selectedTenantId = adminTenantContext?.selectedTenantId || user?.user_metadata?.tenant_id || null;
+  const selectedTenantId = adminTenantContext?.selectedTenantId || (user?.user_metadata as any)?.tenant_id || null;
 
   // Fetch campuses when dialog opens or tenant changes
   useEffect(() => {

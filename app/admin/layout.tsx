@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Shield, Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart, Building } from 'lucide-react';
+import { Shield, Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart, Building, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { AdminTenantProvider, useAdminTenant } from '@/contexts/AdminTenantContext';
 
@@ -98,6 +98,11 @@ function AdminLayoutInner({
       label: 'Reports',
       icon: FileBarChart,
     },
+    {
+      href: '/admin/feedback',
+      label: 'Feedback',
+      icon: MessageSquare,
+    },
   ];
 
   const isActive = (href: string, exact?: boolean) => {
@@ -108,9 +113,9 @@ function AdminLayoutInner({
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#F9FAFB]">
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-50">
+      <header className="bg-white/95 border-b border-slate-200 sticky top-0 z-50 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
@@ -129,7 +134,7 @@ function AdminLayoutInner({
                 <div className="flex items-center gap-2">
                   <Building className="w-4 h-4 text-muted-foreground" />
                   <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
-                    <SelectTrigger className="w-[200px]">
+                    <SelectTrigger className="w-[220px] bg-white border border-slate-300 shadow-sm focus:ring-2 focus:ring-slate-200">
                       <SelectValue placeholder="Select District" />
                     </SelectTrigger>
                     <SelectContent>
@@ -144,7 +149,11 @@ function AdminLayoutInner({
               )}
 
               <Link href="/dashboard">
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white border border-slate-300 text-slate-700 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300"
+                >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Dashboard
                 </Button>
@@ -155,10 +164,10 @@ function AdminLayoutInner({
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-8">
+        <div className="flex gap-8 items-start">
           {/* Sidebar Navigation */}
           <aside className="w-64 flex-shrink-0">
-            <nav className="space-y-1">
+            <nav className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href, item.exact);
@@ -167,8 +176,10 @@ function AdminLayoutInner({
                   <Link key={item.href} href={item.href}>
                     <Button
                       variant={active ? 'secondary' : 'ghost'}
-                      className={`w-full justify-start ${
-                        active ? 'bg-primary text-primary-foreground' : 'text-foreground'
+                      className={`w-full justify-start rounded-xl ${
+                        active
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-slate-700 hover:bg-white hover:text-slate-900 border border-transparent hover:border-slate-200'
                       }`}
                     >
                       <Icon className="w-4 h-4 mr-3" />
@@ -181,9 +192,11 @@ function AdminLayoutInner({
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1 min-w-0">
-            {children}
-          </main>
+          <div className="flex-1 min-w-0">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+              <main className="flex-1 min-w-0">{children}</main>
+            </div>
+          </div>
         </div>
       </div>
     </div>
