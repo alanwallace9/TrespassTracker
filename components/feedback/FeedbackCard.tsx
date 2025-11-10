@@ -20,6 +20,7 @@ interface FeedbackCardProps {
       slug: string;
     };
     user: {
+      clerk_id?: string;
       display_name: string | null;
       role: string;
       display_organization: string | null;
@@ -64,15 +65,27 @@ export function FeedbackCard({ feedback, isUpvoted }: FeedbackCardProps) {
   const statusConfig = STATUS_CONFIG[feedback.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.under_review;
   const typeLabel = TYPE_LABELS[feedback.feedback_type as keyof typeof TYPE_LABELS] || feedback.feedback_type;
 
-  // Format user attribution: Show display name if available, otherwise just role and org
-  const hasDisplayName = feedback.user?.display_name && feedback.user.display_name.trim() !== '';
-  const userName = hasDisplayName ? feedback.user.display_name : null;
-  const userRole = feedback.user?.role
-    ? feedback.user.role.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-    : 'User';
-  const userOrg = (feedback.user?.show_organization && feedback.user?.display_organization)
-    ? feedback.user.display_organization
-    : null;
+  // Special handling for Alan (master admin) - always show as "Alan • DistrictTracker"
+  const isAlan = feedback.user?.clerk_id === 'user_33ZRTFJ4KotDYuXdS3j1T4649vw';
+
+  let userName = null;
+  let userRole = 'User';
+  let userOrg = null;
+
+  if (isAlan) {
+    userName = 'Alan';
+    userRole = 'DistrictTracker';
+  } else {
+    // For other users: Show display name if available, otherwise just role and org
+    const hasDisplayName = feedback.user?.display_name && feedback.user.display_name.trim() !== '';
+    userName = hasDisplayName ? feedback.user.display_name : null;
+    userRole = feedback.user?.role
+      ? feedback.user.role.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+      : 'User';
+    userOrg = (feedback.user?.show_organization && feedback.user?.display_organization)
+      ? feedback.user.display_organization
+      : null;
+  }
 
   // Determine the type slug for URL
   const typeSlug = feedback.feedback_type === 'bug' ? 'bug-report' : 'feature-request';

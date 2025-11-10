@@ -14,6 +14,7 @@ interface Comment {
   content: string;
   created_at: string;
   user: {
+    clerk_id?: string;
     display_name: string | null;
     role: string;
     display_organization: string | null;
@@ -139,24 +140,34 @@ export function CommentsSection({ feedbackId, comments: initialComments }: Comme
       ) : (
         <div className="space-y-6">
           {initialComments.map((comment) => {
-            // User attribution: Show display name if available, otherwise just role and org
-            const hasDisplayName = comment.user?.display_name && comment.user?.display_name.trim() !== '';
-            const userName = hasDisplayName ? comment.user?.display_name : null;
+            // Special handling for Alan (master admin) - always show as "Alan • DistrictTracker"
+            const isAlan = comment.user?.clerk_id === 'user_33ZRTFJ4KotDYuXdS3j1T4649vw';
 
-            // Format role display: "District Admin • Birdville ISD" or "Campus Admin • Campus Name"
+            let userName = null;
             let roleDisplay = 'User';
-            if (comment.user?.role) {
-              const role = comment.user.role;
-              const formattedRole = role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
 
-              if (role === 'campus_admin' && comment.user.campus_name) {
-                roleDisplay = `Campus Admin • ${comment.user.campus_name}`;
-              } else if (role === 'district_admin' && comment.user.tenant_name) {
-                roleDisplay = `District Admin • ${comment.user.tenant_name}`;
-              } else if (role === 'master_admin' && comment.user.tenant_name) {
-                roleDisplay = `District Admin • ${comment.user.tenant_name}`;
-              } else {
-                roleDisplay = formattedRole;
+            if (isAlan) {
+              userName = 'Alan';
+              roleDisplay = 'DistrictTracker';
+            } else {
+              // For other users: Show display name if available, otherwise just role and org
+              const hasDisplayName = comment.user?.display_name && comment.user?.display_name.trim() !== '';
+              userName = hasDisplayName ? comment.user?.display_name : null;
+
+              // Format role display: "District Admin • Birdville ISD" or "Campus Admin • District Name"
+              if (comment.user?.role) {
+                const role = comment.user.role;
+                const formattedRole = role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+
+                if (role === 'campus_admin' && comment.user.tenant_name) {
+                  roleDisplay = `Campus Admin • ${comment.user.tenant_name}`;
+                } else if (role === 'district_admin' && comment.user.tenant_name) {
+                  roleDisplay = `District Admin • ${comment.user.tenant_name}`;
+                } else if (role === 'master_admin' && comment.user.tenant_name) {
+                  roleDisplay = `District Admin • ${comment.user.tenant_name}`;
+                } else {
+                  roleDisplay = formattedRole;
+                }
               }
             }
 

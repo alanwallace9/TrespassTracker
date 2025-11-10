@@ -51,24 +51,34 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted, comments }: Fee
   const statusConfig = STATUS_CONFIG[feedback.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.under_review;
   const typeLabel = TYPE_LABELS[feedback.feedback_type as keyof typeof TYPE_LABELS] || feedback.feedback_type;
 
-  // User attribution: Show display name if available, otherwise just role and district
-  const hasDisplayName = feedback.user?.display_name && feedback.user.display_name.trim() !== '';
-  const userName = hasDisplayName ? feedback.user.display_name : null;
+  // Special handling for Alan (master admin) - always show as "Alan • DistrictTracker"
+  const isAlan = feedback.user?.clerk_id === 'user_33ZRTFJ4KotDYuXdS3j1T4649vw';
 
-  // Format role display: "District Admin • Birdville ISD" or "Campus Admin • Campus Name"
+  let userName = null;
   let roleDisplay = 'User';
-  if (feedback.user?.role) {
-    const role = feedback.user.role;
-    const formattedRole = role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
 
-    if (role === 'campus_admin' && feedback.user.campus_name) {
-      roleDisplay = `Campus Admin • ${feedback.user.campus_name}`;
-    } else if (role === 'district_admin' && feedback.user.tenant_name) {
-      roleDisplay = `District Admin • ${feedback.user.tenant_name}`;
-    } else if (role === 'master_admin' && feedback.user.tenant_name) {
-      roleDisplay = `District Admin • ${feedback.user.tenant_name}`;
-    } else {
-      roleDisplay = formattedRole;
+  if (isAlan) {
+    userName = 'Alan';
+    roleDisplay = 'DistrictTracker';
+  } else {
+    // For other users: Show display name if available, otherwise just role and district
+    const hasDisplayName = feedback.user?.display_name && feedback.user.display_name.trim() !== '';
+    userName = hasDisplayName ? feedback.user.display_name : null;
+
+    // Format role display: "District Admin • Birdville ISD" or "Campus Admin • District Name"
+    if (feedback.user?.role) {
+      const role = feedback.user.role;
+      const formattedRole = role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+
+      if (role === 'campus_admin' && feedback.user.tenant_name) {
+        roleDisplay = `Campus Admin • ${feedback.user.tenant_name}`;
+      } else if (role === 'district_admin' && feedback.user.tenant_name) {
+        roleDisplay = `District Admin • ${feedback.user.tenant_name}`;
+      } else if (role === 'master_admin' && feedback.user.tenant_name) {
+        roleDisplay = `District Admin • ${feedback.user.tenant_name}`;
+      } else {
+        roleDisplay = formattedRole;
+      }
     }
   }
 
