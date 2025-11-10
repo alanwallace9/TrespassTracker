@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { adminUpdateFeedback, adminDeleteFeedback, updateCategory } from '@/app/actions/feedback';
+import { adminUpdateFeedback, adminDeleteFeedback, updateCategory, getNextVersion } from '@/app/actions/feedback';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedbackCategory } from '@/lib/supabase';
 
@@ -124,6 +124,21 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
       release_quarter: item.release_quarter || '',
       release_month_year: item.release_month_year || '',
     });
+  };
+
+  // Auto-calculate next version number when version type changes
+  const handleVersionTypeChange = async (versionType: 'major' | 'minor' | 'patch' | '') => {
+    setEditForm(prev => ({ ...prev, version_type: versionType }));
+
+    if (versionType === 'major' || versionType === 'minor' || versionType === 'patch') {
+      // Fetch next version number
+      const result = await getNextVersion(versionType);
+      if (!result.error && result.version) {
+        setEditForm(prev => ({ ...prev, version_number: result.version }));
+      }
+    } else {
+      setEditForm(prev => ({ ...prev, version_number: '' }));
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -525,7 +540,7 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-sm font-medium text-slate-900">Version Type</label>
-                          <Select value={editForm.version_type} onValueChange={(value: any) => setEditForm({ ...editForm, version_type: value })}>
+                          <Select value={editForm.version_type} onValueChange={(value: any) => handleVersionTypeChange(value)}>
                             <SelectTrigger className="bg-white border-slate-300 shadow-sm">
                               <SelectValue placeholder="Select type" />
                             </SelectTrigger>

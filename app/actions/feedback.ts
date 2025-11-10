@@ -1215,3 +1215,116 @@ export async function deleteFeedbackComment(commentId: string): Promise<{ succes
     return { success: false, error: error.message };
   }
 }
+
+// =====================================================
+// VERSION MANAGEMENT ACTIONS
+// =====================================================
+
+/**
+ * Get the current/latest version number from version_history
+ */
+export async function getCurrentVersion(): Promise<{ version: string; error: string | null }> {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('get_latest_version');
+
+    if (error) throw error;
+
+    return { version: data || '1.3.0', error: null };
+  } catch (error: any) {
+    console.error('Error getting current version:', error);
+    return { version: '1.3.0', error: error.message };
+  }
+}
+
+/**
+ * Calculate the next version number based on version type
+ */
+export async function getNextVersion(
+  versionType: 'major' | 'minor' | 'patch'
+): Promise<{ version: string; error: string | null }> {
+  try {
+    // Get current version
+    const currentVersionResult = await getCurrentVersion();
+    if (currentVersionResult.error) {
+      return { version: '', error: currentVersionResult.error };
+    }
+
+    const currentVersion = currentVersionResult.version;
+
+    // Calculate next version using database function
+    const { data, error } = await supabaseAdmin.rpc('calculate_next_version', {
+      current_version: currentVersion,
+      bump_type: versionType,
+    });
+
+    if (error) throw error;
+
+    return { version: data, error: null };
+  } catch (error: any) {
+    console.error('Error calculating next version:', error);
+    return { version: '', error: error.message };
+  }
+}
+
+/**
+ * Create a new version release (master admin only)
+ * This is called when completing a feature with a version
+ */
+export async function createVersionRelease(data: {
+  versionType: 'major' | 'minor' | 'patch';
+  releaseNotes?: string;
+}): Promise<{ success: boolean; version?: string; error: string | null }> {
+  try {
+    // Check admin access
+    if (!await isMasterAdmin()) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    // Get next version number
+    const nextVersionResult = await getNextVersion(data.versionType);
+    if (nextVersionResult.error) {
+      return { success: false, error: nextVersionResult.error };
+    }
+
+    const nextVersion = nextVersionResult.version;
+
+    // Insert new version into version_history
+    const { error } = await supabaseAdmin
+      .from('version_history')
+      .insert({
+        version_number: nextVersion,
+        version_type: data.versionType,
+        release_date: new Date().toISOString(),
+        release_notes: data.releaseNotes || null,
+      });
+
+    if (error) throw error;
+
+    revalidatePath('/feedback/changelog');
+    revalidatePath('/admin/feedback');
+
+    return { success: true, version: nextVersion, error: null };
+  } catch (error: any) {
+    console.error('Error creating version release:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get all version releases for changelog
+ */
+export async function getVersionHistory(): Promise<{ data: any[]; error: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('version_history')
+      .select('*')
+      .order('release_date', { ascending: false });
+
+    if (error) throw error;
+
+    return { data: data || [], error: null };
+  } catch (error: any) {
+    console.error('Error fetching version history:', error);
+    return { data: [], error: error.message };
+  }
+}
