@@ -74,12 +74,20 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
     roadmap_notes: string;
     planned_release: string;
     is_public: boolean;
+    version_type: 'major' | 'minor' | 'patch' | '';
+    version_number: string;
+    release_quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4' | '';
+    release_month_year: string;
   }>({
     status: '',
     admin_response: '',
     roadmap_notes: '',
     planned_release: '',
     is_public: true,
+    version_type: '',
+    version_number: '',
+    release_quarter: '',
+    release_month_year: '',
   });
 
   // Filter feedback
@@ -105,6 +113,10 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
       roadmap_notes: item.roadmap_notes || '',
       planned_release: item.planned_release || '',
       is_public: item.is_public,
+      version_type: item.version_type || '',
+      version_number: item.version_number || '',
+      release_quarter: item.release_quarter || '',
+      release_month_year: item.release_month_year || '',
     });
   };
 
@@ -468,14 +480,75 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
                   />
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-slate-900">Planned Release</label>
-                  <Input
-                    value={editForm.planned_release}
-                    onChange={(e) => setEditForm({ ...editForm, planned_release: e.target.value })}
-                    placeholder="e.g., Q2 2025, v2.0"
-                    className="bg-white border-slate-300 shadow-sm"
-                  />
+                {/* Version Tracking Section */}
+                <div className="border-t border-slate-200 pt-4 mt-4">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3">Version Tracking</h3>
+
+                  {/* Version Cheat Sheet */}
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs">
+                    <p className="font-semibold text-blue-900 mb-2">Version Type Guide:</p>
+                    <ul className="space-y-1 text-blue-800">
+                      <li><strong>Major (X.0.0):</strong> Breaking changes, major new features, significant redesigns</li>
+                      <li><strong>Minor (0.X.0):</strong> New features, enhancements, non-breaking improvements</li>
+                      <li><strong>Patch (0.0.X):</strong> Bug fixes, small tweaks, security patches</li>
+                    </ul>
+                  </div>
+
+                  {/* Planning vs Completion Fields */}
+                  {editForm.status === 'completed' ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm font-medium text-slate-900">Version Type</label>
+                          <Select value={editForm.version_type} onValueChange={(value: any) => setEditForm({ ...editForm, version_type: value })}>
+                            <SelectTrigger className="bg-white border-slate-300 shadow-sm">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="major">Major (Breaking)</SelectItem>
+                              <SelectItem value="minor">Minor (Features)</SelectItem>
+                              <SelectItem value="patch">Patch (Fixes)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium text-slate-900">Version Number</label>
+                          <Input
+                            value={editForm.version_number}
+                            onChange={(e) => setEditForm({ ...editForm, version_number: e.target.value })}
+                            placeholder="e.g., 1.2.3"
+                            className="bg-white border-slate-300 shadow-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-slate-900">Release Month & Year</label>
+                        <Input
+                          value={editForm.release_month_year}
+                          onChange={(e) => setEditForm({ ...editForm, release_month_year: e.target.value })}
+                          placeholder="e.g., November 2025"
+                          className="bg-white border-slate-300 shadow-sm"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="text-sm font-medium text-slate-900">Planned Release Quarter</label>
+                      <Select value={editForm.release_quarter} onValueChange={(value: any) => setEditForm({ ...editForm, release_quarter: value })}>
+                        <SelectTrigger className="bg-white border-slate-300 shadow-sm">
+                          <SelectValue placeholder="Select quarter" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Q1">Q1 (Jan-Mar)</SelectItem>
+                          <SelectItem value="Q2">Q2 (Apr-Jun)</SelectItem>
+                          <SelectItem value="Q3">Q3 (Jul-Sep)</SelectItem>
+                          <SelectItem value="Q4">Q4 (Oct-Dec)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">

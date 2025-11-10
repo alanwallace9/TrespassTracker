@@ -682,6 +682,10 @@ export async function adminUpdateFeedback(
     roadmap_notes?: string;
     planned_release?: string;
     is_public?: boolean;
+    version_type?: 'major' | 'minor' | 'patch';
+    version_number?: string;
+    release_quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    release_month_year?: string;
   }
 ): Promise<{ success: boolean; error: string | null }> {
   try {
