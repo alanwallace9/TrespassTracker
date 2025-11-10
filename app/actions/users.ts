@@ -55,7 +55,10 @@ export async function getUserProfile(userId: string) {
 
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('*')
+    .select(`
+      *,
+      tenant:tenants(short_display_name)
+    `)
     .eq('id', userId)
     .maybeSingle();
 

@@ -17,6 +17,7 @@ import { BulkUserUploadDialog } from '@/components/admin/BulkUserUploadDialog';
 import { StatsDropdown } from '@/components/StatsDropdown';
 import { AdminAuditLog } from '@/components/AdminAuditLog';
 import { getDisplayName, getUserProfile } from '@/app/actions/users';
+import { getCurrentVersion } from '@/app/actions/feedback';
 import { TrespassRecord, UserProfile } from '@/lib/supabase';
 import { useExpiringWarnings } from '@/hooks/useExpiringWarnings';
 
@@ -63,6 +64,8 @@ export function DashboardLayout({
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('viewer');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [tenantShortName, setTenantShortName] = useState<string>('');
+  const [appVersion, setAppVersion] = useState<string>('');
   const [notificationDismissed, setNotificationDismissed] = useState(false);
   // Initialize theme state directly from localStorage (no useEffect delay)
   // The blocking script in layout.tsx already set the data-theme attribute
@@ -136,15 +139,31 @@ export function DashboardLayout({
       setDisplayName(null);
     }
 
-    // Fetch full user profile for notifications
+    // Fetch full user profile for notifications and tenant info
     try {
       const profile = await getUserProfile(user.id);
       if (profile) {
         setUserProfile(profile);
+        // Set tenant short name for dashboard branding
+        if (profile.tenant && Array.isArray(profile.tenant) && profile.tenant[0]?.short_display_name) {
+          setTenantShortName(profile.tenant[0].short_display_name);
+        } else if (profile.tenant && !Array.isArray(profile.tenant) && profile.tenant.short_display_name) {
+          setTenantShortName(profile.tenant.short_display_name);
+        }
       }
     } catch (error) {
       // Silently fail - profile is optional for notifications
       setUserProfile(null);
+    }
+
+    // Fetch app version
+    try {
+      const versionResult = await getCurrentVersion();
+      if (!versionResult.error && versionResult.version) {
+        setAppVersion(versionResult.version);
+      }
+    } catch (error) {
+      // Silently fail - version is optional
     }
   };
 
@@ -209,8 +228,13 @@ export function DashboardLayout({
                 className="w-10 h-10"
               />
               <div>
-                <h1 className="text-xl font-bold text-foreground">BISD Trespass Management</h1>
-                <p className="text-xs text-muted-foreground">powered by <a href="https://DistrictTracker.com" className="underline hover:no-underline">DistrictTracker.com</a></p>
+                <h1 className="text-xl font-bold text-foreground">
+                  {tenantShortName || 'BISD'} Trespass Management
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  powered by <a href="https://DistrictTracker.com" className="underline hover:no-underline">DistrictTracker.com</a>
+                  {appVersion && <span className="ml-2">• v{appVersion}</span>}
+                </p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
