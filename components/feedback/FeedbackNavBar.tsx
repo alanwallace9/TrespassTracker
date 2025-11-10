@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Search, Map, ListChecks } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { VersionDisplay } from './VersionDisplay';
 
 export function FeedbackNavBar() {
   const router = useRouter();
@@ -52,7 +53,10 @@ export function FeedbackNavBar() {
                 height={32}
                 className="w-8 h-8"
               />
-              <span className="text-xl font-bold text-slate-900">DistrictTracker</span>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-slate-900">DistrictTracker</span>
+                <VersionDisplay />
+              </div>
             </div>
 
             {/* Navigation */}
