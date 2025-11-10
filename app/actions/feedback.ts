@@ -88,7 +88,7 @@ export async function getFeedback(filters?: {
     const categoryIds = Array.from(new Set(submissions.map(s => s.category_id)));
 
     const [usersResult, categoriesResult] = await Promise.all([
-      supabase.from('user_profiles').select('id, clerk_id, display_name, role, display_organization, show_organization').in('id', userIds),
+      supabase.from('user_profiles').select('id, display_name, role, display_organization, show_organization').in('id', userIds),
       supabase.from('feedback_categories').select('id, name, slug').in('id', categoryIds),
     ]);
 
@@ -126,7 +126,7 @@ export async function getFeedbackById(id: string): Promise<{ data: any | null; e
 
     // Manually join user and category data
     const [userResult, categoryResult] = await Promise.all([
-      supabase.from('user_profiles').select('id, clerk_id, display_name, role, display_organization, show_organization').eq('id', submission.user_id).single(),
+      supabase.from('user_profiles').select('id, display_name, role, display_organization, show_organization').eq('id', submission.user_id).single(),
       supabase.from('feedback_categories').select('id, name, slug').eq('id', submission.category_id).single(),
     ]);
 
@@ -160,7 +160,7 @@ export async function getFeedbackBySlug(slug: string): Promise<{ data: any | nul
 
     // Manually join user and category data
     const [userResult, categoryResult] = await Promise.all([
-      supabaseAdmin.from('user_profiles').select('id, clerk_id, display_name, role, display_organization, show_organization, tenant_id, campus_id').eq('id', submission.user_id).single(),
+      supabaseAdmin.from('user_profiles').select('id, display_name, role, display_organization, show_organization, tenant_id, campus_id').eq('id', submission.user_id).single(),
       supabase.from('feedback_categories').select('id, name, slug').eq('id', submission.category_id).single(),
     ]);
 
@@ -651,7 +651,7 @@ export async function getAdminFeedback(filters?: {
     const categoryIds = Array.from(new Set(submissions.map(s => s.category_id)));
 
     const [usersResult, categoriesResult] = await Promise.all([
-      supabase.from('user_profiles').select('id, clerk_id, display_name, role, display_organization, show_organization').in('id', userIds),
+      supabase.from('user_profiles').select('id, display_name, role, display_organization, show_organization').in('id', userIds),
       supabase.from('feedback_categories').select('id, name, slug').in('id', categoryIds),
     ]);
 
@@ -1041,7 +1041,7 @@ export async function getFeedbackComments(feedbackId: string): Promise<{ data: a
 
     const { data: users, error: usersError } = await supabaseAdmin
       .from('user_profiles')
-      .select('id, clerk_id, display_name, role, display_organization, show_organization, tenant_id, campus_id')
+      .select('id, display_name, role, display_organization, show_organization, tenant_id, campus_id')
       .in('id', userIds);
 
     if (usersError) {
