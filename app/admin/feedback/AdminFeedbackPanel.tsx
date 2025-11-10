@@ -69,6 +69,8 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
 
   // Edit form state
   const [editForm, setEditForm] = useState<{
+    title: string;
+    description: string;
     status: 'under_review' | 'planned' | 'in_progress' | 'completed' | 'declined' | '';
     admin_response: string;
     roadmap_notes: string;
@@ -79,6 +81,8 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
     release_quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4' | '';
     release_month_year: string;
   }>({
+    title: '',
+    description: '',
     status: '',
     admin_response: '',
     roadmap_notes: '',
@@ -108,6 +112,8 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
   const handleEdit = (item: any) => {
     setEditingItem(item);
     setEditForm({
+      title: item.title || '',
+      description: item.description || '',
       status: item.status,
       admin_response: item.admin_response || '',
       roadmap_notes: item.roadmap_notes || '',
@@ -436,9 +442,28 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
 
           {editingItem && (
             <div className="space-y-4">
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-2">{editingItem.title}</h4>
-                <p className="text-sm text-slate-600">{editingItem.description}</p>
+              {/* Editable Title and Description */}
+              <div className="space-y-3 border-b border-slate-200 pb-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-900">Feature Title</label>
+                  <Input
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    placeholder="Feature title"
+                    className="bg-white border-slate-300 shadow-sm font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-900">Description</label>
+                  <Textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    placeholder="Feature description"
+                    rows={3}
+                    className="bg-white border-slate-300 shadow-sm"
+                  />
+                </div>
               </div>
 
               <div className="space-y-4">

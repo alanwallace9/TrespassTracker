@@ -677,6 +677,8 @@ export async function getAdminFeedback(filters?: {
 export async function adminUpdateFeedback(
   id: string,
   updates: {
+    title?: string;
+    description?: string;
     status?: 'under_review' | 'planned' | 'in_progress' | 'completed' | 'declined';
     admin_response?: string;
     roadmap_notes?: string;
