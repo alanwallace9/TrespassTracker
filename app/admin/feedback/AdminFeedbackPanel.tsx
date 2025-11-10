@@ -174,7 +174,7 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
 
     if (isNewFeature) {
       // Create new feedback
-      result = await adminCreateFeedback({
+      const createData: any = {
         title: editForm.title,
         description: editForm.description || undefined,
         feedback_type: editForm.feedback_type as any,
@@ -184,18 +184,39 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
         roadmap_notes: editForm.roadmap_notes || undefined,
         planned_release: editForm.planned_release || undefined,
         is_public: editForm.is_public,
-        version_type: editForm.version_type || undefined,
-        version_number: editForm.version_number || undefined,
-        release_quarter: editForm.release_quarter || undefined,
-        release_month_year: editForm.release_month_year || undefined,
-      });
+      };
+
+      // For completed items: use version fields and release_month_year
+      if (editForm.status === 'completed') {
+        createData.version_type = editForm.version_type || undefined;
+        createData.version_number = editForm.version_number || undefined;
+        createData.release_month_year = editForm.release_month_year || undefined;
+      }
+      // For planned items: use release_quarter
+      else if (editForm.status === 'planned') {
+        createData.release_quarter = editForm.release_quarter || undefined;
+      }
+
+      result = await adminCreateFeedback(createData);
     } else {
       // Update existing feedback
-      const updateData = {
+      const updateData: any = {
         ...editForm,
         status: editForm.status || undefined,
       };
-      result = await adminUpdateFeedback(editingItem.id, updateData as any);
+
+      // For completed items: clear release_quarter, keep version fields
+      if (editForm.status === 'completed') {
+        updateData.release_quarter = null;
+      }
+      // For planned items: clear version fields, keep release_quarter
+      else if (editForm.status === 'planned' || editForm.status === 'in_progress') {
+        updateData.version_type = null;
+        updateData.version_number = null;
+        updateData.release_month_year = null;
+      }
+
+      result = await adminUpdateFeedback(editingItem.id, updateData);
     }
 
     console.log('[Admin] Save result:', result);
