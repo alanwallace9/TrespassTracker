@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { adminUpdateFeedback, adminDeleteFeedback, updateCategory, getNextVersion } from '@/app/actions/feedback';
+import { adminUpdateFeedback, adminDeleteFeedback, adminCreateFeedback, updateCategory, getNextVersion } from '@/app/actions/feedback';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedbackCategory } from '@/lib/supabase';
 
@@ -71,6 +71,8 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
   const [editForm, setEditForm] = useState<{
     title: string;
     description: string;
+    feedback_type: 'bug' | 'feature_request' | 'improvement' | 'question' | 'other' | '';
+    category_id: string;
     status: 'under_review' | 'planned' | 'in_progress' | 'completed' | 'declined' | '';
     admin_response: string;
     roadmap_notes: string;
@@ -83,6 +85,8 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
   }>({
     title: '',
     description: '',
+    feedback_type: '',
+    category_id: '',
     status: '',
     admin_response: '',
     roadmap_notes: '',
@@ -114,6 +118,8 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
     setEditForm({
       title: item.title || '',
       description: item.description || '',
+      feedback_type: item.feedback_type || '',
+      category_id: item.category_id || (categories.length > 0 ? categories[0].id : ''),
       status: item.status,
       admin_response: item.admin_response || '',
       roadmap_notes: item.roadmap_notes || '',
@@ -144,27 +150,57 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
   const handleSaveEdit = async () => {
     if (!editingItem) return;
 
-    console.log('[Admin] Saving feedback:', { editingItem: editingItem.id, editForm });
+    const isNewFeature = editingItem.id === 'new';
 
-    // Filter out empty status
-    const updateData = {
-      ...editForm,
-      status: editForm.status || undefined,
-    };
+    console.log('[Admin] Saving feedback:', { editingItem: editingItem.id, editForm, isNewFeature });
 
-    console.log('[Admin] Update data:', updateData);
+    // Validate required fields for new features
+    if (isNewFeature) {
+      if (!editForm.title || editForm.title.length < 10) {
+        alert('Title must be at least 10 characters');
+        return;
+      }
+      if (!editForm.feedback_type) {
+        alert('Please select a feedback type');
+        return;
+      }
+      if (!editForm.category_id) {
+        alert('Please select a category');
+        return;
+      }
+    }
 
-    const result = await adminUpdateFeedback(editingItem.id, updateData as any);
+    let result;
+
+    if (isNewFeature) {
+      // Create new feedback
+      result = await adminCreateFeedback({
+        title: editForm.title,
+        description: editForm.description || undefined,
+        feedback_type: editForm.feedback_type as any,
+        category_id: editForm.category_id,
+        status: editForm.status || 'under_review',
+        admin_response: editForm.admin_response || undefined,
+        roadmap_notes: editForm.roadmap_notes || undefined,
+        planned_release: editForm.planned_release || undefined,
+        is_public: editForm.is_public,
+        version_type: editForm.version_type || undefined,
+        version_number: editForm.version_number || undefined,
+        release_quarter: editForm.release_quarter || undefined,
+        release_month_year: editForm.release_month_year || undefined,
+      });
+    } else {
+      // Update existing feedback
+      const updateData = {
+        ...editForm,
+        status: editForm.status || undefined,
+      };
+      result = await adminUpdateFeedback(editingItem.id, updateData as any);
+    }
 
     console.log('[Admin] Save result:', result);
 
     if (result.success) {
-      // Update local state
-      setFeedback(prev =>
-        prev.map(item =>
-          item.id === editingItem.id ? { ...item, ...editForm } : item
-        )
-      );
       setEditingItem(null);
       router.refresh();
       console.log('[Admin] Save successful, dialog closed');
@@ -266,9 +302,28 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
           <p className="text-slate-600">Review and manage user feedback and feature requests</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={downloadTemplate} variant="outline" className="gap-2 bg-white border-slate-300 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300">
-            <Download className="w-4 h-4" />
-            Download CSV Template
+          <Button
+            onClick={() => {
+              setEditingItem({ id: 'new', title: '', description: '', status: 'under_review', is_public: true });
+              setEditForm({
+                title: '',
+                description: '',
+                feedback_type: 'feature_request',
+                category_id: categories.length > 0 ? categories[0].id : '',
+                status: 'under_review',
+                admin_response: '',
+                roadmap_notes: '',
+                planned_release: '',
+                is_public: true,
+                version_type: '',
+                version_number: '',
+                release_quarter: '',
+                release_month_year: '',
+              });
+            }}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Create Feature
           </Button>
           <BulkFeedbackUpload
             categories={categories}
@@ -447,7 +502,7 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
 
       {/* Edit Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-        <DialogContent className="max-w-2xl bg-[#F9FAFB]">
+        <DialogContent className="max-w-2xl max-h-[90vh] bg-[#F9FAFB] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Feedback</DialogTitle>
             <DialogDescription>
@@ -482,6 +537,43 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
               </div>
 
               <div className="space-y-4">
+                {/* Type and Category - Only for New Features */}
+                {editingItem.id === 'new' && (
+                  <div className="grid grid-cols-2 gap-3 border-b border-slate-200 pb-4">
+                    <div>
+                      <label className="text-sm font-medium text-slate-900">Type *</label>
+                      <Select value={editForm.feedback_type} onValueChange={(value: any) => setEditForm({ ...editForm, feedback_type: value })}>
+                        <SelectTrigger className="bg-white border-slate-300 shadow-sm">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="feature_request">Feature Request</SelectItem>
+                          <SelectItem value="bug">Bug Report</SelectItem>
+                          <SelectItem value="improvement">Improvement</SelectItem>
+                          <SelectItem value="question">Question</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-slate-900">Category *</label>
+                      <Select value={editForm.category_id} onValueChange={(value) => setEditForm({ ...editForm, category_id: value })}>
+                        <SelectTrigger className="bg-white border-slate-300 shadow-sm">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="text-sm font-medium text-slate-900">Status</label>
                   <Select value={editForm.status} onValueChange={(value: any) => setEditForm({ ...editForm, status: value })}>

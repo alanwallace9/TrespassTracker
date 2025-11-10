@@ -806,6 +806,81 @@ export async function createCategory(data: {
 }
 
 /**
+ * Create feedback from admin panel (master admin only)
+ */
+export async function adminCreateFeedback(data: {
+  title: string;
+  description?: string;
+  feedback_type: 'bug' | 'feature_request' | 'improvement' | 'question' | 'other';
+  category_id: string;
+  status?: 'under_review' | 'planned' | 'in_progress' | 'completed' | 'declined';
+  admin_response?: string;
+  roadmap_notes?: string;
+  planned_release?: string;
+  is_public?: boolean;
+  version_type?: 'major' | 'minor' | 'patch';
+  version_number?: string;
+  release_quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+  release_month_year?: string;
+}): Promise<{ success: boolean; id?: string; error: string | null }> {
+  try {
+    // Check admin access
+    if (!await isMasterAdmin()) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Validate required fields
+    if (!data.title || data.title.length < 10) {
+      return { success: false, error: 'Title must be at least 10 characters' };
+    }
+
+    if (!data.category_id) {
+      return { success: false, error: 'Category is required' };
+    }
+
+    const { data: result, error } = await supabaseAdmin
+      .from('feedback_submissions')
+      .insert({
+        user_id: userId,
+        tenant_id: null, // Admin-created feedback is cross-tenant
+        category_id: data.category_id,
+        feedback_type: data.feedback_type,
+        title: data.title,
+        description: data.description || null,
+        status: data.status || 'under_review',
+        admin_response: data.admin_response || null,
+        roadmap_notes: data.roadmap_notes || null,
+        planned_release: data.planned_release || null,
+        is_public: data.is_public !== undefined ? data.is_public : true,
+        version_type: data.version_type || null,
+        version_number: data.version_number || null,
+        release_quarter: data.release_quarter || null,
+        release_month_year: data.release_month_year || null,
+        upvote_count: 0,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    revalidatePath('/feedback');
+    revalidatePath('/admin/feedback');
+    revalidatePath('/feedback/roadmap');
+    revalidatePath('/feedback/changelog');
+
+    return { success: true, id: result.id, error: null };
+  } catch (error: any) {
+    console.error('Error creating feedback:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Delete feedback (admin only)
  */
 export async function adminDeleteFeedback(id: string): Promise<{ success: boolean; error: string | null }> {
