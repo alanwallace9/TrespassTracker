@@ -44,7 +44,7 @@ export function SettingsDialog({ open, onOpenChange, onSettingsSaved }: Settings
       if (profile) {
         setDisplayName(profile.display_name || '');
         setNotificationDays(profile.notification_days?.toString() || '7');
-        setUserRole(user.user_metadata.role || 'viewer');
+        setUserRole(profile.role || 'viewer');
       }
     } catch (error) {
       console.error('Error fetching profile:', error);

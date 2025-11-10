@@ -205,17 +205,24 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
         status: editForm.status || undefined,
       };
 
-      // For completed items: clear release_quarter, keep version fields
+      // Handle version tracking fields based on status
       if (editForm.status === 'completed') {
+        // For completed items: clear release_quarter, keep version fields
         updateData.release_quarter = null;
-      }
-      // For planned items: clear version fields, keep release_quarter
-      else if (editForm.status === 'planned' || editForm.status === 'in_progress') {
+      } else if (editForm.status === 'planned' || editForm.status === 'in_progress') {
+        // For planned items: clear version fields, keep release_quarter
+        updateData.version_type = null;
+        updateData.version_number = null;
+        updateData.release_month_year = null;
+      } else {
+        // For under_review and declined: clear all version tracking fields
+        updateData.release_quarter = null;
         updateData.version_type = null;
         updateData.version_number = null;
         updateData.release_month_year = null;
       }
 
+      console.log('[Admin] Update data being sent:', updateData);
       result = await adminUpdateFeedback(editingItem.id, updateData);
     }
 

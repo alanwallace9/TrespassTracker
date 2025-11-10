@@ -254,12 +254,12 @@ export function DashboardLayout({
               </button>
 
               {/* Notification Bell */}
-              {userProfile && userProfile.notifications_enabled && userProfile.role !== 'viewer' && expiringCount > 0 && (
+              {userProfile && userProfile.role !== 'viewer' && (
                 <button
                   onClick={handleBellClick}
                   className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all hover:scale-110 border border-birdville-light-gold bg-input relative ${showExpiringOnly ? 'ring-2 ring-primary' : ''}`}
-                  aria-label={`${expiringCount} trespass warning${expiringCount !== 1 ? 's' : ''} expiring soon`}
-                  title={`${expiringCount} warning${expiringCount !== 1 ? 's' : ''} expiring within 1 week`}
+                  aria-label={expiringCount > 0 ? `${expiringCount} trespass warning${expiringCount !== 1 ? 's' : ''} expiring soon` : 'Notifications'}
+                  title={expiringCount > 0 ? `${expiringCount} warning${expiringCount !== 1 ? 's' : ''} expiring within 1 week` : 'View notifications'}
                 >
                   <Bell className="w-5 h-5 text-foreground" />
                   {expiringCount > 0 && !notificationDismissed && (
