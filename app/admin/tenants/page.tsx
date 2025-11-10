@@ -35,6 +35,7 @@ export default function TenantsManagementPage() {
     id: '',
     subdomain: '',
     display_name: '',
+    short_display_name: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -125,7 +126,7 @@ export default function TenantsManagementPage() {
           description: 'Tenant created successfully',
         });
         setCreateDialogOpen(false);
-        setFormData({ id: '', subdomain: '', display_name: '' });
+        setFormData({ id: '', subdomain: '', display_name: '', short_display_name: '' });
         fetchTenants();
       } else {
         toast({
@@ -171,7 +172,7 @@ export default function TenantsManagementPage() {
         });
         setEditDialogOpen(false);
         setSelectedTenant(null);
-        setFormData({ id: '', subdomain: '', display_name: '' });
+        setFormData({ id: '', subdomain: '', display_name: '', short_display_name: '' });
         fetchTenants();
       } else {
         toast({
@@ -221,7 +222,7 @@ export default function TenantsManagementPage() {
   };
 
   const openCreateDialog = () => {
-    setFormData({ id: '', subdomain: '', display_name: '' });
+    setFormData({ id: '', subdomain: '', display_name: '', short_display_name: '' });
     setCreateDialogOpen(true);
   };
 
@@ -231,6 +232,7 @@ export default function TenantsManagementPage() {
       id: tenant.id,
       subdomain: tenant.subdomain,
       display_name: tenant.display_name,
+      short_display_name: tenant.short_display_name || '',
     });
     setEditDialogOpen(true);
   };
@@ -438,6 +440,17 @@ export default function TenantsManagementPage() {
                 onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
                 className={filterFieldClasses}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="short-display-name">Short Display Name</Label>
+              <Input
+                id="short-display-name"
+                placeholder="e.g., GISD"
+                value={formData.short_display_name}
+                onChange={(e) => setFormData({ ...formData, short_display_name: e.target.value.toUpperCase() })}
+                className={filterFieldClasses}
+              />
+              <p className="text-xs text-slate-500">Short name shown on dashboard (e.g., BISD, DEMO)</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="subdomain">Subdomain</Label>

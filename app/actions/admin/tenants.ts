@@ -129,6 +129,7 @@ export async function createTenant(data: {
   id: string;
   subdomain: string;
   display_name: string;
+  short_display_name?: string;
 }): Promise<{
   success: boolean;
   error?: string;
@@ -180,6 +181,7 @@ export async function createTenant(data: {
         id: data.id,
         subdomain: data.subdomain,
         display_name: data.display_name,
+        short_display_name: data.short_display_name || null,
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
