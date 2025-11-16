@@ -8,6 +8,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+// Opt out of static generation since this uses client-side context
+export const dynamic = 'force-dynamic';
+
 export default function DemoGuidePage() {
   const router = useRouter();
   const { isDemoMode, demoRole, setDemoRole, availableRoles } = useDemoRole();
