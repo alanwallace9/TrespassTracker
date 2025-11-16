@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { adminUpdateFeedback, adminDeleteFeedback, updateCategory } from '@/app/actions/feedback';
+import { adminUpdateFeedback, adminDeleteFeedback, adminCreateFeedback, updateCategory, getNextVersion } from '@/app/actions/feedback';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedbackCategory } from '@/lib/supabase';
 
@@ -69,17 +69,33 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
 
   // Edit form state
   const [editForm, setEditForm] = useState<{
+    title: string;
+    description: string;
+    feedback_type: 'bug' | 'feature_request' | 'improvement' | 'question' | 'other' | '';
+    category_id: string;
     status: 'under_review' | 'planned' | 'in_progress' | 'completed' | 'declined' | '';
     admin_response: string;
     roadmap_notes: string;
     planned_release: string;
     is_public: boolean;
+    version_type: 'major' | 'minor' | 'patch' | '';
+    version_number: string;
+    release_quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4' | '';
+    release_month_year: string;
   }>({
+    title: '',
+    description: '',
+    feedback_type: '',
+    category_id: '',
     status: '',
     admin_response: '',
     roadmap_notes: '',
     planned_release: '',
     is_public: true,
+    version_type: '',
+    version_number: '',
+    release_quarter: '',
+    release_month_year: '',
   });
 
   // Filter feedback
@@ -100,35 +116,136 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
   const handleEdit = (item: any) => {
     setEditingItem(item);
     setEditForm({
+      title: item.title || '',
+      description: item.description || '',
+      feedback_type: item.feedback_type || '',
+      category_id: item.category_id || (categories.length > 0 ? categories[0].id : ''),
       status: item.status,
       admin_response: item.admin_response || '',
       roadmap_notes: item.roadmap_notes || '',
       planned_release: item.planned_release || '',
       is_public: item.is_public,
+      version_type: item.version_type || '',
+      version_number: item.version_number || '',
+      release_quarter: item.release_quarter || '',
+      release_month_year: item.release_month_year || '',
     });
+  };
+
+  // Auto-calculate next version number when version type changes
+  const handleVersionTypeChange = async (versionType: 'major' | 'minor' | 'patch' | '') => {
+    setEditForm(prev => ({ ...prev, version_type: versionType }));
+
+    if (versionType === 'major' || versionType === 'minor' || versionType === 'patch') {
+      // Fetch next version number
+      const result = await getNextVersion(versionType);
+      if (!result.error && result.version) {
+        setEditForm(prev => ({ ...prev, version_number: result.version }));
+      }
+    } else {
+      setEditForm(prev => ({ ...prev, version_number: '' }));
+    }
   };
 
   const handleSaveEdit = async () => {
     if (!editingItem) return;
 
-    // Filter out empty status
-    const updateData = {
-      ...editForm,
-      status: editForm.status || undefined,
-    };
+    const isNewFeature = editingItem.id === 'new';
 
-    const result = await adminUpdateFeedback(editingItem.id, updateData as any);
+    console.log('[Admin] Saving feedback:', { editingItem: editingItem.id, editForm, isNewFeature });
+
+    // Validate required fields for new features
+    if (isNewFeature) {
+      if (!editForm.title || editForm.title.length < 10) {
+        alert('Title must be at least 10 characters');
+        return;
+      }
+      if (!editForm.feedback_type) {
+        alert('Please select a feedback type');
+        return;
+      }
+      if (!editForm.category_id) {
+        alert('Please select a category');
+        return;
+      }
+    }
+
+    let result;
+
+    if (isNewFeature) {
+      // Create new feedback
+      const createData: any = {
+        title: editForm.title,
+        description: editForm.description || undefined,
+        feedback_type: editForm.feedback_type as any,
+        category_id: editForm.category_id,
+        status: editForm.status || 'under_review',
+        admin_response: editForm.admin_response || undefined,
+        roadmap_notes: editForm.roadmap_notes || undefined,
+        planned_release: editForm.planned_release || undefined,
+        is_public: editForm.is_public,
+      };
+
+      // For completed items: use version fields and release_month_year
+      if (editForm.status === 'completed') {
+        createData.version_type = editForm.version_type || undefined;
+        createData.version_number = editForm.version_number || undefined;
+        createData.release_month_year = editForm.release_month_year || undefined;
+      }
+      // For planned items: use release_quarter
+      else if (editForm.status === 'planned') {
+        createData.release_quarter = editForm.release_quarter || undefined;
+      }
+
+      result = await adminCreateFeedback(createData);
+    } else {
+      // Update existing feedback
+      // Build updateData with only necessary fields, converting empty strings to undefined
+      const updateData: any = {
+        title: editForm.title || undefined,
+        description: editForm.description || undefined,
+        feedback_type: editForm.feedback_type || undefined,
+        category_id: editForm.category_id || undefined,
+        status: editForm.status || undefined,
+        admin_response: editForm.admin_response || undefined,
+        roadmap_notes: editForm.roadmap_notes || undefined,
+        planned_release: editForm.planned_release || undefined,
+        is_public: editForm.is_public,
+      };
+
+      // Handle version tracking fields based on status
+      if (editForm.status === 'completed') {
+        // For completed items: include version fields, clear release_quarter
+        updateData.version_type = editForm.version_type || undefined;
+        updateData.version_number = editForm.version_number || undefined;
+        updateData.release_month_year = editForm.release_month_year || undefined;
+        updateData.release_quarter = null;
+      } else if (editForm.status === 'planned' || editForm.status === 'in_progress') {
+        // For planned items: include release_quarter, clear version fields
+        updateData.release_quarter = editForm.release_quarter || undefined;
+        updateData.version_type = null;
+        updateData.version_number = null;
+        updateData.release_month_year = null;
+      } else {
+        // For under_review and declined: clear all version tracking fields
+        updateData.release_quarter = null;
+        updateData.version_type = null;
+        updateData.version_number = null;
+        updateData.release_month_year = null;
+      }
+
+      console.log('[Admin] Update data being sent:', updateData);
+      result = await adminUpdateFeedback(editingItem.id, updateData);
+    }
+
+    console.log('[Admin] Save result:', result);
 
     if (result.success) {
-      // Update local state
-      setFeedback(prev =>
-        prev.map(item =>
-          item.id === editingItem.id ? { ...item, ...editForm } : item
-        )
-      );
       setEditingItem(null);
       router.refresh();
+      console.log('[Admin] Save successful, dialog closed');
     } else {
+      console.error('[Admin] Save failed:', result.error);
       alert(`Error: ${result.error}`);
     }
   };
@@ -225,9 +342,28 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
           <p className="text-slate-600">Review and manage user feedback and feature requests</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={downloadTemplate} variant="outline" className="gap-2 bg-white border-slate-300 shadow-sm hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300">
-            <Download className="w-4 h-4" />
-            Download CSV Template
+          <Button
+            onClick={() => {
+              setEditingItem({ id: 'new', title: '', description: '', status: 'under_review', is_public: true });
+              setEditForm({
+                title: '',
+                description: '',
+                feedback_type: 'feature_request',
+                category_id: categories.length > 0 ? categories[0].id : '',
+                status: 'under_review',
+                admin_response: '',
+                roadmap_notes: '',
+                planned_release: '',
+                is_public: true,
+                version_type: '',
+                version_number: '',
+                release_quarter: '',
+                release_month_year: '',
+              });
+            }}
+            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Create Feature
           </Button>
           <BulkFeedbackUpload
             categories={categories}
@@ -406,7 +542,7 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
 
       {/* Edit Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-        <DialogContent className="max-w-2xl bg-[#F9FAFB]">
+        <DialogContent className="max-w-2xl max-h-[90vh] bg-[#F9FAFB] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Feedback</DialogTitle>
             <DialogDescription>
@@ -416,12 +552,68 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
 
           {editingItem && (
             <div className="space-y-4">
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-2">{editingItem.title}</h4>
-                <p className="text-sm text-slate-600">{editingItem.description}</p>
+              {/* Editable Title and Description */}
+              <div className="space-y-3 border-b border-slate-200 pb-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-900">Feature Title</label>
+                  <Input
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    placeholder="Feature title"
+                    className="bg-white border-slate-300 shadow-sm font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-900">Description</label>
+                  <Textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    placeholder="Feature description"
+                    rows={3}
+                    className="bg-white border-slate-300 shadow-sm"
+                  />
+                </div>
               </div>
 
               <div className="space-y-4">
+                {/* Type and Category - Only for New Features */}
+                {editingItem.id === 'new' && (
+                  <div className="grid grid-cols-2 gap-3 border-b border-slate-200 pb-4">
+                    <div>
+                      <label className="text-sm font-medium text-slate-900">Type *</label>
+                      <Select value={editForm.feedback_type} onValueChange={(value: any) => setEditForm({ ...editForm, feedback_type: value })}>
+                        <SelectTrigger className="bg-white border-slate-300 shadow-sm">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="feature_request">Feature Request</SelectItem>
+                          <SelectItem value="bug">Bug Report</SelectItem>
+                          <SelectItem value="improvement">Improvement</SelectItem>
+                          <SelectItem value="question">Question</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-slate-900">Category *</label>
+                      <Select value={editForm.category_id} onValueChange={(value) => setEditForm({ ...editForm, category_id: value })}>
+                        <SelectTrigger className="bg-white border-slate-300 shadow-sm">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="text-sm font-medium text-slate-900">Status</label>
                   <Select value={editForm.status} onValueChange={(value: any) => setEditForm({ ...editForm, status: value })}>
@@ -460,14 +652,73 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
                   />
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-slate-900">Planned Release</label>
-                  <Input
-                    value={editForm.planned_release}
-                    onChange={(e) => setEditForm({ ...editForm, planned_release: e.target.value })}
-                    placeholder="e.g., Q2 2025, v2.0"
-                    className="bg-white border-slate-300 shadow-sm"
-                  />
+                {/* Version Tracking Section */}
+                <div className="border-t border-slate-200 pt-4 mt-4">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3">Version Tracking</h3>
+
+                  {/* Version Cheat Sheet */}
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs">
+                    <p className="font-semibold text-blue-900 mb-2">Version Type Guide:</p>
+                    <ul className="space-y-1 text-blue-800">
+                      <li><strong>Major (X.0.0):</strong> Breaking changes, major new features, significant redesigns</li>
+                      <li><strong>Minor (0.X.0):</strong> New features, enhancements, non-breaking improvements</li>
+                      <li><strong>Patch (0.0.X):</strong> Bug fixes, small tweaks, security patches</li>
+                    </ul>
+                  </div>
+
+                  {/* Version and Release Tracking Fields - Always visible */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium text-slate-900">Version Type</label>
+                        <Select value={editForm.version_type} onValueChange={(value: any) => handleVersionTypeChange(value)}>
+                          <SelectTrigger className="bg-white border-slate-300 shadow-sm">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="major">Major (Breaking)</SelectItem>
+                            <SelectItem value="minor">Minor (Features)</SelectItem>
+                            <SelectItem value="patch">Patch (Fixes)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium text-slate-900">Version Number</label>
+                        <Input
+                          value={editForm.version_number}
+                          onChange={(e) => setEditForm({ ...editForm, version_number: e.target.value })}
+                          placeholder="e.g., 1.2.3"
+                          className="bg-white border-slate-300 shadow-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-slate-900">Release Month & Year</label>
+                      <Input
+                        value={editForm.release_month_year}
+                        onChange={(e) => setEditForm({ ...editForm, release_month_year: e.target.value })}
+                        placeholder="e.g., November 2025"
+                        className="bg-white border-slate-300 shadow-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-slate-900">Planned Release Quarter</label>
+                      <Select value={editForm.release_quarter} onValueChange={(value: any) => setEditForm({ ...editForm, release_quarter: value })}>
+                        <SelectTrigger className="bg-white border-slate-300 shadow-sm">
+                          <SelectValue placeholder="Select quarter" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Q1">Q1 (Jan-Mar)</SelectItem>
+                          <SelectItem value="Q2">Q2 (Apr-Jun)</SelectItem>
+                          <SelectItem value="Q3">Q3 (Jul-Sep)</SelectItem>
+                          <SelectItem value="Q4">Q4 (Oct-Dec)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">

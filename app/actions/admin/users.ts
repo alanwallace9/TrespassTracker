@@ -12,7 +12,8 @@ const supabaseAdmin = createClient(
 );
 
 export type AdminUserListItem = UserProfile & {
-  campus_name?: string;
+  campus_name?: string | null;
+  tenant_name?: string | null;
   last_sign_in_at?: string | null;
 };
 
@@ -71,6 +72,13 @@ export async function getUsersForAdmin(tenantId?: string): Promise<AdminUserList
 
     const campusMap = new Map(campuses?.map(c => [c.id, c.name]) || []);
 
+    // Get all tenants for lookup
+    const { data: tenants } = await supabaseAdmin
+      .from('tenants')
+      .select('id, display_name');
+
+    const tenantMap = new Map(tenants?.map(t => [t.id, t.display_name]) || []);
+
     // Get last sign in timestamps from Clerk for all users
     const client = await clerkClient();
     const clerkUsersMap = new Map<string, number | null>();
@@ -93,10 +101,11 @@ export async function getUsersForAdmin(tenantId?: string): Promise<AdminUserList
       // Continue without last sign in data if Clerk fetch fails
     }
 
-    // Transform the data to include campus name and last sign in
-    let transformedUsers: AdminUserListItem[] = (users || []).map(user => ({
+    // Transform the data to include campus name, tenant name, and last sign in
+    let transformedUsers: AdminUserListItem[] = (users || []).map((user: any) => ({
       ...user,
       campus_name: user.campus_id ? campusMap.get(user.campus_id) || null : null,
+      tenant_name: user.tenant_id ? tenantMap.get(user.tenant_id) || null : null,
       last_sign_in_at: clerkUsersMap.has(user.id)
         ? (clerkUsersMap.get(user.id) ? new Date(clerkUsersMap.get(user.id)!).toISOString() : null)
         : null,
@@ -122,7 +131,9 @@ export async function getUsersForAdmin(tenantId?: string): Promise<AdminUserList
 export async function updateUserRole(
   targetUserId: string,
   newRole: 'viewer' | 'campus_admin' | 'district_admin' | 'master_admin',
-  campusId?: string | null
+  campusId?: string | null,
+  displayName?: string,
+  notificationDays?: number
 ): Promise<{ success: boolean; message: string }> {
   try {
     const { userId } = await auth();
@@ -179,13 +190,23 @@ export async function updateUserRole(
     });
 
     // Update Supabase user_profiles
+    const updateData: any = {
+      role: newRole,
+      campus_id: campusId || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Add optional fields if provided
+    if (displayName !== undefined) {
+      updateData.display_name = displayName;
+    }
+    if (notificationDays !== undefined) {
+      updateData.notification_days = notificationDays;
+    }
+
     const { error } = await supabaseAdmin
       .from('user_profiles')
-      .update({
-        role: newRole,
-        campus_id: campusId || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', targetUserId);
 
     if (error) {

@@ -9,13 +9,23 @@ const supabaseAdmin = createClient(
 );
 
 /**
- * Cron job to reset demo tenant data every hour
+ * Cron job to reset demo tenant data nightly
  *
  * This endpoint should be called by Vercel Cron or similar service
  * URL: /api/cron/reset-demo
- * Schedule: 0 * * * * (every hour)
+ * Schedule: 0 0 * * * (every day at midnight CT)
  *
  * Security: Verifies cron secret to prevent unauthorized access
+ *
+ * What gets deleted:
+ * - trespass_records (tenant_id = 'demo')
+ * - campuses (tenant_id = 'demo')
+ * - record_photos and record_documents (cascaded automatically)
+ *
+ * What gets preserved:
+ * - user_profiles (so users can log back in)
+ * - feedback_submissions (global, not tenant-specific)
+ * - tenants table (demo tenant record)
  */
 export async function GET(req: NextRequest) {
   // Verify cron secret for security
@@ -35,37 +45,60 @@ export async function GET(req: NextRequest) {
   try {
     logger.info('Starting demo tenant reset');
 
-    // Step 1: Delete all demo tenant records
-    const { error: deleteError } = await supabaseAdmin
+    // Step 1: Delete all demo tenant records (photos/documents cascade automatically)
+    const { error: deleteRecordsError } = await supabaseAdmin
       .from('trespass_records')
       .delete()
       .eq('tenant_id', 'demo');
 
-    if (deleteError) {
-      logger.error('Error deleting demo records', deleteError);
-      throw deleteError;
+    if (deleteRecordsError) {
+      logger.error('Error deleting demo records', deleteRecordsError);
+      throw deleteRecordsError;
     }
 
-    // Step 2: Insert fresh seed data
-    const seedData = getDemoSeedData();
-    const { error: insertError } = await supabaseAdmin
-      .from('trespass_records')
-      .insert(seedData);
+    // Step 2: Delete all demo campuses
+    const { error: deleteCampusesError } = await supabaseAdmin
+      .from('campuses')
+      .delete()
+      .eq('tenant_id', 'demo');
 
-    if (insertError) {
-      logger.error('Error inserting demo seed data', insertError);
-      throw insertError;
+    if (deleteCampusesError) {
+      logger.error('Error deleting demo campuses', deleteCampusesError);
+      throw deleteCampusesError;
+    }
+
+    // Step 3: Insert fresh seed campuses
+    const seedCampuses = getDemoCampuses();
+    const { error: insertCampusesError } = await supabaseAdmin
+      .from('campuses')
+      .insert(seedCampuses);
+
+    if (insertCampusesError) {
+      logger.error('Error inserting demo seed campuses', insertCampusesError);
+      throw insertCampusesError;
+    }
+
+    // Step 4: Insert fresh seed records
+    const seedRecords = getDemoSeedData();
+    const { error: insertRecordsError } = await supabaseAdmin
+      .from('trespass_records')
+      .insert(seedRecords);
+
+    if (insertRecordsError) {
+      logger.error('Error inserting demo seed records', insertRecordsError);
+      throw insertRecordsError;
     }
 
     logger.info('Demo tenant reset completed successfully', {
-      deletedRecords: 'all',
-      insertedRecords: seedData.length,
+      campusesInserted: seedCampuses.length,
+      recordsInserted: seedRecords.length,
     });
 
     return NextResponse.json({
       success: true,
       message: 'Demo tenant reset successfully',
-      recordsInserted: seedData.length,
+      campusesInserted: seedCampuses.length,
+      recordsInserted: seedRecords.length,
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
@@ -78,6 +111,55 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Get demo campuses for reset
+ * These campuses will be inserted after each reset
+ */
+function getDemoCampuses() {
+  return [
+    {
+      id: '001',
+      tenant_id: 'demo',
+      name: 'Lincoln High School',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: '002',
+      tenant_id: 'demo',
+      name: 'Roosevelt High School',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: '003',
+      tenant_id: 'demo',
+      name: 'Washington Middle School',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: '004',
+      tenant_id: 'demo',
+      name: 'Jefferson Elementary',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: '005',
+      tenant_id: 'demo',
+      name: 'Madison High School',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ];
 }
 
 /**
@@ -123,7 +205,7 @@ function getDemoSeedData() {
       notes: 'Has been warned previously. Security footage captured.',
       photo_url: null,
       status: 'active',
-      is_former_student: false,
+      is_current_student: false,
       expiration_date: daysFromNow(355), // Active for ~1 year
       trespassed_from: 'All Lincoln High School campuses',
     },
@@ -151,7 +233,7 @@ function getDemoSeedData() {
         'Was expelled in junior year. Known to have conflicts with current staff. Police were called.',
       photo_url: null,
       status: 'active',
-      is_former_student: true,
+      is_current_student: true,
       expiration_date: daysFromNow(725), // Active for ~2 years
       trespassed_from: 'All district facilities',
     },
@@ -178,7 +260,7 @@ function getDemoSeedData() {
       notes: 'Cooperative with staff. Left without incident.',
       photo_url: null,
       status: 'active',
-      is_former_student: false,
+      is_current_student: false,
       expiration_date: daysAgo(35), // Expired 35 days ago
       trespassed_from: 'Washington Middle School',
     },
@@ -204,7 +286,7 @@ function getDemoSeedData() {
       notes: null,
       photo_url: null,
       status: 'active',
-      is_former_student: false,
+      is_current_student: false,
       expiration_date: daysFromNow(180), // 6 months
       trespassed_from: 'Jefferson Elementary School',
     },
@@ -230,7 +312,7 @@ function getDemoSeedData() {
       notes: 'Third incident this year. Escalate to district admin.',
       photo_url: null,
       status: 'active',
-      is_former_student: false,
+      is_current_student: false,
       expiration_date: daysFromNow(540), // 1.5 years
       trespassed_from: 'All district high schools',
     },

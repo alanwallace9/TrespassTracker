@@ -164,6 +164,24 @@ export async function POST(req: Request) {
         });
 
         logger.info('User profile created successfully');
+
+        // Mark invitation as accepted in pending_invitations table
+        const { error: invitationUpdateError } = await supabaseAdmin
+          .from('pending_invitations')
+          .update({
+            status: 'accepted',
+            accepted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('email', primaryEmail)
+          .eq('tenant_id', tenantId)
+          .eq('status', 'pending');
+
+        if (invitationUpdateError) {
+          logger.error('Error updating pending invitation', invitationUpdateError);
+          // Don't fail the webhook, just log the error
+        }
+
         break;
       }
 

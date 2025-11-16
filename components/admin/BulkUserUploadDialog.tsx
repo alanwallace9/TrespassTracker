@@ -1,11 +1,17 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { bulkInviteUsers, type BulkUserRow, type BulkInviteResult } from '@/app/actions/admin/bulk-invite-users';
-import { Upload, FileText, AlertCircle, CheckCircle, XCircle, Download, Users } from 'lucide-react';
+import { getUserProfile } from '@/app/actions/users';
+import { getTenants } from '@/app/actions/admin/tenants';
+import { switchActiveTenant } from '@/app/actions/admin/switch-tenant';
+import { Upload, FileText, AlertCircle, CheckCircle, XCircle, Download, Users, Building2 } from 'lucide-react';
 import Papa from 'papaparse';
 
 type BulkUserUploadDialogProps = {
@@ -25,7 +31,90 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
   const [fileName, setFileName] = useState('');
   const [uploadResults, setUploadResults] = useState<BulkInviteResult[] | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const { user } = useAuth();
   const { toast } = useToast();
+
+  // Tenant selection state for master_admin
+  const [tenants, setTenants] = useState<Array<{id: string; display_name: string; subdomain: string; status: string}>>([]);
+  const [selectedTenant, setSelectedTenant] = useState<string>('');
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const [userRole, setUserRole] = useState<string>('user');
+  const isMasterAdmin = userRole === 'master_admin';
+
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+    }
+  }, [user]);
+
+  // Fetch tenants when dialog opens and user is master_admin
+  useEffect(() => {
+    if (open && isMasterAdmin) {
+      fetchTenants();
+    }
+  }, [open, isMasterAdmin]);
+
+  const fetchUserProfile = async () => {
+    if (!user) return;
+
+    try {
+      const profile = await getUserProfile(user.id);
+      if (profile) {
+        setUserRole(profile.role || 'user');
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const fetchTenants = async () => {
+    setLoadingTenants(true);
+    try {
+      const tenantList = await getTenants();
+      setTenants(tenantList);
+
+      // Get the user's current profile to check active_tenant_id
+      if (user) {
+        const profile = await getUserProfile(user.id);
+        if (profile?.active_tenant_id) {
+          setSelectedTenant(profile.active_tenant_id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching tenants:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load tenant list',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
+
+  const handleTenantChange = async (tenantId: string) => {
+    setSelectedTenant(tenantId);
+
+    // Update the active tenant in the user's profile
+    try {
+      const result = await switchActiveTenant(tenantId);
+      if (result.success) {
+        toast({
+          title: 'Tenant Selected',
+          description: 'All invited users will be assigned to this tenant',
+        });
+      } else {
+        throw new Error(result.error || 'Failed to switch tenant');
+      }
+    } catch (error: any) {
+      console.error('Error switching active tenant:', error);
+      toast({
+        title: 'Warning',
+        description: error.message || 'Failed to set active tenant. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const processFile = useCallback((file: File) => {
     setFileName(file.name);
@@ -116,6 +205,16 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
       return;
     }
 
+    // Validate tenant selection for master_admin
+    if (isMasterAdmin && !selectedTenant) {
+      toast({
+        title: 'Tenant Required',
+        description: 'Please select a tenant before inviting users',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsUploading(true);
     try {
       const result = await bulkInviteUsers(validRows);
@@ -190,6 +289,40 @@ export function BulkUserUploadDialog({ open, onOpenChange, onUsersInvited }: Bul
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
+          {/* Tenant Selector for Master Admin */}
+          {isMasterAdmin && (
+            <div className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-blue-600" />
+                <Label htmlFor="bulk-tenant-select" className="text-sm font-semibold text-blue-900">
+                  Select Target Tenant
+                </Label>
+              </div>
+              <p className="text-xs text-blue-700 mb-2">
+                All invited users will be assigned to the selected tenant (unless CSV specifies tenant_id)
+              </p>
+              <Select
+                value={selectedTenant}
+                onValueChange={handleTenantChange}
+                disabled={loadingTenants}
+              >
+                <SelectTrigger id="bulk-tenant-select" className="bg-white">
+                  <SelectValue placeholder={loadingTenants ? "Loading tenants..." : "Select a tenant"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      {tenant.display_name}
+                      {tenant.status !== 'active' && (
+                        <span className="ml-2 text-xs text-gray-500">({tenant.status})</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Upload Section */}
           {parsedData.length === 0 && !uploadResults && (
             <div className="space-y-4">

@@ -677,11 +677,17 @@ export async function getAdminFeedback(filters?: {
 export async function adminUpdateFeedback(
   id: string,
   updates: {
+    title?: string;
+    description?: string;
     status?: 'under_review' | 'planned' | 'in_progress' | 'completed' | 'declined';
     admin_response?: string;
     roadmap_notes?: string;
     planned_release?: string;
     is_public?: boolean;
+    version_type?: 'major' | 'minor' | 'patch';
+    version_number?: string;
+    release_quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+    release_month_year?: string;
   }
 ): Promise<{ success: boolean; error: string | null }> {
   try {
@@ -795,6 +801,81 @@ export async function createCategory(data: {
     return { success: true, error: null, id: result.id };
   } catch (error: any) {
     console.error('Error creating category:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Create feedback from admin panel (master admin only)
+ */
+export async function adminCreateFeedback(data: {
+  title: string;
+  description?: string;
+  feedback_type: 'bug' | 'feature_request' | 'improvement' | 'question' | 'other';
+  category_id: string;
+  status?: 'under_review' | 'planned' | 'in_progress' | 'completed' | 'declined';
+  admin_response?: string;
+  roadmap_notes?: string;
+  planned_release?: string;
+  is_public?: boolean;
+  version_type?: 'major' | 'minor' | 'patch';
+  version_number?: string;
+  release_quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+  release_month_year?: string;
+}): Promise<{ success: boolean; id?: string; error: string | null }> {
+  try {
+    // Check admin access
+    if (!await isMasterAdmin()) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Validate required fields
+    if (!data.title || data.title.length < 10) {
+      return { success: false, error: 'Title must be at least 10 characters' };
+    }
+
+    if (!data.category_id) {
+      return { success: false, error: 'Category is required' };
+    }
+
+    const { data: result, error } = await supabaseAdmin
+      .from('feedback_submissions')
+      .insert({
+        user_id: userId,
+        tenant_id: null, // Admin-created feedback is cross-tenant
+        category_id: data.category_id,
+        feedback_type: data.feedback_type,
+        title: data.title,
+        description: data.description || null,
+        status: data.status || 'under_review',
+        admin_response: data.admin_response || null,
+        roadmap_notes: data.roadmap_notes || null,
+        planned_release: data.planned_release || null,
+        is_public: data.is_public !== undefined ? data.is_public : true,
+        version_type: data.version_type || null,
+        version_number: data.version_number || null,
+        release_quarter: data.release_quarter || null,
+        release_month_year: data.release_month_year || null,
+        upvote_count: 0,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    revalidatePath('/feedback');
+    revalidatePath('/admin/feedback');
+    revalidatePath('/feedback/roadmap');
+    revalidatePath('/feedback/changelog');
+
+    return { success: true, id: result.id, error: null };
+  } catch (error: any) {
+    console.error('Error creating feedback:', error);
     return { success: false, error: error.message };
   }
 }
@@ -1207,5 +1288,132 @@ export async function deleteFeedbackComment(commentId: string): Promise<{ succes
   } catch (error: any) {
     console.error('Error deleting comment:', error);
     return { success: false, error: error.message };
+  }
+}
+
+// =====================================================
+// VERSION MANAGEMENT ACTIONS
+// =====================================================
+
+/**
+ * Get the current/latest version number from version_history
+ */
+export async function getCurrentVersion(): Promise<{ version: string; error: string | null }> {
+  try {
+    // Query for the latest completed feedback with a version number
+    const { data, error } = await supabaseAdmin
+      .from('feedback_submissions')
+      .select('version_number')
+      .eq('status', 'completed')
+      .not('version_number', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      // If no completed feedback found, return default
+      if (error.code === 'PGRST116') {
+        return { version: '0.1.0', error: null };
+      }
+      throw error;
+    }
+
+    return { version: data.version_number || '0.1.0', error: null };
+  } catch (error: any) {
+    console.error('Error getting current version:', error);
+    return { version: '0.1.0', error: error.message };
+  }
+}
+
+/**
+ * Calculate the next version number based on version type
+ */
+export async function getNextVersion(
+  versionType: 'major' | 'minor' | 'patch'
+): Promise<{ version: string; error: string | null }> {
+  try {
+    // Get current version
+    const currentVersionResult = await getCurrentVersion();
+    if (currentVersionResult.error) {
+      return { version: '', error: currentVersionResult.error };
+    }
+
+    const currentVersion = currentVersionResult.version;
+
+    // Calculate next version using database function
+    const { data, error } = await supabaseAdmin.rpc('calculate_next_version', {
+      current_version: currentVersion,
+      bump_type: versionType,
+    });
+
+    if (error) throw error;
+
+    return { version: data, error: null };
+  } catch (error: any) {
+    console.error('Error calculating next version:', error);
+    return { version: '', error: error.message };
+  }
+}
+
+/**
+ * Create a new version release (master admin only)
+ * This is called when completing a feature with a version
+ */
+export async function createVersionRelease(data: {
+  versionType: 'major' | 'minor' | 'patch';
+  releaseNotes?: string;
+}): Promise<{ success: boolean; version?: string; error: string | null }> {
+  try {
+    // Check admin access
+    if (!await isMasterAdmin()) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    // Get next version number
+    const nextVersionResult = await getNextVersion(data.versionType);
+    if (nextVersionResult.error) {
+      return { success: false, error: nextVersionResult.error };
+    }
+
+    const nextVersion = nextVersionResult.version;
+
+    // Insert new version into version_history
+    const { error } = await supabaseAdmin
+      .from('version_history')
+      .insert({
+        version_number: nextVersion,
+        version_type: data.versionType,
+        release_date: new Date().toISOString(),
+        release_notes: data.releaseNotes || null,
+      });
+
+    if (error) throw error;
+
+    revalidatePath('/feedback/changelog');
+    revalidatePath('/admin/feedback');
+
+    return { success: true, version: nextVersion, error: null };
+  } catch (error: any) {
+    console.error('Error creating version release:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get all version releases for changelog
+ */
+export async function getVersionHistory(): Promise<{ data: any[]; error: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('version_history')
+      .select('*')
+      .order('release_date', { ascending: false });
+
+    if (error) throw error;
+
+    return { data: data || [], error: null };
+  } catch (error: any) {
+    console.error('Error fetching version history:', error);
+    return { data: [], error: error.message };
   }
 }

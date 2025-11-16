@@ -19,18 +19,18 @@ export type TrespassRecord = {
   aka: string | null;
   date_of_birth: string | null;
   incident_date: string | null;                        // Optional
-  location: string | null;                             // Optional
+  incident_location: string | null;                    // Optional - Renamed from 'location'
   description: string | null;                          // Optional
-  known_associates: string | null;
+  affiliation: string | null;                          // Renamed from 'known_associates'
   current_school: string | null;
   guardian_first_name: string | null;
   guardian_last_name: string | null;
   guardian_phone: string | null;
-  contact_info: string | null;
+  school_contact: string | null;                       // Renamed from 'contact_info'
   notes: string | null;
-  photo_url: string | null;
+  photo: string | null;                                // Renamed from 'photo_url'
   status: 'active' | 'inactive';
-  is_former_student: boolean;
+  is_current_student: boolean;
   is_daep: boolean;                                    // DAEP assignment flag
   daep_expiration_date: string | null;                 // DAEP assignment expiration date (separate from trespass)
   created_at: string;
@@ -50,6 +50,8 @@ export type UserProfile = {
   theme: 'light' | 'dark' | 'system';
   status: 'active' | 'inactive' | 'invited';          // User account status
   notifications_enabled: boolean;                      // Whether user wants expiration notifications
+  notification_days: number | null;                    // Days before expiration to show warnings
+  active_tenant_id: string | null;                     // Active tenant for master admins (tenant switching)
   deleted_at: string | null;                          // Soft delete timestamp
   created_at: string;
   updated_at: string;
@@ -59,6 +61,7 @@ export type Tenant = {
   id: string;                                          // Tenant identifier (e.g., 'birdville', 'demo')
   subdomain: string;                                   // Subdomain for routing (e.g., 'birdville')
   display_name: string;                                // Human-readable name (e.g., 'Birdville ISD')
+  short_display_name: string | null;                   // Short name shown on dashboard (e.g., 'BISD', 'DEMO')
   status: 'active' | 'suspended' | 'trial';
   created_at: string;
   updated_at: string;

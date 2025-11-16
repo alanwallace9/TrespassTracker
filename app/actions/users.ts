@@ -53,9 +53,12 @@ export async function updateUserProfile(userId: string, updates: UserProfileUpda
 export async function getUserProfile(userId: string) {
   const supabase = await createServerClient();
 
-  const { data, error } = await supabase
+  const { data, error} = await supabase
     .from('user_profiles')
-    .select('*')
+    .select(`
+      *,
+      tenant:tenants!fk_user_profiles_tenant(short_display_name)
+    `)
     .eq('id', userId)
     .maybeSingle();
 

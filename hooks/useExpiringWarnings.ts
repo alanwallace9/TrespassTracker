@@ -44,13 +44,10 @@ export function useExpiringWarnings(
     // Apply role-based filtering
     if (userProfile.role === 'campus_admin') {
       // Campus admins only see notifications for their campus
-      // We need to match records to campus somehow - using location field as campus identifier
-      // If campus_id is set on the user profile, filter by matching location
+      // Filter by matching campus_id
       if (userProfile.campus_id) {
         filteredRecords = filteredRecords.filter(
-          (record) => record.location === userProfile.campus_id ||
-                     record.trespassed_from === userProfile.campus_id ||
-                     record.current_school === userProfile.campus_id
+          (record) => record.campus_id === userProfile.campus_id
         );
       }
     }

@@ -6,6 +6,7 @@ import { toggleUpvote } from '@/app/actions/feedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface UpvoteButtonProps {
   feedbackId: string;
@@ -31,8 +32,15 @@ export function UpvoteButton({
   const handleUpvote = async () => {
     // Check if user is logged in
     if (!user) {
-      // Redirect to login
-      router.push('/login?redirect=/feedback');
+      // Show friendly toast instead of immediate redirect
+      toast('We value your input! 💙', {
+        description: 'Please sign in to vote on features.',
+        action: {
+          label: 'Sign In',
+          onClick: () => router.push('/login?redirect=/feedback'),
+        },
+        duration: 5000,
+      });
       return;
     }
 

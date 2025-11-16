@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShareButtons } from '@/components/feedback/ShareButtons';
 import { ArrowLeft } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 interface FeedbackDetailViewProps {
   feedback: any;
@@ -51,22 +51,39 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted, comments }: Fee
   const statusConfig = STATUS_CONFIG[feedback.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.under_review;
   const typeLabel = TYPE_LABELS[feedback.feedback_type as keyof typeof TYPE_LABELS] || feedback.feedback_type;
 
-  const userName = feedback.user?.display_name || 'Anonymous';
-
-  // Format role display: "District Admin • Birdville ISD" or "Campus Admin • Campus Name"
+  // Role-based user attribution
+  let userName = null;
   let roleDisplay = 'User';
+
   if (feedback.user?.role) {
     const role = feedback.user.role;
-    const formattedRole = role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+    const hasDisplayName = feedback.user.display_name && feedback.user.display_name.trim() !== '';
 
-    if (role === 'campus_admin' && feedback.user.campus_name) {
-      roleDisplay = `Campus Admin • ${feedback.user.campus_name}`;
-    } else if (role === 'district_admin' && feedback.user.tenant_name) {
-      roleDisplay = `District Admin • ${feedback.user.tenant_name}`;
-    } else if (role === 'master_admin' && feedback.user.tenant_name) {
-      roleDisplay = `District Admin • ${feedback.user.tenant_name}`;
+    if (role === 'master_admin') {
+      // Master admin always shows as "Alan • DistrictTracker"
+      userName = 'Alan';
+      roleDisplay = 'DistrictTracker';
+    } else if (hasDisplayName) {
+      // Other roles with display name: show name and formatted role
+      userName = feedback.user.display_name;
+      const formattedRole = role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+
+      if (role === 'campus_admin' && feedback.user.tenant_name) {
+        roleDisplay = `Campus Admin • ${feedback.user.tenant_name}`;
+      } else if (role === 'district_admin' && feedback.user.tenant_name) {
+        roleDisplay = `District Admin • ${feedback.user.tenant_name}`;
+      } else {
+        roleDisplay = formattedRole;
+      }
     } else {
-      roleDisplay = formattedRole;
+      // No display name: just show role and district
+      if (role === 'campus_admin' && feedback.user.tenant_name) {
+        roleDisplay = `Campus Admin • ${feedback.user.tenant_name}`;
+      } else if (role === 'district_admin' && feedback.user.tenant_name) {
+        roleDisplay = `District Admin • ${feedback.user.tenant_name}`;
+      } else {
+        roleDisplay = role.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+      }
     }
   }
 
@@ -129,8 +146,12 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted, comments }: Fee
 
                   {/* Meta Info */}
                   <div className="flex items-center gap-2 text-sm text-slate-600 mb-4">
-                    <span>By {userName}</span>
-                    <span>•</span>
+                    {userName && (
+                      <>
+                        <span>By {userName}</span>
+                        <span>•</span>
+                      </>
+                    )}
                     <span>{roleDisplay}</span>
                     <span>•</span>
                     <span>{formatDistanceToNow(new Date(feedback.created_at), { addSuffix: true })}</span>
@@ -159,7 +180,12 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted, comments }: Fee
                   <p className="text-sm text-green-800 whitespace-pre-wrap">{feedback.roadmap_notes}</p>
                   {feedback.planned_release && (
                     <p className="text-xs text-green-700 mt-2">
-                      Planned for: <span className="font-semibold">{feedback.planned_release}</span>
+                      {feedback.status === 'completed' || new Date(feedback.planned_release) < new Date()
+                        ? 'Completed: '
+                        : 'Planned for: '}
+                      <span className="font-semibold">
+                        {format(new Date(feedback.planned_release), 'MM-dd-yyyy')}
+                      </span>
                     </p>
                   )}
                 </div>

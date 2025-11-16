@@ -7,6 +7,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2025-11-15)
+- **DAEP Students Report**:
+  - New report type in Admin Reports showing all DAEP placements (active and expired)
+  - Identifies repeat offenders with incident counts per student
+  - Shows placement dates, expiration dates, and home campus assignments
+  - Export capabilities to CSV, Excel, and PDF formats
+  - Groups students by School ID to track multiple DAEP incidents over time
+  - Accessible to master_admin and district_admin roles
+
+### Fixed (2025-11-15)
+- **Status Display Accuracy in Record Details**:
+  - Fixed hardcoded "Active" status badge in record detail modal
+  - Status now correctly reflects expiration dates (active vs inactive)
+  - Improved data accuracy and user trust in system displays
+  - Modal status badge now dynamically updates based on record.status field
+- **TypeScript Type Safety**:
+  - Resolved 11 TypeScript errors across 6 files
+  - Removed obsolete `location` field references
+  - Updated `photo_url` to `photo` field name
+  - Added proper null handling and type assertions
+  - Improved code quality and editor autocomplete support
+
+### Added (2025-11-10)
+- **Records Management Admin Panel**:
+  - Full CRUD admin panel at `/admin/records` for master_admin and district_admin
+  - Sortable data table with columns: Photo, Name, School ID, Campus, Status, Expiration, Actions
+  - Click-to-sort functionality on all major columns (name, school ID, campus, status, expiration)
+  - Visual sort indicators with chevron icons (ascending/descending/unsorted)
+  - Filter by campus, status (all/active/inactive/expired), and search by name or school ID
+  - Pagination controls with customizable page size (10/25/50/100 rows per page)
+  - Create, edit, and delete operations with confirmation dialogs
+  - Delete confirmation requires typing "DELETE" for safety
+  - Bulk CSV upload with tenant-aware processing for master admins
+  - CSV export with filtering support (downloads as `trespass-records-YYYY-MM-DD.csv`)
+  - Compact date format (MM/dd/yy) for better space utilization
+  - Narrower columns with optimized padding (px-4 py-3)
+  - Smaller photo avatars (8x8 instead of 10x10)
+  - Comprehensive audit logging for all record operations
+- **Hybrid Image Storage System**:
+  - Created `lib/image-storage.ts` with `processImageUrl` function
+  - Automatically keeps trusted domain URLs (districttracker.com, CDN domains)
+  - Downloads and stores external images in Supabase `record-photos` bucket
+  - Integrated into record creation and update workflows
+  - Prevents broken image links from external sources
+- **Admin Navigation Enhancement**:
+  - Added "Records" menu item to admin sidebar with FileText icon
+  - Positioned between Users and Campuses for logical workflow
+
+### Added (2025-11-09)
+- **Secure Tenant Switching for Master Admins (Phase 1)**:
+  - Database-backed tenant switching with `active_tenant_id` column in user_profiles
+  - Server action `switchActiveTenant()` with master_admin validation
+  - Complete FERPA-compliant audit trail for all tenant switches
+  - Updated `get_my_tenant_id()` RLS function to prioritize active_tenant_id
+  - AdminTenantContext now uses database as source of truth (removed localStorage)
+  - Optimistic UI updates with error handling and rollback
+  - New audit event type: `tenant.switched`
+  - Commit: d0ce87b - feat: implement secure database-backed tenant switching
+- **Tenants Management Page (Phase 2)**:
+  - Full CRUD operations for tenant management (create, update, activate/deactivate)
+  - Tenants admin page at `/admin/tenants` with table view and search
+  - Server actions: `createTenant()`, `updateTenant()`, `deactivateTenant()`, `reactivateTenant()`
+  - Subdomain validation (lowercase alphanumeric and hyphens only)
+  - Duplicate subdomain and tenant ID detection
+  - Create and edit dialogs with form validation
+  - Status toggle buttons for activating/deactivating tenants
+  - Sortable columns (display name, subdomain, ID, status, created date)
+  - Master admin-only access with role-based navigation filtering
+  - Comprehensive audit logging for all tenant operations
+  - Display full subdomain URLs (e.g., "greenville.districttracker.com")
+- **Demo Environment (Phase 3)**:
+  - Public demo access RLS policies for all authenticated users
+  - DemoRoleContext for client-side role switching (viewer, campus_admin, district_admin)
+  - DemoBanner component with role dropdown and reset notification
+  - Demo how-to page at `/demo-guide` with role descriptions and quick start guide
+  - Enhanced demo reset cron job that deletes/recreates campuses and records
+  - Preserves user_profiles across resets (users can log back in)
+  - Session-based role persistence (resets when browser closes)
+  - Demo tenant isolation with full CRUD permissions for all auth users
+  - RLS policies for trespass_records, campuses, record_photos, record_documents
+  - Commit: 9526adc - feat: implement comprehensive demo environment system (Phase 3)
+- **Feedback UX Improvements (Phase 4)**:
+  - Installed sonner toast library for modern toast notifications
+  - Added friendly toast to UpvoteButton when non-authenticated users try to upvote
+  - Toast includes "Sign In" action button and 5-second duration
+  - Updated CommentsSection with clean FeedBear-inspired design
+  - Improved visual hierarchy with rounded containers and better spacing
+  - Enhanced comment display with gradient avatars and better typography
+  - Cleaner empty state with centered message and icon
+  - Disabled textarea for non-authenticated users with sign-in prompt
+  - Removed unused imports and cleaned up component structure
+- **Admin Panel Polish (Phase 5)**:
+  - Updated admin panel logo from Shield icon to logo1.svg
+  - Added "District Tracker" branding with subtitle
+  - Allowed district_admin role to access admin panel
+  - Master admin shows "Master Admin Panel", district_admin shows "Admin Panel"
+  - Implemented role-based navigation filtering (already completed in Phase 2)
+  - Tenants and Feedback nav items hidden from district_admin (master_admin only)
+  - District admin can access: Overview, Users, Campuses, Audit Logs, Reports
+- **Feedback System Display Improvements**:
+  - Updated default user attribution from "Anonymous - User" to "Alan - DistrictTracker"
+  - Changed completed feature status display from "Planned for:" to "Completed:"
+  - Standardized all date formats to MM-DD-YYYY (from YYYY-MM-DD)
+  - Improved user attribution display logic with better fallback values
+  - Enhanced roadmap status clarity for completed items
+
 ### Security (2025-11-09)
 - **Comprehensive Security Enhancements**:
   - **Input Validation**: Added Zod validation schemas for all user inputs

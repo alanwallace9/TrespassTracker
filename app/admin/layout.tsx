@@ -5,8 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Shield, Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart, Building, MessageSquare } from 'lucide-react';
+import { Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart, Building, MessageSquare, FileText } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { AdminTenantProvider, useAdminTenant } from '@/contexts/AdminTenantContext';
 
 function AdminLayoutInner({
@@ -35,12 +36,12 @@ function AdminLayoutInner({
         publicMetadata: user.publicMetadata,
       });
 
-      // Only master_admin can access admin pages
-      if (role === 'master_admin') {
+      // Allow master_admin and district_admin to access admin pages
+      if (role === 'master_admin' || role === 'district_admin') {
         setIsAuthorized(true);
       } else {
-        console.log('[Admin Layout] Redirecting non-master_admin to dashboard');
-        // Redirect non-master admins to dashboard
+        console.log('[Admin Layout] Redirecting non-admin to dashboard');
+        // Redirect non-admins to dashboard
         router.push('/dashboard');
       }
     }
@@ -84,6 +85,11 @@ function AdminLayoutInner({
       icon: Users,
     },
     {
+      href: '/admin/records',
+      label: 'Records',
+      icon: FileText,
+    },
+    {
       href: '/admin/campuses',
       label: 'Campuses',
       icon: Building2,
@@ -102,6 +108,13 @@ function AdminLayoutInner({
       href: '/admin/feedback',
       label: 'Feedback',
       icon: MessageSquare,
+      masterAdminOnly: true,
+    },
+    {
+      href: '/admin/tenants',
+      label: 'Tenants',
+      icon: Building,
+      masterAdminOnly: true,
     },
   ];
 
@@ -119,12 +132,18 @@ function AdminLayoutInner({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center border bg-primary">
-                <Shield className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <Image
+                src="/assets/logo1.svg"
+                alt="District Tracker Logo"
+                width={40}
+                height={40}
+                className="w-10 h-10"
+              />
               <div>
-                <h1 className="text-xl font-bold text-foreground">Admin Panel</h1>
-                <p className="text-xs text-muted-foreground">Master Admin Controls</p>
+                <h1 className="text-xl font-bold text-foreground">District Tracker</h1>
+                <p className="text-xs text-muted-foreground">
+                  {userRole === 'master_admin' ? 'Master Admin Panel' : 'Admin Panel'}
+                </p>
               </div>
             </div>
 
@@ -168,26 +187,28 @@ function AdminLayoutInner({
           {/* Sidebar Navigation */}
           <aside className="w-64 flex-shrink-0">
             <nav className="space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href, item.exact);
+              {navItems
+                .filter((item) => !item.masterAdminOnly || userRole === 'master_admin')
+                .map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href, item.exact);
 
-                return (
-                  <Link key={item.href} href={item.href}>
-                    <Button
-                      variant={active ? 'secondary' : 'ghost'}
-                      className={`w-full justify-start rounded-xl ${
-                        active
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'text-slate-700 hover:bg-white hover:text-slate-900 border border-transparent hover:border-slate-200'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 mr-3" />
-                      {item.label}
-                    </Button>
-                  </Link>
-                );
-              })}
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <Button
+                        variant={active ? 'secondary' : 'ghost'}
+                        className={`w-full justify-start rounded-xl ${
+                          active
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-slate-700 hover:bg-white hover:text-slate-900 border border-transparent hover:border-slate-200'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4 mr-3" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  );
+                })}
             </nav>
           </aside>
 

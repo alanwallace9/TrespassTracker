@@ -1,6 +1,163 @@
 # Project TODO List
-**Project**: DistrictTracker Suite
-**Last Updated**: 2025-11-09
+**Project**: DistrictTraacker Suite
+**Last Updated**: 2025-11-15
+
+---
+
+## 🔴 IMMEDIATE TASKS (2025-11-15)
+
+### Security Enhancements (Day 5 - High Priority)
+- [ ] **Add CSRF protection**
+  - [ ] Verify Next.js Server Actions protection
+  - [ ] Add origin header validation in middleware
+  - [ ] Create `lib/csrf.ts` utility for origin validation
+  - [ ] Test cross-origin request blocking
+- [ ] **Sanitize error messages** (10+ locations)
+  - [ ] Replace `throw new Error(error.message)` with generic messages
+  - [ ] Use logger for detailed errors (server-side only)
+  - [ ] Files to update:
+    - [ ] `app/actions/campuses.ts` (4 locations)
+    - [ ] `app/actions/upload-records.ts` (2 locations)
+    - [ ] `app/actions/admin/bulk-invite-users.ts` (1 location)
+    - [ ] `app/actions/admin/users.ts` (2 locations)
+    - [ ] `app/actions/invite-user.ts` (1+ locations)
+  - [ ] Pattern: `logger.error('[functionName] Database error', error); throw new Error('Failed to perform operation');`
+- [ ] **Complete audit logging**
+  - [ ] Add logging for feedback views
+  - [ ] Add logging for user profile views
+  - [ ] Add logging for bulk operations (records, users)
+
+### Testing & Verification (Post-Fix Testing)
+- [ ] **Test DAEP Report**
+  - [ ] Verify report shows ALL records with `is_daep = true`
+  - [ ] Verify both active and expired placements are included
+  - [ ] Test incident count aggregation
+  - [ ] Test CSV/Excel/PDF export formats
+  - [ ] Verify campus names display correctly
+- [ ] **Test Status Display Fix**
+  - [ ] Open RecordDetailDialog for active record → verify shows "Active"
+  - [ ] Open RecordDetailDialog for inactive/expired record → verify shows "Inactive"
+  - [ ] Test with record expiring today
+  - [ ] Test with DAEP expiration vs trespass expiration
+- [ ] **Runtime Error Testing**
+  - [ ] Check browser console for errors (after TypeScript fixes)
+  - [ ] Test all admin panel pages (users, campuses, records, reports, audit logs)
+  - [ ] Test record CRUD operations
+  - [ ] Test bulk upload functionality
+  - [ ] Verify no null/undefined errors in production build
+
+---
+
+## 🔴 URGENT - FERPA Compliance & Current Issues (2025-11-10)
+
+### Soft Delete Implementation - FERPA Required
+- [ ] **Add `deleted_at` timestamp column to `trespass_records` table**
+  - [ ] Create Supabase migration to add column
+  - [ ] Update TypeScript type definitions
+- [ ] **Update deleteRecordAdmin to use soft delete**
+  - [ ] Set `deleted_at = NOW()` instead of DELETE
+  - [ ] Exception: Allow master_admin hard delete from admin panel (test records only)
+- [ ] **Update all queries to exclude soft-deleted records**
+  - [ ] Add `WHERE deleted_at IS NULL` to dashboard queries
+  - [ ] Add filter to record list queries
+  - [ ] Add filter to search queries
+  - [ ] Update RecordsTable component
+- [ ] **Add admin view for soft-deleted records**
+  - [ ] Create "Deleted Records" tab in admin panel
+  - [ ] Allow viewing/restoring soft-deleted records
+- [ ] **5-Year Retention Policy**
+  - [ ] Records must be kept for 5 years minimum (FERPA requirement)
+  - [ ] Add created_at + 5 years check before allowing hard delete
+  - [ ] Optional: Create automated cleanup job for records > 5 years old
+- [ ] **Export includes all historical records**
+  - [ ] Verify CSV export includes active and inactive records
+  - [ ] Add option to include soft-deleted records in export (admin only)
+
+### Multiple Incidents Per Student - Data Integrity
+- [ ] **Verify current design supports multiple incidents**
+  - [ ] Confirm no unique constraint on (first_name, last_name, school_id)
+  - [ ] Test creating multiple records for same student
+- [ ] **Add incident counter to record cards**
+  - [ ] Query count of records matching (first_name, last_name, school_id)
+  - [ ] Display "Incident #X of Y" badge on RecordCard
+  - [ ] Add dropdown to select/view specific incident
+- [ ] **Display relevant dates when incident selected**
+  - [ ] Show incident_date, expiration_date, daep_expiration_date
+  - [ ] Highlight currently selected incident
+  - [ ] Allow navigation between incidents for same student
+- [ ] **Data retention validation**
+  - [ ] Students may have 10+ incidents over school career
+  - [ ] All incidents (active/inactive) must be preserved
+  - [ ] Export must include full incident history per student
+
+### Reports - Data Generation Issues
+- [ ] **Debug FERPA Report**
+  - [ ] Investigate why report returns no data
+  - [ ] Check date range filters
+  - [ ] Verify audit_log queries
+  - [ ] Test with known audit events
+  - [ ] Check permissions/RLS policies
+- [ ] **Debug Record Access Frequency Report**
+  - [ ] Investigate why report returns no data
+  - [ ] Verify audit log captures record access
+  - [ ] Check aggregation query logic
+  - [ ] Test with manual record views
+  - [ ] Validate frequency calculations
+- [ ] **User Activity Summary - Add User Dropdown**
+  - [ ] Create tenant-filtered user dropdown
+  - [ ] Show only users in current tenant
+  - [ ] Allow filtering activity by specific user
+  - [ ] Default to "All Users" option
+- [ ] **Custom Report Builder - Campus Filter**
+  - [ ] Replace `record_id` field with `campus` dropdown
+  - [ ] Query campuses for current tenant
+  - [ ] Allow multi-select campus filter
+  - [ ] Update report query to filter by campus_id
+
+### Status Badge - Automated Daily Updates
+- [ ] **Implement nightly cron job**
+  - [ ] Create `/api/cron/update-statuses` endpoint
+  - [ ] Query records where `expiration_date < NOW()` and `status = 'active'`
+  - [ ] Update to `status = 'inactive'`
+  - [ ] Log updates to audit trail
+- [ ] **Handle UTC to CST timezone conversion**
+  - [ ] CST is UTC-6 (standard) or UTC-5 (daylight)
+  - [ ] Run cron at appropriate UTC time (6am CST = 12pm UTC)
+  - [ ] Consider daylight saving time transitions
+- [ ] **Remove current client-side badge logic**
+  - [ ] Find and remove `isExpired()` checks in UI components
+  - [ ] Remove status override logic in DashboardClient
+  - [ ] Update RecordCard to use database status field only
+  - [ ] Update RecordsTable to use database status field only
+- [ ] **Configure Vercel cron**
+  - [ ] Add to vercel.json cron configuration
+  - [ ] Set CRON_SECRET environment variable
+  - [ ] Test manual trigger
+  - [ ] Verify nightly execution
+
+### Admin Panel Enhancements
+- [ ] **Add hard delete option for master_admin**
+  - [ ] Create "Hard Delete" button in admin panel (master_admin only)
+  - [ ] Add confirmation dialog with warning about permanent deletion
+  - [ ] Implement hard delete server action for test record cleanup
+  - [ ] Log hard delete actions to audit trail with "HARD_DELETE" event type
+  - [ ] Only allow on records < 5 years old OR explicitly marked as test data
+
+### Vercel Demo Domain Setup
+- [ ] **Configure demo subdomain on Vercel**
+  - [ ] Add `demo.districttracker.com` domain to Vercel project
+  - [ ] Configure DNS CNAME record pointing to Vercel
+  - [ ] Set environment variables for demo environment:
+    ```
+    NEXT_PUBLIC_IS_DEMO=true
+    NEXT_PUBLIC_DEMO_TENANT_ID=demo-tenant
+    ```
+  - [ ] Enable auto-preview for demo branch
+  - [ ] Test domain resolution and SSL certificate
+  - [ ] Configure redirect rules if needed (www -> non-www)
+  - [ ] Set up demo data reset cron job
+  - [ ] Add DemoBanner component to layout for demo domain
+  - [ ] Document demo credentials in README.md
 
 ---
 
@@ -53,6 +210,51 @@
   - [ ] Add logging for feedback views
   - [ ] Add logging for user profile views
   - [ ] Add logging for bulk operations
+
+---
+
+## 🚀 IN PROGRESS - Pre-Demo Upgrades (2025-11-09)
+
+**Reference**: See `IMPLEMENTATION_PLAN_2025-11-09.md` for complete details
+
+### Phase 1: Secure Tenant Switching ✅ COMPLETED
+- [x] Create migration: Add `active_tenant_id` column to user_profiles
+- [x] Update `get_my_tenant_id()` RLS function to check active_tenant_id
+- [x] Create server action: `switchActiveTenant()` with audit logging
+- [x] Update AdminTenantContext to use server action (remove localStorage)
+- [x] Test tenant switching with bulk operations
+- **Commit**: d0ce87b - feat: implement secure database-backed tenant switching
+
+### Phase 2: Tenants Management Page ✅ COMPLETED
+- [x] Create server actions: createTenant, updateTenant, deactivateTenant, reactivateTenant
+- [x] Build Tenants admin page (table + create/edit dialogs)
+- [x] Add "Tenants" to admin sidebar (master_admin only)
+- [x] Subdomain validation and duplicate detection
+- [x] Comprehensive audit logging for tenant operations
+- [ ] Test full onboarding workflow (Phase 2.1 - Next Session)
+- **Commit**: 38c935f - feat: implement comprehensive tenants management system (Phase 2)
+
+### Phase 3: Demo Environment ✅ COMPLETED
+- [x] Create demo RLS policies (SELECT, INSERT, UPDATE for all auth users)
+- [x] Build DemoRoleContext (viewer, campus_admin, district_admin switcher)
+- [x] Create DemoBanner component with role dropdown
+- [x] Create demo how-to page (`app/(demo)/demo-guide/page.tsx`)
+- [x] Update demo reset cron (delete records/campuses, preserve user_profiles)
+- [x] Session-based role persistence
+- [x] Demo tenant isolation with full CRUD permissions
+- **Commit**: 9526adc - feat: implement comprehensive demo environment system (Phase 3)
+
+### Phase 4: Feedback UX ✅ COMPLETED
+- [x] Install sonner: `npm install sonner`
+- [x] Add toast to UpvoteButton (non-auth users)
+- [x] Update CommentsSection (clean FeedBear design)
+- [x] Add Toaster component to root layout
+- [ ] Add future task: Resend email integration (deferred)
+
+### Phase 5: Admin Panel Polish ✅ COMPLETED
+- [x] Update logo to logo1.svg + "District Tracker" text
+- [x] Allow district_admin access (no tenant dropdown, limited nav)
+- [x] Filter navigation based on role (hide Feedback/Tenants for district_admin)
 
 ---
 
@@ -391,6 +593,35 @@
 ---
 
 ## ✅ Completed Tasks
+
+### 2025-11-10: Records Management Admin Panel
+- [x] **Phase 1: Image Storage**
+  - [x] Create `lib/image-storage.ts` with hybrid storage strategy
+  - [x] Integrate image processing into record create/update actions
+  - [x] Verify Supabase `record-photos` bucket exists
+- [x] **Phase 2: Records Table & Page**
+  - [x] Create `app/actions/admin/records.ts` with CRUD operations
+  - [x] Create `app/admin/records/page.tsx` with inline table
+  - [x] Add filters (campus, status, search)
+  - [x] Add pagination with customizable page size
+  - [x] Add sortable columns with visual indicators
+  - [x] Optimize date format and column widths
+- [x] **Phase 3: Bulk Upload**
+  - [x] Integrate existing CSVUploadDialog component
+  - [x] Default to active_tenant_id for master admins
+- [x] **Phase 4: Add/Edit Integration**
+  - [x] Add "Records" to admin sidebar navigation
+  - [x] Wire up AddRecordDialog
+  - [x] Wire up RecordDetailDialog (edit mode)
+- [x] **Phase 5: Export Function**
+  - [x] Add CSV export button
+  - [x] Generate filtered CSV with all fields
+  - [x] Download with timestamp filename
+- [x] **Phase 6: UX Enhancements**
+  - [x] Sortable headers with chevron icons
+  - [x] Compact table design (reduced padding, smaller photos)
+  - [x] Delete confirmation with "DELETE" text requirement
+  - [x] Comprehensive audit logging
 
 ### 2025-11-09: Code Quality & Documentation
 - [x] Fix all TypeScript errors (27 errors fixed)

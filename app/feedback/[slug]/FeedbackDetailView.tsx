@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { UpvoteButton } from '@/components/feedback/UpvoteButton';
 import { ShareButtons } from '@/components/feedback/ShareButtons';
 import { ArrowLeft } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 interface FeedbackDetailViewProps {
   feedback: any;
@@ -146,7 +146,12 @@ export function FeedbackDetailView({ feedback, initialIsUpvoted }: FeedbackDetai
               <p className="text-sm text-green-800 whitespace-pre-wrap">{feedback.roadmap_notes}</p>
               {feedback.planned_release && (
                 <p className="text-xs text-green-700 mt-2">
-                  Planned for: <span className="font-semibold">{feedback.planned_release}</span>
+                  {feedback.status === 'completed' || new Date(feedback.planned_release) < new Date()
+                    ? 'Completed: '
+                    : 'Planned for: '}
+                  <span className="font-semibold">
+                    {format(new Date(feedback.planned_release), 'MM-dd-yyyy')}
+                  </span>
                 </p>
               )}
             </div>

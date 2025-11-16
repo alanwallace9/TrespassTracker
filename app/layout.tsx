@@ -5,6 +5,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Toaster } from '@/components/ui/toaster';
+import { Toaster as SonnerToaster } from 'sonner';
 import { dark } from '@clerk/themes';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -75,6 +76,7 @@ export default function RootLayout({
             <ThemeProvider>
               {children}
               <Toaster />
+              <SonnerToaster position="top-right" richColors />
             </ThemeProvider>
           </AuthProvider>
         </body>
