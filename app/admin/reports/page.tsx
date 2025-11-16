@@ -25,6 +25,8 @@ import { format, subDays, subMonths, startOfDay, endOfDay } from 'date-fns';
 import { getAuditLogs, type AuditLogFilters } from '@/app/actions/admin/audit-logs';
 import { searchRecords, type RecordSearchResult } from '@/app/actions/admin/search-records';
 import { getCampusesWithCounts } from '@/app/actions/admin/campuses';
+import { getUsersForAdmin, type AdminUserListItem } from '@/app/actions/admin/users';
+import { getDAEPRecords, type DAEPRecord } from '@/app/actions/admin/daep-records';
 import { useAdminTenant } from '@/contexts/AdminTenantContext';
 import { Campus } from '@/lib/supabase';
 import Papa from 'papaparse';
@@ -38,6 +40,7 @@ type ReportType =
   | 'record_frequency'
   | 'campus_activity'
   | 'modification_history'
+  | 'daep_students'
   | 'custom';
 
 export default function ReportsPage() {
@@ -71,11 +74,15 @@ export default function ReportsPage() {
   const [customActorEmail, setCustomActorEmail] = useState('');
   const [customRecordName, setCustomRecordName] = useState('');
   const [customRecordId, setCustomRecordId] = useState('');
+  const [customCampusId, setCustomCampusId] = useState('');
   const [customEventTypes, setCustomEventTypes] = useState<string[]>([]);
 
   // Campus selection
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [selectedCampusId, setSelectedCampusId] = useState('');
+
+  // User selection
+  const [users, setUsers] = useState<AdminUserListItem[]>([]);
 
   // Anomalies
   const [anomalies, setAnomalies] = useState<any[]>([]);
@@ -83,19 +90,23 @@ export default function ReportsPage() {
   // Ref for scrolling to report cards section
   const reportCardsRef = useRef<HTMLDivElement>(null);
 
-  // Load campuses when tenant changes
+  // Load campuses and users when tenant changes
   useEffect(() => {
     if (!selectedTenantId) return;
 
-    const loadCampuses = async () => {
+    const loadData = async () => {
       try {
-        const campusesData = await getCampusesWithCounts(selectedTenantId);
+        const [campusesData, usersData] = await Promise.all([
+          getCampusesWithCounts(selectedTenantId),
+          getUsersForAdmin(selectedTenantId)
+        ]);
         setCampuses(campusesData);
+        setUsers(usersData);
       } catch (error) {
-        console.error('Error loading campuses:', error);
+        console.error('Error loading data:', error);
       }
     };
-    loadCampuses();
+    loadData();
   }, [selectedTenantId]);
 
   const reports = [
@@ -138,6 +149,14 @@ export default function ReportsPage() {
       icon: Clock,
       color: 'text-pink-600',
       bgColor: 'bg-pink-50',
+    },
+    {
+      id: 'daep_students' as ReportType,
+      title: 'DAEP Students',
+      description: 'All DAEP placements (active & expired) with incident counts',
+      icon: FileBarChart,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
     },
     {
       id: 'custom' as ReportType,
@@ -241,7 +260,7 @@ export default function ReportsPage() {
           // Apply all custom filters
           if (customActorEmail) filters.actorEmail = customActorEmail;
           if (customRecordName) filters.recordSubjectName = customRecordName;
-          if (customRecordId) filters.recordId = customRecordId;
+          if (customCampusId) filters.campusId = customCampusId;
           if (customEventTypes.length > 0) filters.eventTypes = customEventTypes;
           break;
       }
@@ -327,6 +346,23 @@ export default function ReportsPage() {
             'Student ID': log.record_school_id || 'N/A',
             'Fields Changed': log.details?.fieldsUpdated?.join(', ') || 'N/A',
             'Changes (Before → After)': formatModificationDetails(log),
+          }));
+          break;
+
+        case 'daep_students':
+          // Fetch DAEP records directly from trespass_records table
+          const daepRecords = await getDAEPRecords(selectedTenantId || undefined);
+
+          // Get campus names
+          const campusMap = new Map(campuses.map(c => [c.id, c.name]));
+
+          csvData = daepRecords.map(record => ({
+            'Student Name': `${record.first_name} ${record.last_name}`,
+            'School ID': record.school_id,
+            'Home Campus': record.campus_id ? (campusMap.get(record.campus_id) || record.campus_id) : 'Not Assigned',
+            'Placement Date': format(new Date(record.created_at), 'yyyy-MM-dd'),
+            'Expiration Date': record.daep_expiration_date ? format(new Date(record.daep_expiration_date), 'yyyy-MM-dd') : 'No Expiration',
+            'Total DAEP Incidents': record.incident_count,
           }));
           break;
 
@@ -788,14 +824,21 @@ export default function ReportsPage() {
             {/* User Activity Specific */}
             {selectedReport === 'user_activity' && (
               <div>
-                <Label htmlFor="targetUser">User Email (Optional)</Label>
-                <Input
-                  id="targetUser"
-                  placeholder="Filter by specific user email..."
-                  value={targetUserId}
-                  onChange={(e) => setTargetUserId(e.target.value)}
-                  className={fieldClasses}
-                />
+                <Label htmlFor="targetUser">User (Optional)</Label>
+                <Select value={targetUserId || 'all'} onValueChange={(value) => setTargetUserId(value === 'all' ? '' : value)}>
+                  <SelectTrigger className={selectClasses}>
+                    <SelectValue placeholder="All users..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All users</SelectItem>
+                    {users.filter(user => !user.deleted_at && user.email).map((user) => (
+                      <SelectItem key={user.id} value={user.email || ''}>
+                        {user.display_name} ({user.email})
+                        {user.campus_name && ` - ${user.campus_name}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -847,14 +890,20 @@ export default function ReportsPage() {
                   </div>
 
                   <div>
-                    <Label htmlFor="customRecordId">Record ID</Label>
-                    <Input
-                      id="customRecordId"
-                      placeholder="Exact record ID..."
-                      value={customRecordId}
-                      onChange={(e) => setCustomRecordId(e.target.value)}
-                      className={fieldClasses}
-                    />
+                    <Label htmlFor="customCampus">Campus (Optional)</Label>
+                    <Select value={customCampusId || 'all'} onValueChange={(value) => setCustomCampusId(value === 'all' ? '' : value)}>
+                      <SelectTrigger className={selectClasses}>
+                        <SelectValue placeholder="All campuses..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All campuses</SelectItem>
+                        {campuses.map((campus) => (
+                          <SelectItem key={campus.id} value={campus.id}>
+                            {campus.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -925,6 +974,9 @@ export default function ReportsPage() {
               </li>
               <li>
                 <strong>Modification History:</strong> Audit trail of all changes with before/after values
+              </li>
+              <li>
+                <strong>DAEP Students:</strong> All DAEP placements (active and expired) with placement dates, expiration dates, and incident counts per student
               </li>
               <li>
                 <strong>Custom Report:</strong> Build your own report with flexible filters

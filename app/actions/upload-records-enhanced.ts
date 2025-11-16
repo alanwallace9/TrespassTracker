@@ -32,11 +32,28 @@ export type CSVRecordInput = {
   campus_id?: string;
 };
 
+export type UploadError = {
+  record: string;
+  school_id: string;
+  reason: string;
+  error: string;
+};
+
+export type UploadResult = {
+  success: boolean;
+  count: number;
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors?: UploadError[];
+  totalErrors: number;
+};
+
 /**
- * Upload trespass records via server action
+ * Upload trespass records via server action with detailed error reporting
  * This ensures proper authentication and tenant isolation
  */
-export async function uploadTrespassRecords(records: CSVRecordInput[]) {
+export async function uploadTrespassRecords(records: CSVRecordInput[]): Promise<UploadResult> {
   const { userId } = await auth();
 
   if (!userId) {
@@ -109,10 +126,45 @@ export async function uploadTrespassRecords(records: CSVRecordInput[]) {
   // We can't use database upsert because there's no unique constraint on (school_id, tenant_id)
   let insertedCount = 0;
   let updatedCount = 0;
-  const errors: string[] = [];
+  let skippedCount = 0;
+  const errors: UploadError[] = [];
 
   for (const record of recordsToInsert) {
     try {
+      // Validate required fields before processing
+      if (!record.school_id?.trim()) {
+        errors.push({
+          record: `${record.first_name} ${record.last_name}`,
+          school_id: record.school_id || 'MISSING',
+          reason: 'Missing required field',
+          error: 'school_id is required',
+        });
+        skippedCount++;
+        continue;
+      }
+
+      if (!record.first_name?.trim() || !record.last_name?.trim()) {
+        errors.push({
+          record: `${record.first_name || '[Missing]'} ${record.last_name || '[Missing]'}`,
+          school_id: record.school_id,
+          reason: 'Missing required field',
+          error: 'first_name and last_name are required',
+        });
+        skippedCount++;
+        continue;
+      }
+
+      if (!record.expiration_date?.trim()) {
+        errors.push({
+          record: `${record.first_name} ${record.last_name}`,
+          school_id: record.school_id,
+          reason: 'Missing required field',
+          error: 'expiration_date is required',
+        });
+        skippedCount++;
+        continue;
+      }
+
       // Check if record exists with this school_id and tenant_id
       const { data: existing, error: checkError } = await supabase
         .from('trespass_records')
@@ -148,29 +200,36 @@ export async function uploadTrespassRecords(records: CSVRecordInput[]) {
         insertedCount++;
       }
     } catch (err: any) {
-      errors.push(`${record.first_name} ${record.last_name} (${record.school_id}): ${err.message}`);
+      errors.push({
+        record: `${record.first_name} ${record.last_name}`,
+        school_id: record.school_id,
+        reason: 'Database error',
+        error: err.message,
+      });
+      skippedCount++;
     }
   }
 
-  if (errors.length > 0) {
-    console.error('[uploadTrespassRecords] Upsert errors:', errors);
-    throw new Error(`Failed to upsert ${errors.length} records. First error: ${errors[0]}`);
-  }
-
-  console.log('[uploadTrespassRecords] Successfully upserted records:', {
+  console.log('[uploadTrespassRecords] Upsert completed:', {
     inserted: insertedCount,
     updated: updatedCount,
+    skipped: skippedCount,
     total: insertedCount + updatedCount,
+    errors: errors.length,
   });
 
   // Revalidate dashboard to show new records
   revalidatePath('/dashboard');
 
+  // Return results with error details if any
   return {
-    success: true,
+    success: insertedCount > 0 || updatedCount > 0,
     count: insertedCount + updatedCount,
     inserted: insertedCount,
     updated: updatedCount,
+    skipped: skippedCount,
+    errors: errors.length > 0 ? errors.slice(0, 10) : undefined, // Return first 10 errors for display
+    totalErrors: errors.length,
   };
 }
 

@@ -93,7 +93,7 @@ export async function inviteUser({ email, role, campusId, tenantId }: InviteUser
     // Get current user's profile to verify permissions
     const { data: adminProfile } = await supabaseAdmin
       .from('user_profiles')
-      .select('tenant_id, role')
+      .select('tenant_id, role, email')
       .eq('id', userId)
       .single();
 
@@ -165,36 +165,68 @@ export async function inviteUser({ email, role, campusId, tenantId }: InviteUser
     metadata.campus_id = campusId;
   }
 
-    // Create user in Clerk with metadata
+    // Get tenant subdomain to build correct redirect URL
+    const { data: targetTenant } = await supabaseAdmin
+      .from('tenants')
+      .select('subdomain')
+      .eq('id', targetTenantId)
+      .single();
+
+    // Build the redirect URL with the correct tenant subdomain
+    // In production: https://[subdomain].districttracker.com/login
+    // In development: http://localhost:3000/login (subdomain doesn't matter in dev)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const redirectUrl = isProduction
+      ? `https://${targetTenant?.subdomain}.districttracker.com/login`
+      : 'http://localhost:3000/login';
+
+    // Send invitation via Clerk (this creates the user and sends email)
     const client = await clerkClient();
 
-    logger.info('[inviteUser] Creating user in Clerk', { email, metadata });
-    const clerkUser = await client.users.createUser({
-      emailAddress: [email],
-      publicMetadata: metadata,
-      skipPasswordChecks: true, // Allow Clerk to send invitation email
-    });
+    logger.info('[inviteUser] Sending invitation via Clerk', { email, metadata, redirectUrl, targetTenantId, subdomain: targetTenant?.subdomain });
 
-    logger.info('[inviteUser] User created in Clerk', { clerkUserId: clerkUser.id });
-
-    // Send invitation email
-    const redirectUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://birdville.districttracker.com';
-    logger.info('[inviteUser] Sending invitation email', { email, redirectUrl });
-
-    await client.invitations.createInvitation({
+    const invitation = await client.invitations.createInvitation({
       emailAddress: email,
       publicMetadata: metadata,
       redirectUrl: `${redirectUrl}/login`,
+      expiresInDays: 7, // Standard security practice: 7 day expiration
     });
 
-    logger.info('[inviteUser] User invited successfully', { invitedUserId: clerkUser.id, invitedBy: userId });
+    logger.info('[inviteUser] Invitation created successfully', {
+      invitationId: invitation.id,
+      email: invitation.emailAddress,
+      invitedBy: userId
+    });
+
+    // Track invitation in Supabase pending_invitations table
+    const { error: invitationError } = await supabaseAdmin
+      .from('pending_invitations')
+      .insert({
+        id: `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        email,
+        role,
+        tenant_id: targetTenantId,
+        campus_id: campusId || null,
+        invited_by: userId,
+        invited_by_email: adminProfile.email || email,
+        status: 'pending',
+        clerk_invitation_id: invitation.id,
+        expires_at: (invitation as any).expiresAt ? new Date((invitation as any).expiresAt).toISOString() : null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (invitationError) {
+      logger.error('[inviteUser] Failed to track invitation in Supabase', invitationError);
+      // Don't fail the whole operation, just log the error
+    }
 
     // Log to admin audit log
     await logAuditEvent({
       eventType: 'user.invited',
       actorId: userId,
       actorRole: adminProfile.role,
-      targetId: clerkUser.id,
+      targetId: invitation.id,
       action: `Invited user as ${role}`,
       details: {
         email,
@@ -206,7 +238,7 @@ export async function inviteUser({ email, role, campusId, tenantId }: InviteUser
 
     return {
       success: true,
-      userId: clerkUser.id,
+      userId: invitation.id,
       message: `Invitation sent to ${email}`,
     };
   } catch (error: any) {
@@ -214,6 +246,7 @@ export async function inviteUser({ email, role, campusId, tenantId }: InviteUser
       error: error.message,
       stack: error.stack,
       clerkErrors: error.errors,
+      clerkErrorDetails: JSON.stringify(error.errors, null, 2),
       email,
       role,
     });
@@ -221,6 +254,14 @@ export async function inviteUser({ email, role, campusId, tenantId }: InviteUser
     // Handle specific Clerk errors
     if (error.errors?.[0]?.code === 'form_identifier_exists') {
       throw new Error('A user with this email already exists');
+    }
+
+    // Check for other Clerk error codes
+    const clerkErrorCode = error.errors?.[0]?.code;
+    const clerkErrorMessage = error.errors?.[0]?.message;
+
+    if (clerkErrorCode || clerkErrorMessage) {
+      throw new Error(`Clerk error: ${clerkErrorMessage || clerkErrorCode}`);
     }
 
     // Return the full error message for debugging

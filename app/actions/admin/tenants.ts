@@ -14,6 +14,7 @@ export type Tenant = {
   id: string;
   subdomain: string;
   display_name: string;
+  short_display_name?: string | null;
   status: string;
   created_at: string;
   updated_at: string;

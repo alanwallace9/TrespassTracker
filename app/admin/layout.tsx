@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart, Building, MessageSquare } from 'lucide-react';
+import { Users, Building2, History, LayoutDashboard, ArrowLeft, FileBarChart, Building, MessageSquare, FileText } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { AdminTenantProvider, useAdminTenant } from '@/contexts/AdminTenantContext';
@@ -83,6 +83,11 @@ function AdminLayoutInner({
       href: '/admin/users',
       label: 'Users',
       icon: Users,
+    },
+    {
+      href: '/admin/records',
+      label: 'Records',
+      icon: FileText,
     },
     {
       href: '/admin/campuses',

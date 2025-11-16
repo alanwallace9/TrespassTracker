@@ -39,19 +39,19 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
     aka: '',
     date_of_birth: '',
     school_id: '',
-    known_associates: '',
+    affiliation: '',
     current_school: '',
     guardian_first_name: '',
     guardian_last_name: '',
     guardian_phone: '',
-    contact_info: '',
+    school_contact: '',
     expiration_date: '',
     trespassed_from: '',
-    is_former_student: false,
+    is_current_student: true,
     is_daep: false,
     daep_expiration_date: '',
     notes: '',
-    photo_url: '',
+    photo: '',
     campus_id: '',
   });
 
@@ -98,7 +98,7 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
-        setFormData({ ...formData, photo_url: reader.result as string });
+        setFormData({ ...formData, photo: reader.result as string });
       };
       reader.readAsDataURL(file);
     }
@@ -149,17 +149,17 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
         trespassed_from: formData.trespassed_from,
         aka: formData.aka,
         date_of_birth: formData.date_of_birth,
-        known_associates: formData.known_associates,
+        affiliation: formData.affiliation,
         current_school: formData.current_school,
         guardian_first_name: formData.guardian_first_name,
         guardian_last_name: formData.guardian_last_name,
         guardian_phone: formData.guardian_phone,
-        contact_info: formData.contact_info,
-        is_former_student: formData.is_former_student,
+        school_contact: formData.school_contact,
+        is_current_student: formData.is_current_student,
         is_daep: formData.is_daep,
         daep_expiration_date: formData.daep_expiration_date || undefined,
         notes: formData.notes,
-        photo_url: formData.photo_url,
+        photo: formData.photo,
         status: 'active',
         campus_id: formData.campus_id && formData.campus_id !== 'none' ? formData.campus_id : undefined,
       });
@@ -175,19 +175,19 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
         aka: '',
         date_of_birth: '',
         school_id: '',
-        known_associates: '',
+        affiliation: '',
         current_school: '',
         guardian_first_name: '',
         guardian_last_name: '',
         guardian_phone: '',
-        contact_info: '',
+        school_contact: '',
         expiration_date: '',
         trespassed_from: '',
-        is_former_student: false,
+        is_current_student: true,
         is_daep: false,
         daep_expiration_date: '',
         notes: '',
-        photo_url: '',
+        photo: '',
         campus_id: userCampusId || '', // Reset to user's campus or empty
       });
       setImagePreview(null);
@@ -229,7 +229,7 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
                 <div className="relative w-full h-full rounded-full overflow-hidden group">
                   <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setFormData({ ...formData, photo_url: '' }); }} className="text-white text-sm hover:underline">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setFormData({ ...formData, photo: '' }); }} className="text-white text-sm hover:underline">
                       Remove
                     </button>
                   </div>
@@ -261,15 +261,15 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
               <Input id="aka" value={formData.aka} onChange={(e) => setFormData({ ...formData, aka: e.target.value })} className="bg-input border-border" disabled={isLoading} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="known_associates">Known Associates</Label>
-              <Input id="known_associates" value={formData.known_associates} onChange={(e) => setFormData({ ...formData, known_associates: e.target.value })} className="bg-input border-border" disabled={isLoading} />
+              <Label htmlFor="affiliation">Affiliations</Label>
+              <Input id="affiliation" value={formData.affiliation} onChange={(e) => setFormData({ ...formData, affiliation: e.target.value })} className="bg-input border-border" disabled={isLoading} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center space-x-2">
-              <Checkbox id="is_former_student" checked={formData.is_former_student} onCheckedChange={(checked) => setFormData({ ...formData, is_former_student: checked as boolean })} disabled={isLoading} />
-              <Label htmlFor="is_former_student" className="cursor-pointer font-normal">Former Student</Label>
+              <Checkbox id="is_current_student" checked={formData.is_current_student} onCheckedChange={(checked) => setFormData({ ...formData, is_current_student: checked as boolean })} disabled={isLoading} />
+              <Label htmlFor="is_current_student" className="cursor-pointer font-normal">Current Student</Label>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox id="is_daep" checked={formData.is_daep} onCheckedChange={(checked) => setFormData({ ...formData, is_daep: checked as boolean })} disabled={isLoading} />
@@ -342,8 +342,8 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
               <Input id="current_school" value={formData.current_school} onChange={(e) => setFormData({ ...formData, current_school: e.target.value })} className="bg-input border-border" disabled={isLoading} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="contact_info">School Contact</Label>
-              <Input id="contact_info" value={formData.contact_info} onChange={(e) => setFormData({ ...formData, contact_info: e.target.value })} className="bg-input border-border" disabled={isLoading} />
+              <Label htmlFor="school_contact">School Contact</Label>
+              <Input id="school_contact" value={formData.school_contact} onChange={(e) => setFormData({ ...formData, school_contact: e.target.value })} className="bg-input border-border" disabled={isLoading} />
             </div>
           </div>
 
@@ -370,15 +370,20 @@ export function AddRecordDialog({ open, onOpenChange, onRecordAdded }: AddRecord
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="trespassed_from">Trespassed From *</Label>
-              <Select value={formData.trespassed_from} onValueChange={(value) => setFormData({ ...formData, trespassed_from: value })} disabled={isLoading}>
-                <SelectTrigger className="bg-input border-border">
-                  <SelectValue placeholder="Select location" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All BISD properties">All BISD properties</SelectItem>
-                  <SelectItem value="Home campus after school activities">Home campus after school activities</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                id="trespassed_from"
+                value={formData.trespassed_from}
+                onChange={(e) => setFormData({ ...formData, trespassed_from: e.target.value })}
+                className="bg-input border-border"
+                required
+                disabled={isLoading}
+                list="trespassed-from-options"
+              />
+              <datalist id="trespassed-from-options">
+                <option value="All District Properties" />
+                <option value="Home campus after school activities" />
+              </datalist>
+              <p className="text-xs text-muted-foreground">Select from dropdown or type custom value</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="expiration_date">Warning Expires *</Label>

@@ -36,6 +36,9 @@ export default function UsersManagementPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUserListItem | null>(null);
   const [editRole, setEditRole] = useState<string>('');
   const [editCampusId, setEditCampusId] = useState<string>('');
+  const [editDisplayName, setEditDisplayName] = useState<string>('');
+  const [editNotificationDays, setEditNotificationDays] = useState<string>('7');
+  const [deleteConfirmText, setDeleteConfirmText] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
 
@@ -105,11 +108,14 @@ export default function UsersManagementPage() {
     setSelectedUser(user);
     setEditRole(user.role);
     setEditCampusId(user.campus_id || '');
+    setEditDisplayName(user.display_name || '');
+    setEditNotificationDays(user.notification_days?.toString() || '7');
     setEditDialogOpen(true);
   };
 
   const handleDeleteClick = (user: AdminUserListItem) => {
     setSelectedUser(user);
+    setDeleteConfirmText('');
     setDeleteDialogOpen(true);
   };
 
@@ -121,7 +127,9 @@ export default function UsersManagementPage() {
       await updateUserRole(
         selectedUser.id,
         editRole as any,
-        editRole === 'campus_admin' ? editCampusId : null
+        editRole === 'campus_admin' ? editCampusId : null,
+        editDisplayName || undefined,
+        parseInt(editNotificationDays) || undefined
       );
 
       toast({
@@ -155,6 +163,7 @@ export default function UsersManagementPage() {
       });
 
       setDeleteDialogOpen(false);
+      setDeleteConfirmText('');
       fetchData();
     } catch (error: any) {
       toast({
@@ -333,13 +342,27 @@ export default function UsersManagementPage() {
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
-              Update user role and campus assignment
+              Update user profile settings, role, and campus assignment
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <Label>Email</Label>
               <Input value={selectedUser?.email || ''} disabled className={filterFieldClasses} />
+            </div>
+            <div>
+              <Label>District</Label>
+              <Input value={selectedUser?.tenant_name || 'N/A'} disabled className={filterFieldClasses} />
+            </div>
+            <div>
+              <Label>Display Name</Label>
+              <Input
+                value={editDisplayName}
+                onChange={(e) => setEditDisplayName(e.target.value)}
+                placeholder="Enter display name"
+                className={filterFieldClasses}
+              />
+              <p className="text-xs text-slate-500 mt-1">Optional friendly name shown in the app</p>
             </div>
             <div>
               <Label>Role</Label>
@@ -376,6 +399,23 @@ export default function UsersManagementPage() {
                 </Select>
               </div>
             )}
+            <div>
+              <Label>Notification Days</Label>
+              <Select value={editNotificationDays} onValueChange={setEditNotificationDays}>
+                <SelectTrigger className={selectFieldClasses}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 day before expiration</SelectItem>
+                  <SelectItem value="3">3 days before expiration</SelectItem>
+                  <SelectItem value="5">5 days before expiration</SelectItem>
+                  <SelectItem value="7">7 days before expiration</SelectItem>
+                  <SelectItem value="14">14 days before expiration</SelectItem>
+                  <SelectItem value="30">30 days before expiration</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500 mt-1">How far in advance to show expiration warnings</p>
+            </div>
           </div>
           <DialogFooter className="flex w-full items-center justify-between">
             <Button
@@ -405,13 +445,27 @@ export default function UsersManagementPage() {
               Are you sure you want to delete this user? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm">
-              <strong>Email:</strong> {selectedUser?.email}
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              This will permanently delete the user from Clerk and mark them as deleted in the database.
-            </p>
+          <div className="space-y-4 py-4">
+            <div>
+              <p className="text-sm">
+                <strong>Email:</strong> {selectedUser?.email}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                This will permanently delete the user from Clerk and mark them as deleted in the database.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="delete-confirm" className="text-red-600">
+                Type <span className="font-mono font-bold">DELETE</span> to confirm
+              </Label>
+              <Input
+                id="delete-confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type DELETE"
+                className={filterFieldClasses}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)}>
@@ -420,7 +474,7 @@ export default function UsersManagementPage() {
             <Button
               variant="destructive"
               onClick={handleDeleteUser}
-              disabled={isUpdating}
+              disabled={isUpdating || deleteConfirmText !== 'DELETE'}
             >
               {isUpdating ? 'Deleting...' : 'Delete User'}
             </Button>

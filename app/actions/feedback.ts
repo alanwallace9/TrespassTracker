@@ -1300,14 +1300,28 @@ export async function deleteFeedbackComment(commentId: string): Promise<{ succes
  */
 export async function getCurrentVersion(): Promise<{ version: string; error: string | null }> {
   try {
-    const { data, error } = await supabaseAdmin.rpc('get_latest_version');
+    // Query for the latest completed feedback with a version number
+    const { data, error } = await supabaseAdmin
+      .from('feedback_submissions')
+      .select('version_number')
+      .eq('status', 'completed')
+      .not('version_number', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
 
-    if (error) throw error;
+    if (error) {
+      // If no completed feedback found, return default
+      if (error.code === 'PGRST116') {
+        return { version: '0.1.0', error: null };
+      }
+      throw error;
+    }
 
-    return { version: data || '1.3.0', error: null };
+    return { version: data.version_number || '0.1.0', error: null };
   } catch (error: any) {
     console.error('Error getting current version:', error);
-    return { version: '1.3.0', error: error.message };
+    return { version: '0.1.0', error: error.message };
   }
 }
 

@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (2025-11-15)
+- **DAEP Students Report**:
+  - New report type in Admin Reports showing all DAEP placements (active and expired)
+  - Identifies repeat offenders with incident counts per student
+  - Shows placement dates, expiration dates, and home campus assignments
+  - Export capabilities to CSV, Excel, and PDF formats
+  - Groups students by School ID to track multiple DAEP incidents over time
+  - Accessible to master_admin and district_admin roles
+
+### Fixed (2025-11-15)
+- **Status Display Accuracy in Record Details**:
+  - Fixed hardcoded "Active" status badge in record detail modal
+  - Status now correctly reflects expiration dates (active vs inactive)
+  - Improved data accuracy and user trust in system displays
+  - Modal status badge now dynamically updates based on record.status field
+- **TypeScript Type Safety**:
+  - Resolved 11 TypeScript errors across 6 files
+  - Removed obsolete `location` field references
+  - Updated `photo_url` to `photo` field name
+  - Added proper null handling and type assertions
+  - Improved code quality and editor autocomplete support
+
+### Added (2025-11-10)
+- **Records Management Admin Panel**:
+  - Full CRUD admin panel at `/admin/records` for master_admin and district_admin
+  - Sortable data table with columns: Photo, Name, School ID, Campus, Status, Expiration, Actions
+  - Click-to-sort functionality on all major columns (name, school ID, campus, status, expiration)
+  - Visual sort indicators with chevron icons (ascending/descending/unsorted)
+  - Filter by campus, status (all/active/inactive/expired), and search by name or school ID
+  - Pagination controls with customizable page size (10/25/50/100 rows per page)
+  - Create, edit, and delete operations with confirmation dialogs
+  - Delete confirmation requires typing "DELETE" for safety
+  - Bulk CSV upload with tenant-aware processing for master admins
+  - CSV export with filtering support (downloads as `trespass-records-YYYY-MM-DD.csv`)
+  - Compact date format (MM/dd/yy) for better space utilization
+  - Narrower columns with optimized padding (px-4 py-3)
+  - Smaller photo avatars (8x8 instead of 10x10)
+  - Comprehensive audit logging for all record operations
+- **Hybrid Image Storage System**:
+  - Created `lib/image-storage.ts` with `processImageUrl` function
+  - Automatically keeps trusted domain URLs (districttracker.com, CDN domains)
+  - Downloads and stores external images in Supabase `record-photos` bucket
+  - Integrated into record creation and update workflows
+  - Prevents broken image links from external sources
+- **Admin Navigation Enhancement**:
+  - Added "Records" menu item to admin sidebar with FileText icon
+  - Positioned between Users and Campuses for logical workflow
+
 ### Added (2025-11-09)
 - **Secure Tenant Switching for Master Admins (Phase 1)**:
   - Database-backed tenant switching with `active_tenant_id` column in user_profiles

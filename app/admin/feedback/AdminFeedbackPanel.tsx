@@ -200,17 +200,29 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
       result = await adminCreateFeedback(createData);
     } else {
       // Update existing feedback
+      // Build updateData with only necessary fields, converting empty strings to undefined
       const updateData: any = {
-        ...editForm,
+        title: editForm.title || undefined,
+        description: editForm.description || undefined,
+        feedback_type: editForm.feedback_type || undefined,
+        category_id: editForm.category_id || undefined,
         status: editForm.status || undefined,
+        admin_response: editForm.admin_response || undefined,
+        roadmap_notes: editForm.roadmap_notes || undefined,
+        planned_release: editForm.planned_release || undefined,
+        is_public: editForm.is_public,
       };
 
       // Handle version tracking fields based on status
       if (editForm.status === 'completed') {
-        // For completed items: clear release_quarter, keep version fields
+        // For completed items: include version fields, clear release_quarter
+        updateData.version_type = editForm.version_type || undefined;
+        updateData.version_number = editForm.version_number || undefined;
+        updateData.release_month_year = editForm.release_month_year || undefined;
         updateData.release_quarter = null;
       } else if (editForm.status === 'planned' || editForm.status === 'in_progress') {
-        // For planned items: clear version fields, keep release_quarter
+        // For planned items: include release_quarter, clear version fields
+        updateData.release_quarter = editForm.release_quarter || undefined;
         updateData.version_type = null;
         updateData.version_number = null;
         updateData.release_month_year = null;
@@ -654,46 +666,44 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
                     </ul>
                   </div>
 
-                  {/* Planning vs Completion Fields */}
-                  {editForm.status === 'completed' ? (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-sm font-medium text-slate-900">Version Type</label>
-                          <Select value={editForm.version_type} onValueChange={(value: any) => handleVersionTypeChange(value)}>
-                            <SelectTrigger className="bg-white border-slate-300 shadow-sm">
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="major">Major (Breaking)</SelectItem>
-                              <SelectItem value="minor">Minor (Features)</SelectItem>
-                              <SelectItem value="patch">Patch (Fixes)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-medium text-slate-900">Version Number</label>
-                          <Input
-                            value={editForm.version_number}
-                            onChange={(e) => setEditForm({ ...editForm, version_number: e.target.value })}
-                            placeholder="e.g., 1.2.3"
-                            className="bg-white border-slate-300 shadow-sm"
-                          />
-                        </div>
+                  {/* Version and Release Tracking Fields - Always visible */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm font-medium text-slate-900">Version Type</label>
+                        <Select value={editForm.version_type} onValueChange={(value: any) => handleVersionTypeChange(value)}>
+                          <SelectTrigger className="bg-white border-slate-300 shadow-sm">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="major">Major (Breaking)</SelectItem>
+                            <SelectItem value="minor">Minor (Features)</SelectItem>
+                            <SelectItem value="patch">Patch (Fixes)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium text-slate-900">Release Month & Year</label>
+                        <label className="text-sm font-medium text-slate-900">Version Number</label>
                         <Input
-                          value={editForm.release_month_year}
-                          onChange={(e) => setEditForm({ ...editForm, release_month_year: e.target.value })}
-                          placeholder="e.g., November 2025"
+                          value={editForm.version_number}
+                          onChange={(e) => setEditForm({ ...editForm, version_number: e.target.value })}
+                          placeholder="e.g., 1.2.3"
                           className="bg-white border-slate-300 shadow-sm"
                         />
                       </div>
                     </div>
-                  ) : (
+
+                    <div>
+                      <label className="text-sm font-medium text-slate-900">Release Month & Year</label>
+                      <Input
+                        value={editForm.release_month_year}
+                        onChange={(e) => setEditForm({ ...editForm, release_month_year: e.target.value })}
+                        placeholder="e.g., November 2025"
+                        className="bg-white border-slate-300 shadow-sm"
+                      />
+                    </div>
+
                     <div>
                       <label className="text-sm font-medium text-slate-900">Planned Release Quarter</label>
                       <Select value={editForm.release_quarter} onValueChange={(value: any) => setEditForm({ ...editForm, release_quarter: value })}>
@@ -708,7 +718,7 @@ export function AdminFeedbackPanel({ initialFeedback, categories }: AdminFeedbac
                         </SelectContent>
                       </Select>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">

@@ -3,13 +3,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Upload, FileText, CircleAlert as AlertCircle, Download } from 'lucide-react';
+import { Upload, FileText, CircleAlert as AlertCircle, Download, Building2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FieldMappingDialog } from '@/components/FieldMappingDialog';
-import { uploadTrespassRecords } from '@/app/actions/upload-records';
+import { uploadTrespassRecords, UploadResult, UploadError } from '@/app/actions/upload-records-enhanced';
 import { getUserProfile } from '@/app/actions/users';
+import { getTenants } from '@/app/actions/admin/tenants';
+import { switchActiveTenant } from '@/app/actions/admin/switch-tenant';
 
 type CSVUploadDialogProps = {
   open: boolean;
@@ -28,18 +32,18 @@ type CSVRecord = {
   aka?: string;
   date_of_birth?: string;
   incident_date?: string;
-  location?: string;
+  incident_location?: string;          // Renamed from 'location'
   description?: string;
   status?: string;
-  is_former_student?: boolean;
-  known_associates?: string;
+  is_current_student?: boolean;
+  affiliation?: string;                // Renamed from 'known_associates'
   current_school?: string;
   guardian_first_name?: string;
   guardian_last_name?: string;
   guardian_phone?: string;
-  contact_info?: string;
+  school_contact?: string;             // Renamed from 'contact_info'
   notes?: string;
-  photo_url?: string;
+  photo?: string;                      // Renamed from 'photo_url'
 };
 
 type UserCSVRecord = {
@@ -64,11 +68,24 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Tenant selection state for master_admin
+  const [tenants, setTenants] = useState<Array<{id: string; display_name: string; subdomain: string; status: string}>>([]);
+  const [selectedTenant, setSelectedTenant] = useState<string>('');
+  const [loadingTenants, setLoadingTenants] = useState(false);
+  const isMasterAdmin = userRole === 'master_admin';
+
   useEffect(() => {
     if (user) {
       fetchUserProfile();
     }
   }, [user]);
+
+  // Fetch tenants when dialog opens and user is master_admin
+  useEffect(() => {
+    if (open && isMasterAdmin) {
+      fetchTenants();
+    }
+  }, [open, isMasterAdmin]);
 
   const fetchUserProfile = async () => {
     if (!user) return;
@@ -80,6 +97,55 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const fetchTenants = async () => {
+    setLoadingTenants(true);
+    try {
+      const tenantList = await getTenants();
+      setTenants(tenantList);
+
+      // Get the user's current profile to check active_tenant_id
+      if (user) {
+        const profile = await getUserProfile(user.id);
+        if (profile?.active_tenant_id) {
+          setSelectedTenant(profile.active_tenant_id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching tenants:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load tenant list',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
+
+  const handleTenantChange = async (tenantId: string) => {
+    setSelectedTenant(tenantId);
+
+    // Update the active tenant in the user's profile
+    try {
+      const result = await switchActiveTenant(tenantId);
+      if (result.success) {
+        toast({
+          title: 'Tenant Selected',
+          description: 'All uploaded records will be assigned to this tenant',
+        });
+      } else {
+        throw new Error(result.error || 'Failed to switch tenant');
+      }
+    } catch (error: any) {
+      console.error('Error switching active tenant:', error);
+      toast({
+        title: 'Warning',
+        description: error.message || 'Failed to set active tenant. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -152,18 +218,18 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
           aka: record.aka || undefined,
           date_of_birth: record.date_of_birth || undefined,
           incident_date: record.incident_date || undefined,
-          location: record.location || undefined,
+          incident_location: record.incident_location || undefined,
           description: record.description || undefined,
           status: record.status || 'active',
-          is_former_student: record.is_former_student === 'true' || record.is_former_student === '1',
-          known_associates: record.known_associates || undefined,
+          is_current_student: record.is_current_student === 'true' || record.is_current_student === '1',
+          affiliation: record.affiliation || undefined,
           current_school: record.current_school || undefined,
           guardian_first_name: record.guardian_first_name || undefined,
           guardian_last_name: record.guardian_last_name || undefined,
           guardian_phone: record.guardian_phone || undefined,
-          contact_info: record.contact_info || undefined,
+          school_contact: record.school_contact || undefined,
           notes: record.notes || undefined,
-          photo_url: record.photo_url || undefined,
+          photo: record.photo || undefined,
         });
       }
     }
@@ -193,18 +259,18 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
       'aka',
       'date_of_birth',
       'incident_date',
-      'location',
+      'incident_location',
       'description',
       'status',
-      'is_former_student',
-      'known_associates',
+      'is_current_student',
+      'affiliation',
       'current_school',
       'guardian_first_name',
       'guardian_last_name',
       'guardian_phone',
-      'contact_info',
+      'school_contact',
       'notes',
-      'photo_url',
+      'photo',
     ];
 
     const sampleRow = [
@@ -320,6 +386,16 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
   const handleUpload = async () => {
     if (!user || (previewData.length === 0 && userPreviewData.length === 0)) return;
 
+    // Validate tenant selection for master_admin
+    if (isMasterAdmin && !selectedTenant) {
+      toast({
+        title: 'Tenant Required',
+        description: 'Please select a tenant before uploading records',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       if (uploadType === 'users') {
@@ -333,17 +409,58 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
         // Use server action for trespass records upload
         const result = await uploadTrespassRecords(previewData);
 
-        toast({
-          title: 'Success',
-          description: `Successfully uploaded ${result.count} records`,
-        });
+        // Show detailed success/error information
+        if (result.success) {
+          const messages: string[] = [];
 
-        setPreviewData([]);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
+          if (result.inserted > 0) {
+            messages.push(`${result.inserted} new record${result.inserted === 1 ? '' : 's'} added`);
+          }
+          if (result.updated > 0) {
+            messages.push(`${result.updated} existing record${result.updated === 1 ? '' : 's'} updated`);
+          }
+          if (result.skipped > 0) {
+            messages.push(`${result.skipped} record${result.skipped === 1 ? '' : 's'} skipped`);
+          }
+
+          toast({
+            title: 'Upload Complete',
+            description: messages.join(', '),
+          });
+
+          // Show error details if any errors occurred
+          if (result.errors && result.errors.length > 0) {
+            const errorMessages = result.errors.map(
+              (err) => `${err.record} (ID: ${err.school_id}): ${err.reason} - ${err.error}`
+            ).join('\n');
+
+            toast({
+              title: `${result.totalErrors} Error${result.totalErrors === 1 ? '' : 's'} Occurred`,
+              description: `First ${Math.min(result.totalErrors, 10)} errors:\n${errorMessages}`,
+              variant: 'destructive',
+            });
+          }
+
+          setPreviewData([]);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          onRecordsUploaded();
+          onOpenChange(false);
+        } else {
+          // All records failed
+          const errorMessages = result.errors
+            ? result.errors.slice(0, 5).map(
+                (err) => `${err.record} (ID: ${err.school_id}): ${err.error}`
+              ).join('\n')
+            : 'All records failed to upload';
+
+          toast({
+            title: 'Upload Failed',
+            description: `Failed to upload records.\n${errorMessages}${result.totalErrors > 5 ? `\n...and ${result.totalErrors - 5} more errors` : ''}`,
+            variant: 'destructive',
+          });
         }
-        onRecordsUploaded();
-        onOpenChange(false);
       }
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -371,6 +488,40 @@ export function CSVUploadDialog({ open, onOpenChange, onRecordsUploaded }: CSVUp
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
+          {/* Tenant Selector for Master Admin */}
+          {isMasterAdmin && (
+            <div className="space-y-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-blue-600" />
+                <Label htmlFor="tenant-select" className="text-sm font-semibold text-blue-900">
+                  Select Target Tenant
+                </Label>
+              </div>
+              <p className="text-xs text-blue-700 mb-2">
+                All uploaded records will be assigned to the selected tenant
+              </p>
+              <Select
+                value={selectedTenant}
+                onValueChange={handleTenantChange}
+                disabled={loadingTenants}
+              >
+                <SelectTrigger id="tenant-select" className="bg-white">
+                  <SelectValue placeholder={loadingTenants ? "Loading tenants..." : "Select a tenant"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      {tenant.display_name}
+                      {tenant.status !== 'active' && (
+                        <span className="ml-2 text-xs text-gray-500">({tenant.status})</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {(userRole === 'district_admin' || userRole === 'master_admin') && (
             <div className="flex gap-3 p-1 bg-slate-100 rounded-lg">
               <Button

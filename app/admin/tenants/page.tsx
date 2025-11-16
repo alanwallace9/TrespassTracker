@@ -478,7 +478,7 @@ export default function TenantsManagementPage() {
             <Button
               onClick={handleCreateTenant}
               disabled={submitting}
-              className="bg-slate-900 hover:bg-slate-800"
+              className="bg-blue-600 hover:bg-blue-700"
             >
               {submitting ? 'Creating...' : 'Create Tenant'}
             </Button>

@@ -7,6 +7,7 @@ import { auth } from '@clerk/nextjs/server';
 import { logAuditEvent } from '@/lib/audit-logger';
 import { createClient } from '@supabase/supabase-js';
 import { CreateRecordSchema, UpdateRecordSchema, validateData } from '@/lib/validation/schemas';
+import { processImageUrl } from '@/lib/image-storage';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +29,20 @@ export async function createRecord(data: Omit<TrespassRecord, 'id' | 'created_at
 
   // Remove any fields that shouldn't be in the insert
   const { id, created_at, updated_at, ...insertData } = validation.data as any;
+
+  // Process image URL if provided (hybrid storage: keep trusted, download external)
+  if (insertData.photo_url && userId) {
+    try {
+      insertData.photo_url = await processImageUrl(
+        insertData.photo_url,
+        insertData.id || 'pending', // Will use 'pending' temporarily, gets real ID after insert
+        userId
+      );
+    } catch (error) {
+      console.error('Failed to process image URL:', error);
+      // Continue with original URL if processing fails
+    }
+  }
 
   const { data: record, error } = await supabase
     .from('trespass_records')
@@ -62,7 +77,6 @@ export async function createRecord(data: Omit<TrespassRecord, 'id' | 'created_at
       details: {
         incident_date: data.incident_date,
         trespassed_from: data.trespassed_from,
-        location: data.location,
       },
     });
   }
@@ -78,11 +92,23 @@ export async function updateRecord(id: string, data: Partial<TrespassRecord>) {
   const supabase = await createServerClient();
   const { userId } = await auth();
 
+  // DEBUG: Log what data we received
+  console.log('=== SERVER RECEIVED UPDATE REQUEST ===');
+  console.log('Record ID:', id);
+  console.log('data.is_daep:', data.is_daep);
+  console.log('data.daep_expiration_date:', data.daep_expiration_date);
+  console.log('Full data received:', JSON.stringify(data, null, 2));
+
   // Validate input data
   const validation = validateData(UpdateRecordSchema, data);
   if (!validation.success) {
+    console.log('❌ VALIDATION FAILED:', validation.error);
     throw new Error(`Validation failed: ${validation.error}`);
   }
+
+  console.log('✅ Validation passed');
+  console.log('validation.data.is_daep:', (validation.data as any).is_daep);
+  console.log('validation.data.daep_expiration_date:', (validation.data as any).daep_expiration_date);
 
   // Get the record before update to capture changes
   const { data: beforeRecord } = await supabase
@@ -94,6 +120,24 @@ export async function updateRecord(id: string, data: Partial<TrespassRecord>) {
   // Remove fields that shouldn't be updated
   const { id: _id, created_at, updated_at, user_id, status, ...updateData } = validation.data as any;
 
+  console.log('updateData.is_daep:', updateData.is_daep);
+  console.log('updateData.daep_expiration_date:', updateData.daep_expiration_date);
+  console.log('Full updateData to send to DB:', JSON.stringify(updateData, null, 2));
+
+  // Process image URL if provided and it's changed (hybrid storage: keep trusted, download external)
+  if (updateData.photo_url && userId && updateData.photo_url !== beforeRecord?.photo_url) {
+    try {
+      updateData.photo_url = await processImageUrl(
+        updateData.photo_url,
+        id,
+        userId
+      );
+    } catch (error) {
+      console.error('Failed to process image URL:', error);
+      // Continue with original URL if processing fails
+    }
+  }
+
   const { data: record, error } = await supabase
     .from('trespass_records')
     .update(updateData)
@@ -102,9 +146,14 @@ export async function updateRecord(id: string, data: Partial<TrespassRecord>) {
     .single();
 
   if (error) {
-    console.error('Error updating record:', error);
+    console.error('❌ DATABASE UPDATE ERROR:', error);
     throw new Error(error.message);
   }
+
+  console.log('✅ Database updated successfully');
+  console.log('Returned record.is_daep:', record?.is_daep);
+  console.log('Returned record.daep_expiration_date:', record?.daep_expiration_date);
+  console.log('Full returned record:', JSON.stringify(record, null, 2));
 
   // Get user profile for audit log
   if (userId && beforeRecord) {
@@ -250,4 +299,30 @@ export async function getRecord(id: string) {
   }
 
   return record;
+}
+
+/**
+ * Get related incidents for a person by their school_id
+ * Used for incident navigation in RecordDetailDialog
+ */
+export async function getRelatedIncidents(schoolId: string | null, tenantId: string) {
+  if (!schoolId) {
+    return [];
+  }
+
+  const supabase = await createServerClient();
+
+  const { data: records, error } = await supabase
+    .from('trespass_records')
+    .select('*')
+    .eq('school_id', schoolId)
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching related incidents:', error);
+    throw new Error(`Failed to fetch related incidents: ${error.message}`);
+  }
+
+  return records || [];
 }

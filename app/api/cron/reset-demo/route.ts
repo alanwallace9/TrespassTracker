@@ -205,7 +205,7 @@ function getDemoSeedData() {
       notes: 'Has been warned previously. Security footage captured.',
       photo_url: null,
       status: 'active',
-      is_former_student: false,
+      is_current_student: false,
       expiration_date: daysFromNow(355), // Active for ~1 year
       trespassed_from: 'All Lincoln High School campuses',
     },
@@ -233,7 +233,7 @@ function getDemoSeedData() {
         'Was expelled in junior year. Known to have conflicts with current staff. Police were called.',
       photo_url: null,
       status: 'active',
-      is_former_student: true,
+      is_current_student: true,
       expiration_date: daysFromNow(725), // Active for ~2 years
       trespassed_from: 'All district facilities',
     },
@@ -260,7 +260,7 @@ function getDemoSeedData() {
       notes: 'Cooperative with staff. Left without incident.',
       photo_url: null,
       status: 'active',
-      is_former_student: false,
+      is_current_student: false,
       expiration_date: daysAgo(35), // Expired 35 days ago
       trespassed_from: 'Washington Middle School',
     },
@@ -286,7 +286,7 @@ function getDemoSeedData() {
       notes: null,
       photo_url: null,
       status: 'active',
-      is_former_student: false,
+      is_current_student: false,
       expiration_date: daysFromNow(180), // 6 months
       trespassed_from: 'Jefferson Elementary School',
     },
@@ -312,7 +312,7 @@ function getDemoSeedData() {
       notes: 'Third incident this year. Escalate to district admin.',
       photo_url: null,
       status: 'active',
-      is_former_student: false,
+      is_current_student: false,
       expiration_date: daysFromNow(540), // 1.5 years
       trespassed_from: 'All district high schools',
     },

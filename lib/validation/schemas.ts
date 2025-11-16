@@ -18,6 +18,7 @@ export const CreateRecordSchema = z.object({
   // Date validation - must be valid ISO date string
   date_of_birth: z.string().datetime().optional().nullable(),
   expiration_date: z.string().datetime().optional().nullable(),
+  daep_expiration_date: z.string().datetime().optional().nullable(),
 
   // Optional contact info with format validation
   email: z.string().email('Invalid email format').max(255).optional().nullable(),
@@ -46,9 +47,9 @@ export const CreateRecordSchema = z.object({
   is_student: z.boolean().optional(),
   is_daep: z.boolean().optional(),
 
-  // Foreign keys
-  campus_id: z.string().uuid().optional().nullable(),
-  daep_campus_id: z.string().uuid().optional().nullable(),
+  // Foreign keys (campus uses short codes, not UUIDs)
+  campus_id: z.string().max(50).optional().nullable(),
+  daep_campus_id: z.string().max(50).optional().nullable(),
 });
 
 export const UpdateRecordSchema = CreateRecordSchema.partial();

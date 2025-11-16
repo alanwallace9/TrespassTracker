@@ -23,6 +23,7 @@ export type AuditEventType =
   | 'record.updated'
   | 'record.deleted'
   | 'record.viewed'
+  | 'record.exported'
   | 'campus.created'
   | 'campus.updated'
   | 'campus.activated'
