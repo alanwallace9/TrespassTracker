@@ -15,18 +15,21 @@ export type CSVRecordInput = {
   aka?: string;
   date_of_birth?: string;
   incident_date?: string;
-  location?: string;
+  incident_location?: string;          // Renamed from 'location'
   description?: string;
   status?: string;
-  is_former_student?: boolean;
-  known_associates?: string;
+  is_current_student?: boolean;
+  is_daep?: boolean;
+  daep_expiration_date?: string;
+  affiliation?: string;                // Renamed from 'known_associates'
   current_school?: string;
   guardian_first_name?: string;
   guardian_last_name?: string;
   guardian_phone?: string;
-  contact_info?: string;
+  school_contact?: string;             // Renamed from 'contact_info'
   notes?: string;
-  photo_url?: string;
+  photo?: string;                      // Renamed from 'photo_url'
+  campus_id?: string;
 };
 
 /**
@@ -45,7 +48,7 @@ export async function uploadTrespassRecords(records: CSVRecordInput[]) {
   // Get user's profile to verify role and tenant_id
   const { data: userProfile, error: profileError } = await supabase
     .from('user_profiles')
-    .select('role, tenant_id')
+    .select('role, tenant_id, active_tenant_id')
     .eq('id', userId)
     .single();
 
@@ -53,7 +56,10 @@ export async function uploadTrespassRecords(records: CSVRecordInput[]) {
     throw new Error('User profile not found. Please sign out and sign in again.');
   }
 
-  if (!userProfile.tenant_id) {
+  // For master admins, use active_tenant_id (for tenant switching), otherwise use tenant_id
+  const effectiveTenantId = userProfile.active_tenant_id || userProfile.tenant_id;
+
+  if (!effectiveTenantId) {
     throw new Error('Your profile is missing a tenant ID. Please contact your administrator.');
   }
 
@@ -65,7 +71,7 @@ export async function uploadTrespassRecords(records: CSVRecordInput[]) {
   // Transform records to include user_id and tenant_id
   const recordsToInsert = records.map(record => ({
     user_id: userId,
-    tenant_id: userProfile.tenant_id,
+    tenant_id: effectiveTenantId,
     first_name: record.first_name,
     last_name: record.last_name,
     school_id: record.school_id,
@@ -74,47 +80,98 @@ export async function uploadTrespassRecords(records: CSVRecordInput[]) {
     aka: record.aka || null,
     date_of_birth: record.date_of_birth || null,
     incident_date: record.incident_date || null,
-    location: record.location || null,
+    incident_location: record.incident_location || null,
     description: record.description || null,
     status: record.status || 'active',
-    is_former_student: record.is_former_student || false,
-    known_associates: record.known_associates || null,
+    is_current_student: record.is_current_student !== undefined ? record.is_current_student : true,
+    is_daep: record.is_daep || false,
+    daep_expiration_date: record.daep_expiration_date || null,
+    affiliation: record.affiliation || null,
     current_school: record.current_school || null,
     guardian_first_name: record.guardian_first_name || null,
     guardian_last_name: record.guardian_last_name || null,
     guardian_phone: record.guardian_phone || null,
-    contact_info: record.contact_info || null,
+    school_contact: record.school_contact || null,
     notes: record.notes || null,
-    photo_url: record.photo_url || null,
+    photo: record.photo || null,
+    campus_id: record.campus_id || null,
   }));
 
-  console.log('[uploadTrespassRecords] Inserting records:', {
+  console.log('[uploadTrespassRecords] Upserting records:', {
     count: recordsToInsert.length,
     userId,
-    tenant_id: userProfile.tenant_id,
+    tenant_id: effectiveTenantId,
     role: userProfile.role,
     sampleRecord: recordsToInsert[0],
   });
 
-  // Insert records
-  const { data, error } = await supabase
-    .from('trespass_records')
-    .insert(recordsToInsert)
-    .select();
+  // Manual upsert: check for existing records and update/insert accordingly
+  // We can't use database upsert because there's no unique constraint on (school_id, tenant_id)
+  let insertedCount = 0;
+  let updatedCount = 0;
+  const errors: string[] = [];
 
-  if (error) {
-    console.error('[uploadTrespassRecords] Insert error:', error);
-    throw new Error(error.message);
+  for (const record of recordsToInsert) {
+    try {
+      // Check if record exists with this school_id and tenant_id
+      const { data: existing, error: checkError } = await supabase
+        .from('trespass_records')
+        .select('id')
+        .is('deleted_at', null)
+        .eq('school_id', record.school_id)
+        .eq('tenant_id', record.tenant_id)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        // PGRST116 is "not found" error, which is expected for new records
+        throw checkError;
+      }
+
+      if (existing) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('trespass_records')
+          .update({
+            ...record,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+
+        if (updateError) throw updateError;
+        updatedCount++;
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('trespass_records')
+          .insert(record);
+
+        if (insertError) throw insertError;
+        insertedCount++;
+      }
+    } catch (err: any) {
+      errors.push(`${record.first_name} ${record.last_name} (${record.school_id}): ${err.message}`);
+    }
   }
 
-  console.log('[uploadTrespassRecords] Successfully inserted records:', data?.length);
+  if (errors.length > 0) {
+    console.error('[uploadTrespassRecords] Upsert errors:', errors);
+    throw new Error(`Failed to upsert ${errors.length} records. First error: ${errors[0]}`);
+  }
+
+  console.log('[uploadTrespassRecords] Successfully upserted records:', {
+    inserted: insertedCount,
+    updated: updatedCount,
+    total: insertedCount + updatedCount,
+  });
 
   // Revalidate dashboard to show new records
   revalidatePath('/dashboard');
 
   return {
     success: true,
-    count: data?.length || 0,
+    count: insertedCount + updatedCount,
+    inserted: insertedCount,
+    updated: updatedCount,
   };
 }
 
@@ -135,7 +192,7 @@ export async function createTrespassRecord(record: CSVRecordInput) {
     // Get user's profile to verify role and tenant_id
     const { data: userProfile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('role, tenant_id')
+      .select('role, tenant_id, active_tenant_id')
       .eq('id', userId)
       .single();
 
@@ -143,7 +200,10 @@ export async function createTrespassRecord(record: CSVRecordInput) {
       throw new Error('User profile not found. Please sign out and sign in again.');
     }
 
-    if (!userProfile.tenant_id) {
+    // For master admins, use active_tenant_id (for tenant switching), otherwise use tenant_id
+    const effectiveTenantId = userProfile.active_tenant_id || userProfile.tenant_id;
+
+    if (!effectiveTenantId) {
       throw new Error('Your profile is missing a tenant ID. Please contact your administrator.');
     }
 
@@ -153,14 +213,14 @@ export async function createTrespassRecord(record: CSVRecordInput) {
     }
 
     // Check photo size if provided
-    if (record.photo_url && record.photo_url.length > 4000000) {
+    if (record.photo && record.photo.length > 4000000) {
       throw new Error('Photo is too large. Please use a smaller image (max 3MB).');
     }
 
     // Transform record to include user_id and tenant_id
     const recordToInsert = {
       user_id: userId,
-      tenant_id: userProfile.tenant_id,
+      tenant_id: effectiveTenantId,
       first_name: record.first_name,
       last_name: record.last_name,
       school_id: record.school_id,
@@ -169,27 +229,30 @@ export async function createTrespassRecord(record: CSVRecordInput) {
       aka: record.aka || null,
       date_of_birth: record.date_of_birth || null,
       incident_date: record.incident_date || null,
-      location: record.location || null,
+      incident_location: record.incident_location || null,
       description: record.description || null,
       status: record.status || 'active',
-      is_former_student: record.is_former_student || false,
-      known_associates: record.known_associates || null,
+      is_current_student: record.is_current_student || false,
+      is_daep: record.is_daep || false,
+      daep_expiration_date: record.daep_expiration_date || null,
+      affiliation: record.affiliation || null,
       current_school: record.current_school || null,
       guardian_first_name: record.guardian_first_name || null,
       guardian_last_name: record.guardian_last_name || null,
       guardian_phone: record.guardian_phone || null,
-      contact_info: record.contact_info || null,
+      school_contact: record.school_contact || null,
       notes: record.notes || null,
-      photo_url: record.photo_url || null,
+      photo: record.photo || null,
+      campus_id: record.campus_id || null,
     };
 
     console.log('[createTrespassRecord] Inserting record:', {
       userId,
-      tenant_id: userProfile.tenant_id,
+      tenant_id: effectiveTenantId,
       role: userProfile.role,
       name: `${record.first_name} ${record.last_name}`,
-      hasPhoto: !!record.photo_url,
-      photoSize: record.photo_url ? record.photo_url.length : 0,
+      hasPhoto: !!record.photo,
+      photoSize: record.photo ? record.photo.length : 0,
     });
 
     // Insert record
@@ -201,7 +264,7 @@ export async function createTrespassRecord(record: CSVRecordInput) {
 
     if (error) {
       console.error('[createTrespassRecord] Insert error:', error);
-      throw new Error(error.message);
+      throw new Error('Failed to create trespass record. Please try again.');
     }
 
     console.log('[createTrespassRecord] Successfully inserted record:', data.id);
@@ -219,6 +282,16 @@ export async function createTrespassRecord(record: CSVRecordInput) {
       stack: error.stack,
       name: `${record.first_name} ${record.last_name}`,
     });
-    throw error;
+    // Re-throw if it's a validation error (these are safe)
+    if (error.message && (
+      error.message.includes('not authenticated') ||
+      error.message.includes('not found') ||
+      error.message.includes('missing') ||
+      error.message.includes('do not have permission') ||
+      error.message.includes('Photo is too large')
+    )) {
+      throw error;
+    }
+    throw new Error('Failed to create trespass record. Please try again.');
   }
 }

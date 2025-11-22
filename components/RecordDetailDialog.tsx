@@ -12,12 +12,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TrespassRecord, supabase, RecordPhoto, RecordDocument } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { updateRecord, deleteRecord } from '@/app/actions/records';
+import { updateRecord, deleteRecord, getRelatedIncidents, getRecord } from '@/app/actions/records';
+import { getCampuses, type Campus } from '@/app/actions/campuses';
+import { getUserProfile } from '@/app/actions/users';
+import { createTrespassRecord } from '@/app/actions/upload-records';
+import { copyPhotosToNewIncident } from '@/app/actions/copy-photos';
 import { format, parseISO } from 'date-fns';
-import { X, Upload } from 'lucide-react';
+import { X, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PhotoGallery } from '@/components/PhotoGallery';
 import { DocumentUpload } from '@/components/DocumentUpload';
 import { getRecordPhotos, getRecordDocuments } from '@/lib/file-upload';
+import { useDemoRole } from '@/contexts/DemoRoleContext';
 
 type RecordDetailDialogProps = {
   record: TrespassRecord | null;
@@ -41,8 +46,27 @@ function formatDateForDisplay(dateString: string | null | undefined, formatStrin
   return format(date, formatString);
 }
 
+/**
+ * Convert a date string from HTML input (YYYY-MM-DD) to ISO datetime format
+ * Required by Zod .datetime() validation in the schema
+ * Uses noon UTC to avoid timezone issues when displaying dates
+ */
+function convertDateToISO(dateString: string | null | undefined): string | null {
+  if (!dateString) return null;
+
+  // If already in ISO format, return as-is
+  if (dateString.includes('T')) return dateString;
+
+  // Convert YYYY-MM-DD to ISO datetime at noon UTC
+  // This prevents the date from shifting when displayed in different timezones
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
+  return date.toISOString();
+}
+
 export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated }: RecordDetailDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isAddingNewIncident, setIsAddingNewIncident] = useState(false);
   const [userRole, setUserRole] = useState<string>('user');
   const [isDragging, setIsDragging] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -51,9 +75,15 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
   const [photos, setPhotos] = useState<RecordPhoto[]>([]);
   const [documents, setDocuments] = useState<RecordDocument[]>([]);
   const [isLoadingMedia, setIsLoadingMedia] = useState(false);
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [userCampusId, setUserCampusId] = useState<string | null>(null);
+  const [campusesLoading, setCampusesLoading] = useState(false);
+  const [relatedIncidents, setRelatedIncidents] = useState<TrespassRecord[]>([]);
+  const [currentIncidentIndex, setCurrentIncidentIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isDemoMode, demoRole } = useDemoRole();
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -61,17 +91,20 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
     aka: '',
     date_of_birth: '',
     school_id: '',
-    known_associates: '',
+    affiliation: '',
     current_school: '',
     guardian_first_name: '',
     guardian_last_name: '',
     guardian_phone: '',
-    contact_info: '',
+    school_contact: '',
     expiration_date: '',
     trespassed_from: '',
-    is_former_student: false,
+    is_current_student: true,
+    is_daep: false,
+    daep_expiration_date: '',
     notes: '',
-    photo_url: '',
+    photo: '',
+    campus_id: '',
   });
 
   useEffect(() => {
@@ -81,10 +114,35 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
   }, [user]);
 
   useEffect(() => {
-    if (open) {
+    if (open && user) {
       setIsEditing(false);
+      setIsAddingNewIncident(false);
+      // Fetch campuses and user profile when dialog opens
+      fetchCampusesData();
     }
-  }, [open]);
+  }, [open, user]);
+
+  const fetchCampusesData = async () => {
+    if (!user) return;
+
+    setCampusesLoading(true);
+    try {
+      // Fetch user profile to get role and campus_id
+      const profile = await getUserProfile(user.id);
+      if (profile) {
+        setUserCampusId(profile.campus_id);
+      }
+
+      // Fetch all active campuses
+      const campusData = await getCampuses();
+      const activeCampuses = campusData.filter(c => c.status === 'active');
+      setCampuses(activeCampuses);
+    } catch (error) {
+      console.error('Failed to load campuses:', error);
+    } finally {
+      setCampusesLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (record) {
@@ -93,24 +151,35 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
         first_name: record.first_name,
         last_name: record.last_name,
         aka: record.aka || '',
-        date_of_birth: record.date_of_birth || '',
+        date_of_birth: record.date_of_birth ? formatDateForDisplay(record.date_of_birth, 'yyyy-MM-dd') : '',
         school_id: record.school_id || '',
-        known_associates: record.known_associates || '',
+        affiliation: record.affiliation || '',
         current_school: record.current_school || '',
         guardian_first_name: record.guardian_first_name || '',
         guardian_last_name: record.guardian_last_name || '',
         guardian_phone: record.guardian_phone || '',
-        contact_info: record.contact_info || '',
-        expiration_date: record.expiration_date || '',
+        school_contact: record.school_contact || '',
+        expiration_date: record.expiration_date ? formatDateForDisplay(record.expiration_date, 'yyyy-MM-dd') : '',
         trespassed_from: record.trespassed_from || '',
-        is_former_student: record.is_former_student || false,
+        is_current_student: record.is_current_student || false,
+        is_daep: record.is_daep || false,
+        daep_expiration_date: record.daep_expiration_date ? formatDateForDisplay(record.daep_expiration_date, 'yyyy-MM-dd') : '',
         notes: record.notes || '',
-        photo_url: record.photo_url || '',
+        photo: record.photo || '',
+        campus_id: record.campus_id || '',
       });
-      setImagePreview(record.photo_url || null);
+      setImagePreview(record.photo || null);
 
       // Fetch photos and documents
       loadMediaFiles(record.id);
+
+      // Fetch related incidents if school_id exists
+      if (record.school_id && record.tenant_id) {
+        loadRelatedIncidents(record.school_id, record.tenant_id, record.id);
+      } else {
+        setRelatedIncidents([record]);
+        setCurrentIncidentIndex(0);
+      }
     }
   }, [record]);
 
@@ -136,6 +205,66 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
     }
   };
 
+  const loadRelatedIncidents = async (schoolId: string, tenantId: string, currentRecordId: string) => {
+    try {
+      const incidents = await getRelatedIncidents(schoolId, tenantId);
+
+      if (incidents.length > 0) {
+        setRelatedIncidents(incidents);
+        // Default to most recent incident (last in the list)
+        const currentIndex = incidents.findIndex(inc => inc.id === currentRecordId);
+        // If current record found, use it; otherwise default to last (most recent)
+        setCurrentIncidentIndex(currentIndex >= 0 ? currentIndex : incidents.length - 1);
+      } else {
+        // If no incidents found, just show the current record
+        // Use record prop instead of currentRecord state which may be null
+        if (record) {
+          setRelatedIncidents([record]);
+          setCurrentIncidentIndex(0);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load related incidents:', error);
+      // On error, just show the current record
+      // Use record prop instead of currentRecord state which may be null
+      if (record) {
+        setRelatedIncidents([record]);
+        setCurrentIncidentIndex(0);
+      }
+    }
+  };
+
+  const handleIncidentChange = (index: number) => {
+    const selectedIncident = relatedIncidents[index];
+    if (selectedIncident) {
+      setCurrentIncidentIndex(index);
+      setCurrentRecord(selectedIncident);
+      setFormData({
+        first_name: selectedIncident.first_name,
+        last_name: selectedIncident.last_name,
+        aka: selectedIncident.aka || '',
+        date_of_birth: selectedIncident.date_of_birth ? formatDateForDisplay(selectedIncident.date_of_birth, 'yyyy-MM-dd') : '',
+        school_id: selectedIncident.school_id || '',
+        affiliation: selectedIncident.affiliation || '',
+        current_school: selectedIncident.current_school || '',
+        guardian_first_name: selectedIncident.guardian_first_name || '',
+        guardian_last_name: selectedIncident.guardian_last_name || '',
+        guardian_phone: selectedIncident.guardian_phone || '',
+        school_contact: selectedIncident.school_contact || '',
+        expiration_date: selectedIncident.expiration_date ? formatDateForDisplay(selectedIncident.expiration_date, 'yyyy-MM-dd') : '',
+        trespassed_from: selectedIncident.trespassed_from || '',
+        is_current_student: selectedIncident.is_current_student || false,
+        is_daep: selectedIncident.is_daep || false,
+        daep_expiration_date: selectedIncident.daep_expiration_date ? formatDateForDisplay(selectedIncident.daep_expiration_date, 'yyyy-MM-dd') : '',
+        notes: selectedIncident.notes || '',
+        photo: selectedIncident.photo || '',
+        campus_id: selectedIncident.campus_id || '',
+      });
+      setImagePreview(selectedIncident.photo || null);
+      loadMediaFiles(selectedIncident.id);
+    }
+  };
+
   const fetchUserRole = async () => {
     if (!user) return;
     const { data } = await supabase.from('user_profiles').select('role').eq('id', user.id).maybeSingle();
@@ -146,14 +275,18 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
     }
   };
 
-  const canEdit = true;
+  // Determine effective role (use demo role if in demo mode, otherwise use actual user role)
+  const effectiveRole = isDemoMode ? demoRole : userRole;
+
+  // Permission check: viewer cannot edit, campus_admin and district_admin can edit
+  const canEdit = effectiveRole !== 'viewer';
 
   const handleFileChange = (file: File) => {
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
-        setFormData({ ...formData, photo_url: reader.result as string });
+        setFormData({ ...formData, photo: reader.result as string });
       };
       reader.readAsDataURL(file);
     }
@@ -181,12 +314,14 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
   };
 
   const handleSave = async () => {
-    if (!record || !user) return;
+    if (!currentRecord || !user) return;
 
-    if (!formData.first_name || !formData.last_name || !formData.date_of_birth || !formData.expiration_date || !formData.trespassed_from) {
+    // Validation: expiration_date is only required if NOT a DAEP placement
+    const isExpirationRequired = !formData.is_daep;
+    if (!formData.first_name || !formData.last_name || !formData.date_of_birth || !formData.trespassed_from || (isExpirationRequired && !formData.expiration_date)) {
       toast({
         title: 'Validation Error',
-        description: 'Please fill in all required fields.',
+        description: 'Please fill in all required fields.' + (formData.is_daep ? '' : ' Warning Expires is required for non-DAEP incidents.'),
         variant: 'destructive',
         duration: 5000 // Errors stay longer (5 seconds)
       });
@@ -195,33 +330,45 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
 
     setIsSaving(true);
     try {
-      const updatedRecord = await updateRecord(record.id, {
+      // Prepare data for update
+      const updateData: Partial<TrespassRecord> = {
         first_name: formData.first_name,
         last_name: formData.last_name,
         aka: formData.aka || null,
-        date_of_birth: formData.date_of_birth || null,
+        date_of_birth: convertDateToISO(formData.date_of_birth),
         school_id: formData.school_id, // Required field
-        known_associates: formData.known_associates || null,
+        affiliation: formData.affiliation || null,
         current_school: formData.current_school || null,
         guardian_first_name: formData.guardian_first_name || null,
         guardian_last_name: formData.guardian_last_name || null,
         guardian_phone: formData.guardian_phone || null,
-        contact_info: formData.contact_info || null,
-        expiration_date: formData.expiration_date, // Required field
+        school_contact: formData.school_contact || null,
+        expiration_date: convertDateToISO(formData.expiration_date) || undefined, // Convert to ISO or undefined
         trespassed_from: formData.trespassed_from,
-        is_former_student: formData.is_former_student,
+        is_current_student: formData.is_current_student,
+        is_daep: formData.is_daep,
+        daep_expiration_date: convertDateToISO(formData.daep_expiration_date) || undefined,
         notes: formData.notes || null,
-        photo_url: formData.photo_url || null,
-      });
+        photo: formData.photo || null,
+        campus_id: (formData.campus_id && formData.campus_id !== '__unassigned__') ? formData.campus_id : null,
+      };
 
-      // Update local state with fresh data from database
-      setCurrentRecord(updatedRecord);
+      // Save the CURRENT record (the one being edited) to database
+      await updateRecord(currentRecord?.id || '', updateData);
+
+      // Reload related incidents to update the list with fresh data
+      if (currentRecord.school_id && currentRecord.tenant_id) {
+        await loadRelatedIncidents(currentRecord.school_id, currentRecord.tenant_id, currentRecord.id);
+      }
+
       toast({
         title: 'Success',
         description: 'Record updated successfully',
         duration: 3000 // Auto-dismiss after 3 seconds
       });
       setIsEditing(false);
+
+      // CRITICAL: Refresh parent dashboard to show updated data
       if (onRecordUpdated) onRecordUpdated();
     } catch (error: any) {
       toast({
@@ -258,6 +405,122 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
     }
   };
 
+  const handleAddNewIncident = () => {
+    if (!currentRecord) return;
+
+    // Pre-fill ALL fields from current record including photo
+    // User can edit everything except identifying fields
+    setFormData({
+      first_name: currentRecord.first_name,
+      last_name: currentRecord.last_name,
+      date_of_birth: currentRecord.date_of_birth ? formatDateForDisplay(currentRecord.date_of_birth, 'yyyy-MM-dd') : '',
+      school_id: currentRecord.school_id || '',
+      aka: currentRecord.aka || '',
+      affiliation: currentRecord.affiliation || '',
+      current_school: currentRecord.current_school || '',
+      guardian_first_name: currentRecord.guardian_first_name || '',
+      guardian_last_name: currentRecord.guardian_last_name || '',
+      guardian_phone: currentRecord.guardian_phone || '',
+      school_contact: currentRecord.school_contact || '',
+      expiration_date: '', // Clear - new incident needs new date
+      trespassed_from: currentRecord.trespassed_from || '',
+      is_current_student: currentRecord.is_current_student || false,
+      is_daep: false, // Default to false for new incident
+      daep_expiration_date: '', // Clear - new incident
+      notes: '', // Clear - new incident notes
+      photo: currentRecord.photo || '', // Pre-fill photo from current record
+      campus_id: currentRecord.campus_id || userCampusId || '',
+    });
+    setImagePreview(currentRecord.photo || null); // Set image preview
+    setIsAddingNewIncident(true);
+    setIsEditing(true); // Reuse edit mode UI
+  };
+
+  const handleSaveNewIncident = async () => {
+    if (!record || !user) return;
+
+    // Validation: expiration_date is only required if NOT a DAEP placement
+    const isExpirationRequired = !formData.is_daep;
+    if (!formData.first_name || !formData.last_name || !formData.date_of_birth || !formData.trespassed_from || (isExpirationRequired && !formData.expiration_date)) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please fill in all required fields.' + (formData.is_daep ? '' : ' Warning Expires is required for non-DAEP incidents.'),
+        variant: 'destructive',
+        duration: 5000
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Create new record with same identifying info but new incident details
+      const expirationDateISO = convertDateToISO(formData.expiration_date);
+      const result = await createTrespassRecord({
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        school_id: formData.school_id || '',
+        expiration_date: expirationDateISO || '', // Required field, use empty string if null
+        trespassed_from: formData.trespassed_from,
+        aka: formData.aka,
+        date_of_birth: convertDateToISO(formData.date_of_birth) ?? undefined,
+        affiliation: formData.affiliation,
+        current_school: formData.current_school,
+        guardian_first_name: formData.guardian_first_name,
+        guardian_last_name: formData.guardian_last_name,
+        guardian_phone: formData.guardian_phone,
+        school_contact: formData.school_contact,
+        is_current_student: formData.is_current_student,
+        is_daep: formData.is_daep,
+        daep_expiration_date: convertDateToISO(formData.daep_expiration_date) ?? undefined,
+        notes: formData.notes,
+        photo: formData.photo,
+        status: 'active',
+        campus_id: (formData.campus_id && formData.campus_id !== '__unassigned__' && formData.campus_id !== 'none') ? formData.campus_id : undefined,
+      });
+
+      // Copy photos from current incident to new incident
+      if (result.data && currentRecord?.id) {
+        try {
+          const photoCopyResult = await copyPhotosToNewIncident(currentRecord.id, result.data.id);
+          console.log(`[handleSaveNewIncident] Copied ${photoCopyResult.count} photos to new incident`);
+        } catch (photoCopyError: any) {
+          console.error('[handleSaveNewIncident] Failed to copy photos:', photoCopyError);
+          // Don't fail the whole operation if photo copy fails
+          toast({
+            title: 'Warning',
+            description: 'Incident created but photos could not be copied. You can upload them manually.',
+            variant: 'destructive',
+            duration: 5000
+          });
+        }
+      }
+
+      toast({
+        title: 'Success',
+        description: 'New incident created successfully',
+        duration: 3000
+      });
+
+      setIsEditing(false);
+      setIsAddingNewIncident(false);
+      if (onRecordUpdated) onRecordUpdated();
+
+      // Reload the related incidents to show the new one
+      if (record.school_id && record.tenant_id) {
+        await loadRelatedIncidents(record.school_id, record.tenant_id, record.id);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create new incident',
+        variant: 'destructive',
+        duration: 5000
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!record || !currentRecord) return null;
 
   const age = currentRecord.date_of_birth
@@ -270,7 +533,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between text-foreground">
             {isEditing ? (
-              <span>Edit Trespass Record</span>
+              <span>{isAddingNewIncident ? 'Add New Incident' : 'Edit Trespass Record'}</span>
             ) : (
               <span className="sr-only">Student Details</span>
             )}
@@ -281,6 +544,60 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
             )}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Incident Switcher - Only show if multiple incidents exist */}
+        {relatedIncidents.length > 1 && !isEditing && (
+          <div className="bg-muted/50 rounded-lg p-4 mb-4 border border-border">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="incident-selector" className="text-sm font-medium">
+                  Viewing Incident {currentIncidentIndex + 1} of {relatedIncidents.length}
+                </Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleIncidentChange(currentIncidentIndex - 1)}
+                    disabled={currentIncidentIndex === 0}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleIncidentChange(currentIncidentIndex + 1)}
+                    disabled={currentIncidentIndex === relatedIncidents.length - 1}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <Select
+                value={currentIncidentIndex.toString()}
+                onValueChange={(value) => handleIncidentChange(parseInt(value))}
+              >
+                <SelectTrigger id="incident-selector" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {relatedIncidents.map((incident, index) => (
+                    <SelectItem key={incident.id} value={index.toString()}>
+                      Incident #{index + 1} - {incident.created_at ? format(new Date(incident.created_at), 'MMM d, yyyy') : 'N/A'}
+                      {' • '}
+                      {incident.is_daep ? 'DAEP Placement' : 'Trespass Warning'}
+                      {' • '}
+                      {incident.status === 'active' ? 'Active' : 'Inactive'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
 
         {isEditing ? (
           <div className="space-y-4">
@@ -308,7 +625,7 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
                   <div className="relative w-full h-full rounded-full overflow-hidden group">
                     <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setFormData({ ...formData, photo_url: '' }); }} className="text-white text-sm hover:underline">
+                      <button type="button" onClick={(e) => { e.stopPropagation(); setImagePreview(null); setFormData({ ...formData, photo: '' }); }} className="text-white text-sm hover:underline">
                         Remove
                       </button>
                     </div>
@@ -326,11 +643,23 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="first_name">First Name *</Label>
-                <Input id="first_name" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} className="bg-input border-border" required />
+                <Input
+                  id="first_name"
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  className="bg-input border-border"
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="last_name">Last Name *</Label>
-                <Input id="last_name" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} className="bg-input border-border" required />
+                <Input
+                  id="last_name"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  className="bg-input border-border"
+                  required
+                />
               </div>
             </div>
 
@@ -340,35 +669,112 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
                 <Input id="aka" value={formData.aka} onChange={(e) => setFormData({ ...formData, aka: e.target.value })} className="bg-input border-border" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="known_associates">Known Associates</Label>
-                <Input id="known_associates" value={formData.known_associates} onChange={(e) => setFormData({ ...formData, known_associates: e.target.value })} className="bg-input border-border" />
+                <Label htmlFor="affiliation">Affiliations</Label>
+                <Input id="affiliation" value={formData.affiliation} onChange={(e) => setFormData({ ...formData, affiliation: e.target.value })} className="bg-input border-border" />
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox id="is_former_student" checked={formData.is_former_student} onCheckedChange={(checked) => setFormData({ ...formData, is_former_student: checked as boolean })} />
-              <Label htmlFor="is_former_student" className="cursor-pointer font-normal">Former Student</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="is_current_student" checked={formData.is_current_student} onCheckedChange={(checked) => setFormData({ ...formData, is_current_student: checked as boolean })} />
+                <Label htmlFor="is_current_student" className="cursor-pointer font-normal">Current Student</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is_daep"
+                  checked={formData.is_daep}
+                  onCheckedChange={(checked) => {
+                    // When DAEP is checked, auto-fill trespassed_from and clear expiration_date
+                    if (checked) {
+                      setFormData({
+                        ...formData,
+                        is_daep: true,
+                        trespassed_from: 'All District Properties',
+                        expiration_date: ''
+                      });
+                    } else {
+                      setFormData({ ...formData, is_daep: false });
+                    }
+                  }}
+                />
+                <Label htmlFor="is_daep" className="cursor-pointer font-normal">DAEP</Label>
+              </div>
             </div>
+
+            {formData.is_daep && (
+              <div className="space-y-2">
+                <Label htmlFor="daep_expiration_date">DAEP Expiration Date</Label>
+                <Input id="daep_expiration_date" type="date" value={formData.daep_expiration_date} onChange={(e) => setFormData({ ...formData, daep_expiration_date: e.target.value })} className="bg-input border-border" />
+                <p className="text-xs text-muted-foreground">Separate from regular trespass expiration</p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date_of_birth">Date of Birth *</Label>
-                <Input id="date_of_birth" type="date" value={formData.date_of_birth} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })} className="bg-input border-border" required />
+                <Input
+                  id="date_of_birth"
+                  type="date"
+                  value={formData.date_of_birth}
+                  onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                  className="bg-input border-border"
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school_id">School ID</Label>
-                <Input id="school_id" value={formData.school_id} onChange={(e) => setFormData({ ...formData, school_id: e.target.value })} className="bg-input border-border" />
+                <Input
+                  id="school_id"
+                  value={formData.school_id}
+                  onChange={(e) => setFormData({ ...formData, school_id: e.target.value })}
+                  className="bg-input border-border"
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="current_school">Current School</Label>
-                <Input id="current_school" value={formData.current_school} onChange={(e) => setFormData({ ...formData, current_school: e.target.value })} className="bg-input border-border" />
+                <Label htmlFor="campus_id">Campus</Label>
+                <Select
+                  value={formData.campus_id || '__unassigned__'}
+                  onValueChange={(value) => setFormData({ ...formData, campus_id: value === '__unassigned__' ? '' : value })}
+                  disabled={campusesLoading || userRole === 'campus_admin'}
+                >
+                  <SelectTrigger className="bg-input border-border">
+                    <SelectValue placeholder={campusesLoading ? "Loading campuses..." : "Select campus (optional)"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userRole === 'campus_admin' && userCampusId ? (
+                      // Campus admin: Show only their campus
+                      campuses
+                        .filter(c => c.id === userCampusId)
+                        .map(campus => (
+                          <SelectItem key={campus.id} value={campus.id}>
+                            {campus.name}
+                          </SelectItem>
+                        ))
+                    ) : (
+                      // District/Master admin: Show all active campuses
+                      <>
+                        <SelectItem value="__unassigned__">No Campus (Unassigned)</SelectItem>
+                        {campuses.map(campus => (
+                          <SelectItem key={campus.id} value={campus.id}>
+                            {campus.name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+                {userRole === 'campus_admin' && (
+                  <p className="text-xs text-muted-foreground">
+                    Restricted to your campus
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contact_info">School Contact</Label>
-                <Input id="contact_info" value={formData.contact_info} onChange={(e) => setFormData({ ...formData, contact_info: e.target.value })} className="bg-input border-border" />
+                <Label htmlFor="school_contact">School Contact</Label>
+                <Input id="school_contact" value={formData.school_contact} onChange={(e) => setFormData({ ...formData, school_contact: e.target.value })} className="bg-input border-border" />
               </div>
             </div>
 
@@ -395,19 +801,24 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="trespassed_from">Trespassed From *</Label>
-                <Select value={formData.trespassed_from} onValueChange={(value) => setFormData({ ...formData, trespassed_from: value })} required>
-                  <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All BISD properties">All BISD properties</SelectItem>
-                    <SelectItem value="Home campus after school activities">Home campus after school activities</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="trespassed_from"
+                  value={formData.trespassed_from}
+                  onChange={(e) => setFormData({ ...formData, trespassed_from: e.target.value })}
+                  className="bg-input border-border"
+                  required
+                  list="trespassed-from-options"
+                />
+                <datalist id="trespassed-from-options">
+                  <option value="All District Properties" />
+                  <option value="Home campus after school activities" />
+                </datalist>
+                <p className="text-xs text-muted-foreground">Select from dropdown or type custom value</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="expiration_date">Warning Expires *</Label>
-                <Input id="expiration_date" type="date" value={formData.expiration_date} onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })} className="bg-input border-border" required />
+                <Label htmlFor="expiration_date">Warning Expires {!formData.is_daep && '*'}</Label>
+                <Input id="expiration_date" type="date" value={formData.expiration_date} onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })} className="bg-input border-border" required={!formData.is_daep} />
+                {formData.is_daep && <p className="text-xs text-muted-foreground">Optional when DAEP is checked</p>}
               </div>
             </div>
 
@@ -447,9 +858,23 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
             )}
 
             <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isSaving} className="hover:bg-red-600 hover:text-white">Cancel</Button>
-              <Button onClick={handleSave} disabled={isSaving} className="text-white bg-primary hover:bg-primary/90">
-                {isSaving ? 'Saving...' : 'Save Changes'}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditing(false);
+                  setIsAddingNewIncident(false);
+                }}
+                disabled={isSaving}
+                className="hover:bg-red-600 hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={isAddingNewIncident ? handleSaveNewIncident : handleSave}
+                disabled={isSaving}
+                className="text-white bg-primary hover:bg-primary/90"
+              >
+                {isSaving ? 'Saving...' : (isAddingNewIncident ? 'Add Incident' : 'Save Changes')}
               </Button>
             </div>
           </div>
@@ -460,8 +885,8 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
               <h2 className="text-xl font-bold text-center mb-4">{currentRecord.first_name} {currentRecord.last_name}</h2>
               <div className="flex gap-6">
                 <div className="flex-shrink-0">
-                  {imagePreview || currentRecord.photo_url ? (
-                    <img src={imagePreview || currentRecord.photo_url || ''} alt={`${currentRecord.first_name} ${currentRecord.last_name}`} className="w-32 h-32 rounded-full object-cover" />
+                  {imagePreview || currentRecord.photo ? (
+                    <img src={imagePreview || currentRecord.photo || ''} alt={`${currentRecord.first_name} ${currentRecord.last_name}`} className="w-32 h-32 rounded-full object-cover" />
                   ) : (
                     <div className="w-32 h-32 rounded-full bg-card flex items-center justify-center border-2 border-border">
                       <div className="text-4xl font-bold text-muted-foreground">{currentRecord.first_name.charAt(0)}{currentRecord.last_name.charAt(0)}</div>
@@ -478,16 +903,34 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
                     <div className="text-base">{age || 'N/A'}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">Former Student</div>
-                    <div className="text-base">{currentRecord.is_former_student ? 'Yes' : 'No'}</div>
+                    <div className="text-sm text-muted-foreground mb-1">Current Student</div>
+                    <div className="text-base">{currentRecord.is_current_student ? 'Yes' : 'No'}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-muted-foreground mb-1">Current School</div>
-                    <div className="text-base">{currentRecord.current_school || 'N/A'}</div>
+                    <div className="text-sm text-muted-foreground mb-1">DAEP</div>
+                    <div className="text-base">{currentRecord.is_daep ? 'Yes' : 'No'}</div>
+                  </div>
+                  {currentRecord.is_daep && currentRecord.daep_expiration_date && (
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">DAEP Expires</div>
+                      <div className="text-base">{formatDateForDisplay(currentRecord.daep_expiration_date)}</div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">Campus</div>
+                    <div className="text-base">
+                      {currentRecord.campus_id
+                        ? campuses.find(c => c.id === currentRecord.campus_id)?.name || currentRecord.campus_id
+                        : 'Unassigned'}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">School Contact</div>
-                    <div className="text-base">{currentRecord.contact_info || 'N/A'}</div>
+                    <div className="text-base">{currentRecord.school_contact || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">Affiliations</div>
+                    <div className="text-base">{currentRecord.affiliation || 'N/A'}</div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">School ID</div>
@@ -503,13 +946,22 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
                 <h3 className="text-lg font-semibold">Trespass Information</h3>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Status:</span>
-                  <Badge className="text-white bg-status-active">Active</Badge>
+                  <Badge className={`text-white ${currentRecord?.status === 'active' ? 'bg-status-active' : 'bg-status-inactive'}`}>
+                    {currentRecord?.status === 'active' ? 'Active' : 'Inactive'}
+                  </Badge>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-x-8 gap-y-3">
                 <div>
-                  <div className="text-sm text-muted-foreground mb-1">Warning Expires</div>
-                  <div className="text-base">{formatDateForDisplay(currentRecord.expiration_date)}</div>
+                  <div className="text-sm text-muted-foreground mb-1">
+                    {currentRecord.is_daep ? 'DAEP Expires' : 'Warning Expires'}
+                  </div>
+                  <div className="text-base">
+                    {currentRecord.is_daep
+                      ? (currentRecord.daep_expiration_date ? formatDateForDisplay(currentRecord.daep_expiration_date) : 'N/A')
+                      : (currentRecord.expiration_date ? formatDateForDisplay(currentRecord.expiration_date) : 'N/A')
+                    }
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground mb-1">Trespassed From</div>
@@ -593,6 +1045,9 @@ export function RecordDetailDialog({ record, open, onOpenChange, onRecordUpdated
             <div className="flex justify-between items-center pt-4 border-t border-border">
               {canEdit ? (
                 <div className="space-x-2">
+                  <Button onClick={handleAddNewIncident} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    Add New Incident
+                  </Button>
                   <Button onClick={() => setIsEditing(true)} className="bg-orange-600 hover:bg-orange-700">Edit</Button>
                   <Button onClick={handleDelete} variant="destructive">Delete</Button>
                 </div>

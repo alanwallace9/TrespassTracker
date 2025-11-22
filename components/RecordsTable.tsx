@@ -31,7 +31,7 @@ function formatDateForDisplay(dateString: string | null | undefined, formatStrin
 export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
   const exportToCSV = () => {
     // Create CSV headers
-    const headers = ['Name', 'ID Number', 'Expiration Date', 'Birth Date', 'Trespassed From', 'Status', 'Location', 'Incident Date'];
+    const headers = ['Name', 'ID Number', 'Expiration Date', 'Birth Date', 'Trespassed From', 'Status', 'Incident Date'];
 
     // Create CSV rows
     const rows = records.map((record) => {
@@ -45,7 +45,6 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
         record.date_of_birth ? format(new Date(record.date_of_birth), 'MM/dd/yyyy') : 'N/A',
         `"${record.trespassed_from || 'N/A'}"`,
         displayStatus,
-        `"${record.location || 'N/A'}"`,
         record.incident_date ? format(new Date(record.incident_date), 'MM/dd/yyyy') : 'N/A',
       ].join(',');
     });
@@ -78,7 +77,6 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
         'Birth Date': record.date_of_birth ? format(new Date(record.date_of_birth), 'MM/dd/yyyy') : 'N/A',
         'Trespassed From': record.trespassed_from || 'N/A',
         'Status': displayStatus,
-        'Location': record.location || 'N/A',
         'Incident Date': record.incident_date ? format(new Date(record.incident_date), 'MM/dd/yyyy') : 'N/A',
       };
     });
@@ -96,7 +94,6 @@ export function RecordsTable({ records, onViewRecord }: RecordsTableProps) {
       { wch: 15 }, // Birth Date
       { wch: 20 }, // Trespassed From
       { wch: 10 }, // Status
-      { wch: 20 }, // Location
       { wch: 15 }, // Incident Date
     ];
 
