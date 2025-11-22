@@ -9,6 +9,7 @@ export default async function DashboardPage() {
   const { data: records, error } = await supabase
     .from('trespass_records')
     .select('*')
+    .is('deleted_at', null)
     .order('incident_date', { ascending: false });
 
   if (error) {
