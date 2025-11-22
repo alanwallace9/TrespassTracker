@@ -1,0 +1,36 @@
+# Claude Ignore File
+# Files and directories listed here will be excluded from Claude's search and context
+
+# Database Schema Files (Use MCP for live schema instead)
+DATABASE_SCHEMA.md
+supabase/migrations/*.sql
+
+# Build and Dependencies
+.next/
+node_modules/
+.cache/
+dist/
+build/
+
+# Environment Files
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Testing
+coverage/
+.nyc_output/

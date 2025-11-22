@@ -1,20 +1,24 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useDemoRole } from '@/contexts/DemoRoleContext';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Shield, LogOut, Settings, User, ChevronDown, Search, Plus, Upload, LayoutGrid, List, FileText, Power, History, MessageSquare, Bell } from 'lucide-react';
+import { Shield, LogOut, Settings, User, ChevronDown, Search, Plus, Upload, LayoutGrid, List, FileText, Power, History, MessageSquare, Bell, BookOpen } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { AddRecordDialog } from '@/components/AddRecordDialog';
 import { CSVUploadDialog } from '@/components/CSVUploadDialog';
 import { InviteUserDialog } from '@/components/InviteUserDialog';
+import { BulkUserUploadDialog } from '@/components/admin/BulkUserUploadDialog';
 import { StatsDropdown } from '@/components/StatsDropdown';
 import { AdminAuditLog } from '@/components/AdminAuditLog';
 import { getDisplayName, getUserProfile } from '@/app/actions/users';
+import { getCurrentVersion } from '@/app/actions/feedback';
 import { TrespassRecord, UserProfile } from '@/lib/supabase';
 import { useExpiringWarnings } from '@/hooks/useExpiringWarnings';
 
@@ -50,16 +54,20 @@ export function DashboardLayout({
   showExpiringOnly = false,
 }: DashboardLayoutProps) {
   const { user, loading, signOut } = useAuth();
+  const { isDemoMode, demoRole, setDemoRole, availableRoles } = useDemoRole();
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [csvDialogOpen, setCSVDialogOpen] = useState(false);
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  const [bulkUserDialogOpen, setBulkUserDialogOpen] = useState(false);
   const [auditLogOpen, setAuditLogOpen] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>('viewer');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [tenantShortName, setTenantShortName] = useState<string>('');
+  const [appVersion, setAppVersion] = useState<string>('');
   const [notificationDismissed, setNotificationDismissed] = useState(false);
   // Initialize theme state directly from localStorage (no useEffect delay)
   // The blocking script in layout.tsx already set the data-theme attribute
@@ -75,6 +83,12 @@ export function DashboardLayout({
 
   // Use the expiring warnings hook
   const { count: expiringCount } = useExpiringWarnings(records, userProfile);
+
+  // Determine effective role (use demo role if in demo mode, otherwise use actual user role)
+  const effectiveRole = isDemoMode ? demoRole : (userProfile?.role || 'viewer');
+
+  // Permission check: viewers cannot add/edit records
+  const canEdit = effectiveRole !== 'viewer';
 
   // Check if notification was dismissed this session
   useEffect(() => {
@@ -133,15 +147,31 @@ export function DashboardLayout({
       setDisplayName(null);
     }
 
-    // Fetch full user profile for notifications
+    // Fetch full user profile for notifications and tenant info
     try {
       const profile = await getUserProfile(user.id);
       if (profile) {
         setUserProfile(profile);
+        // Set tenant short name for dashboard branding
+        if (profile.tenant && Array.isArray(profile.tenant) && profile.tenant[0]?.short_display_name) {
+          setTenantShortName(profile.tenant[0].short_display_name);
+        } else if (profile.tenant && !Array.isArray(profile.tenant) && profile.tenant.short_display_name) {
+          setTenantShortName(profile.tenant.short_display_name);
+        }
       }
     } catch (error) {
       // Silently fail - profile is optional for notifications
       setUserProfile(null);
+    }
+
+    // Fetch app version
+    try {
+      const versionResult = await getCurrentVersion();
+      if (!versionResult.error && versionResult.version) {
+        setAppVersion(versionResult.version);
+      }
+    } catch (error) {
+      // Silently fail - version is optional
     }
   };
 
@@ -198,15 +228,93 @@ export function DashboardLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center border" style={{ backgroundColor: 'var(--birdville-blue)', borderColor: 'var(--birdville-light-gold)' }}>
-                <Shield className="w-5 h-5" style={{ color: 'var(--birdville-light-gold)', stroke: 'var(--birdville-light-gold)', strokeWidth: '2' }} />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-foreground">BISD Trespass Management</h1>
-                <p className="text-xs text-muted-foreground">powered by <a href="https://DistrictTracker.com" className="underline hover:no-underline">DistrictTracker.com</a></p>
+              <Image
+                src="/assets/logo1.svg"
+                alt="DistrictTracker"
+                width={40}
+                height={40}
+                className="w-10 h-10"
+              />
+              <div className="flex flex-col">
+                <h1 className="text-xl font-bold text-foreground">
+                  {isDemoMode ? 'DEMO' : (tenantShortName || 'BISD')} Trespass Tracker
+                </h1>
+                <p className="text-xs text-muted-foreground">
+                  powered by <a href="https://DistrictTracker.com" className="underline hover:no-underline">DistrictTracker.com</a>
+                  {appVersion && <span className="ml-2">• v{appVersion}</span>}
+                </p>
               </div>
             </div>
+
+            {/* Demo Environment Warning - Between title and role switcher */}
+            {isDemoMode && (
+              <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30">
+                <svg className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-xs font-medium text-amber-900 dark:text-amber-200 whitespace-nowrap">
+                  Demo environment resets at least every 6 hours
+                </span>
+              </div>
+            )}
+
             <div className="flex items-center space-x-4">
+              {/* Demo Guide Button - Only visible in demo mode */}
+              {isDemoMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/demo-guide')}
+                  className="gap-2 bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-700 dark:hover:bg-blue-900"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span className="hidden sm:inline">Demo Guide</span>
+                </Button>
+              )}
+
+              {/* Demo Role Switcher - Only visible in demo mode */}
+              {isDemoMode && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 bg-input text-foreground border-border hover:bg-input hover:text-foreground hover:scale-110">
+                      <Shield className="w-4 h-4" />
+                      <span className="hidden sm:inline">{availableRoles.find(r => r.value === demoRole)?.label}</span>
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72 bg-white">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium text-slate-900">Demo Role Switcher</p>
+                        <p className="text-xs text-slate-500">Test different permission levels</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {availableRoles.map((role) => (
+                      <DropdownMenuItem
+                        key={role.value}
+                        onSelect={() => setDemoRole(role.value as any)}
+                        className={demoRole === role.value ? 'bg-slate-100' : ''}
+                      >
+                        <div className="flex flex-col w-full">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-slate-900">{role.label}</span>
+                            {demoRole === role.value && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">Active</span>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-500 mt-0.5">
+                            {role.value === 'viewer' && 'Can view all records'}
+                            {role.value === 'campus_admin' && 'Can add/update all campus records'}
+                            {role.value === 'district_admin' && 'Full access'}
+                          </span>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
               {/* Theme Toggle Power Button */}
               <button
                 onClick={toggleTheme}
@@ -222,22 +330,20 @@ export function DashboardLayout({
                 />
               </button>
 
-              {/* Notification Bell */}
-              {userProfile && userProfile.notifications_enabled && userProfile.role !== 'viewer' && expiringCount > 0 && (
-                <button
-                  onClick={handleBellClick}
-                  className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all hover:scale-110 border border-birdville-light-gold bg-input relative ${showExpiringOnly ? 'ring-2 ring-primary' : ''}`}
-                  aria-label={`${expiringCount} trespass warning${expiringCount !== 1 ? 's' : ''} expiring soon`}
-                  title={`${expiringCount} warning${expiringCount !== 1 ? 's' : ''} expiring within 1 week`}
-                >
-                  <Bell className="w-5 h-5 text-foreground" />
-                  {expiringCount > 0 && !notificationDismissed && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                      {expiringCount > 99 ? '99+' : expiringCount}
-                    </span>
-                  )}
-                </button>
-              )}
+              {/* Notification Bell - Visible to all users (viewers can see expiring warnings) */}
+              <button
+                onClick={handleBellClick}
+                className={`h-9 w-9 flex items-center justify-center rounded-lg transition-all hover:scale-110 border border-border bg-input relative ${showExpiringOnly ? 'ring-2 ring-primary' : ''}`}
+                aria-label={expiringCount > 0 ? `${expiringCount} trespass warning${expiringCount !== 1 ? 's' : ''} expiring soon` : 'Notifications'}
+                title={expiringCount > 0 ? `${expiringCount} warning${expiringCount !== 1 ? 's' : ''} expiring within 1 week` : 'View notifications'}
+              >
+                <Bell className="w-5 h-5 text-foreground" />
+                {expiringCount > 0 && !notificationDismissed && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                    {expiringCount > 99 ? '99+' : expiringCount}
+                  </span>
+                )}
+              </button>
 
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
@@ -247,10 +353,10 @@ export function DashboardLayout({
                     <ChevronDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 bg-white">
                   <DropdownMenuLabel >
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">{displayName || 'User'}</p>
+                      <p className="text-sm font-medium text-slate-900">{displayName || 'User'}</p>
                       <p className="text-xs text-slate-500">{user.email}</p>
                     </div>
                   </DropdownMenuLabel>
@@ -259,21 +365,42 @@ export function DashboardLayout({
                     <>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-foreground">Total Records</span>
-                          <span className="font-semibold text-foreground">{stats.total}</span>
+                          <span className="text-slate-700">Total Records</span>
+                          <span className="font-semibold text-slate-900">{stats.total}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-status-active">Active</span>
-                          <span className="font-semibold text-status-active">{stats.active}</span>
+                          <span className="text-green-600">Active</span>
+                          <span className="font-semibold text-green-600">{stats.active}</span>
                         </div>
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                         <div className="flex justify-between items-center w-full">
-                          <span className="text-status-warning">Inactive</span>
-                          <span className="font-semibold text-status-warning">{stats.inactive}</span>
+                          <span className="text-orange-600">Inactive</span>
+                          <span className="font-semibold text-orange-600">{stats.inactive}</span>
                         </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  {canEdit && (
+                    <>
+                      <DropdownMenuItem onSelect={(e) => {
+                        e.preventDefault();
+                        setDropdownOpen(false);
+                        setTimeout(() => setCSVDialogOpen(true), 150);
+                      }}>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={(e) => {
+                        e.preventDefault();
+                        setDropdownOpen(false);
+                        setTimeout(() => setAddDialogOpen(true), 150);
+                      }}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Record
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                     </>
@@ -281,45 +408,15 @@ export function DashboardLayout({
                   <DropdownMenuItem onSelect={(e) => {
                     e.preventDefault();
                     setDropdownOpen(false);
-                    setTimeout(() => setCSVDialogOpen(true), 150);
+                    window.open('https://districttracker.com/feedback/changelog', '_blank');
                   }}>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload CSV
+                    <History className="w-4 h-4 mr-2" />
+                    Changelog
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={(e) => {
                     e.preventDefault();
                     setDropdownOpen(false);
-                    setTimeout(() => setAddDialogOpen(true), 150);
-                  }}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Record
-                  </DropdownMenuItem>
-                  {(userRole === 'district_admin' || userRole === 'master_admin') && (
-                    <DropdownMenuItem onSelect={(e) => {
-                      e.preventDefault();
-                      setDropdownOpen(false);
-                      setTimeout(() => setAddUserDialogOpen(true), 150);
-                    }}>
-                      <User className="w-4 h-4 mr-2" />
-                      Invite User (Email)
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  {(userRole === 'district_admin' || userRole === 'master_admin') && (
-                    <DropdownMenuItem onSelect={(e) => {
-                      e.preventDefault();
-                      setDropdownOpen(false);
-                      setTimeout(() => setAuditLogOpen(true), 150);
-                    }}>
-                      <History className="w-4 h-4 mr-2" />
-                      Changelog
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onSelect={(e) => {
-                    e.preventDefault();
-                    setDropdownOpen(false);
-                    // TODO: Open feedback form (Google Form or similar)
-                    window.open('https://forms.google.com/placeholder', '_blank');
+                    window.open('https://districttracker.com/feedback', '_blank');
                   }}>
                     <MessageSquare className="w-4 h-4 mr-2" />
                     Send Feedback
@@ -408,6 +505,11 @@ export function DashboardLayout({
         open={addUserDialogOpen}
         onOpenChange={setAddUserDialogOpen}
         onUserInvited={handleDialogClose}
+      />
+      <BulkUserUploadDialog
+        open={bulkUserDialogOpen}
+        onOpenChange={setBulkUserDialogOpen}
+        onUsersInvited={handleDialogClose}
       />
       <AdminAuditLog
         open={auditLogOpen}

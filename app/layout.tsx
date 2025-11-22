@@ -4,7 +4,10 @@ import { Inter } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { DemoRoleProvider } from '@/contexts/DemoRoleContext';
+import { SubdomainTenantProvider } from '@/contexts/SubdomainTenantContext';
 import { Toaster } from '@/components/ui/toaster';
+import { Toaster as SonnerToaster } from 'sonner';
 import { dark } from '@clerk/themes';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -21,6 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       appearance={{
         baseTheme: dark,
         variables: {
@@ -54,7 +58,7 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <head>
           {/* Load theme instantly from localStorage to prevent flash */}
           <script
@@ -72,10 +76,15 @@ export default function RootLayout({
         </head>
         <body className={inter.className} suppressHydrationWarning>
           <AuthProvider>
-            <ThemeProvider>
-              {children}
-              <Toaster />
-            </ThemeProvider>
+            <SubdomainTenantProvider>
+              <DemoRoleProvider>
+                <ThemeProvider>
+                  {children}
+                  <Toaster />
+                  <SonnerToaster position="top-right" richColors />
+                </ThemeProvider>
+              </DemoRoleProvider>
+            </SubdomainTenantProvider>
           </AuthProvider>
         </body>
       </html>

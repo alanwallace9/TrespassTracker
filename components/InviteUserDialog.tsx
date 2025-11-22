@@ -8,8 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { inviteUser } from '@/app/actions/invite-user';
-import { getCampuses, type Campus } from '@/app/actions/campuses';
-import { Mail, UserPlus } from 'lucide-react';
+import { getCampuses } from '@/app/actions/admin/campuses';
+import { getTenants } from '@/app/actions/admin/tenants';
+import { useAdminTenantOptional } from '@/contexts/AdminTenantContext';
+import { useAuth } from '@/contexts/AuthContext';
+import type { Campus } from '@/lib/supabase';
+import { Mail, UserPlus, Building2 } from 'lucide-react';
 
 type InviteUserDialogProps = {
   open: boolean;
@@ -18,25 +22,64 @@ type InviteUserDialogProps = {
 };
 
 export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUserDialogProps) {
+  const adminTenantContext = useAdminTenantOptional();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'viewer' | 'campus_admin' | 'district_admin'>('viewer');
   const [campusId, setCampusId] = useState('');
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [loadingCampuses, setLoadingCampuses] = useState(false);
+  const [tenantOverride, setTenantOverride] = useState<string>('');
+  const [tenants, setTenants] = useState<Array<{id: string; display_name: string; subdomain: string; status: string}>>([]);
+  const [loadingTenants, setLoadingTenants] = useState(false);
   const { toast } = useToast();
 
-  // Fetch campuses when dialog opens
+  const isMasterAdmin = user?.user_metadata?.role === 'master_admin';
+
+  // Determine selected tenant ID based on user role
+  // Master admin: use tenant override (from dropdown), fallback to selected tenant from context
+  // Other admins: use their assigned tenant_id
+  const selectedTenantId = isMasterAdmin
+    ? (tenantOverride || adminTenantContext?.selectedTenantId || null)
+    : ((user?.user_metadata as any)?.tenant_id || null);
+
+  // Fetch tenants for master admin when dialog opens
   useEffect(() => {
-    if (open) {
+    if (open && isMasterAdmin) {
+      fetchTenants();
+    }
+  }, [open, isMasterAdmin]);
+
+  // Fetch campuses when dialog opens or tenant changes
+  useEffect(() => {
+    if (open && selectedTenantId) {
       fetchCampuses();
     }
-  }, [open]);
+  }, [open, selectedTenantId]);
+
+  const fetchTenants = async () => {
+    setLoadingTenants(true);
+    try {
+      const data = await getTenants();
+      setTenants(data);
+    } catch (error: any) {
+      console.error('Error fetching tenants:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load tenant list',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingTenants(false);
+    }
+  };
 
   const fetchCampuses = async () => {
+    if (!selectedTenantId) return;
     setLoadingCampuses(true);
     try {
-      const data = await getCampuses();
+      const data = await getCampuses(selectedTenantId);
       setCampuses(data);
     } catch (error: any) {
       console.error('Error fetching campuses:', error);
@@ -60,6 +103,26 @@ export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUs
       return;
     }
 
+    // For master admins, require tenant selection
+    if (isMasterAdmin && !selectedTenantId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a target tenant',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // For non-master admins, ensure they have a tenant_id
+    if (!isMasterAdmin && !selectedTenantId) {
+      toast({
+        title: 'Error',
+        description: 'Your account is missing tenant information. Please contact support.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (role === 'campus_admin' && !campusId) {
       toast({
         title: 'Error',
@@ -75,6 +138,8 @@ export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUs
         email,
         role,
         campusId: role === 'campus_admin' ? campusId : null,
+        // Always pass selectedTenantId (master admin uses override, others use their tenant)
+        tenantId: selectedTenantId,
       });
 
       toast({
@@ -86,6 +151,7 @@ export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUs
       setEmail('');
       setRole('viewer');
       setCampusId('');
+      setTenantOverride('');
       onOpenChange(false);
       onUserInvited?.();
     } catch (error: any) {
@@ -131,6 +197,39 @@ export function InviteUserDialog({ open, onOpenChange, onUserInvited }: InviteUs
               />
             </div>
           </div>
+
+          {/* Tenant Override (only for master_admin) */}
+          {isMasterAdmin && (
+            <div className="space-y-2">
+              <Label htmlFor="tenantOverride" className="text-sm font-medium">
+                Target Tenant <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={tenantOverride}
+                onValueChange={setTenantOverride}
+                disabled={isLoading || loadingTenants}
+              >
+                <SelectTrigger id="tenantOverride">
+                  <SelectValue placeholder={loadingTenants ? "Loading tenants..." : "Select a tenant"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenants
+                    .filter(t => t.status === 'active')
+                    .map((tenant) => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-slate-400" />
+                          {tenant.display_name} ({tenant.subdomain})
+                        </div>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">
+                Select which organization to invite this user to
+              </p>
+            </div>
+          )}
 
           {/* Role Selection */}
           <div className="space-y-2">

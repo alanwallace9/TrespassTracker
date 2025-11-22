@@ -8,7 +8,7 @@ import { Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface RecordCardProps {
-  record: TrespassRecord;
+  record: TrespassRecord & { incident_count?: number };
   onViewRecord: (record: TrespassRecord) => void;
 }
 
@@ -17,11 +17,36 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const age = record.date_of_birth
-    ? Math.floor((new Date().getTime() - new Date(record.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-    : null;
+  // Parse date without timezone conversion to avoid off-by-one day errors
+  const parseLocalDate = (dateString: string | null | undefined): Date | null => {
+    if (!dateString) return null;
 
-  const isExpired = record.expiration_date && new Date(record.expiration_date) < new Date();
+    // Extract YYYY-MM-DD from ISO string (handles both "2025-12-02" and "2025-12-02T12:00:00.000Z")
+    const dateOnly = dateString.split('T')[0];
+    const [year, month, day] = dateOnly.split('-').map(Number);
+
+    // Create date in local timezone (no UTC conversion)
+    return new Date(year, month - 1, day);
+  };
+
+  // Determine which expiration date to display - show the furthest date in the future
+  const getDisplayDate = () => {
+    const now = new Date();
+    const trespassDate = parseLocalDate(record.expiration_date);
+    const daepDate = parseLocalDate(record.daep_expiration_date);
+
+    // If both dates exist, show whichever is furthest in the future
+    if (trespassDate && daepDate) {
+      return trespassDate > daepDate ? trespassDate : daepDate;
+    }
+
+    // Otherwise return whichever date exists
+    return trespassDate || daepDate;
+  };
+
+  const displayDate = getDisplayDate();
+  const expirationDate = displayDate ? format(displayDate, 'MMM d, yyyy') : null;
+  const isExpired = displayDate ? displayDate < new Date() : false;
 
   // Handle clicks outside the card/modal to shrink image back
   useEffect(() => {
@@ -66,11 +91,11 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
   return (
     <>
       {/* Image Preview Modal */}
-      {isImageEnlarged && record.photo_url && (
+      {isImageEnlarged && record.photo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 animate-in fade-in duration-300">
           <div ref={modalRef} className="relative max-w-2xl max-h-[90vh] w-full flex items-center justify-center">
             <img
-              src={record.photo_url}
+              src={record.photo}
               alt={`${record.first_name} ${record.last_name}`}
               className="max-w-full max-h-[90vh] object-contain rounded-lg cursor-pointer transition-transform hover:scale-105"
               onClick={handleImageClick}
@@ -91,9 +116,9 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
         onClick={handleCardClick}
       >
         <div className="relative aspect-square bg-secondary border-b-2 border-border-muted overflow-hidden">
-          {record.photo_url ? (
+          {record.photo ? (
             <img
-              src={record.photo_url}
+              src={record.photo}
               alt={`${record.first_name} ${record.last_name}`}
               className="w-full h-full object-cover object-[50%_30%] transition-all duration-300"
               loading="lazy"
@@ -115,14 +140,24 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
           >
             {isExpired ? 'Inactive' : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
           </Badge>
+          {record.incident_count && record.incident_count > 1 && (
+            <Badge className="absolute top-2 left-2 bg-blue-600 text-white text-xs">
+              {record.incident_count} incidents
+            </Badge>
+          )}
         </div>
         <CardContent className="p-4 space-y-1 bg-card">
           <h3 className="font-semibold text-base text-foreground">
             {record.first_name.charAt(0).toUpperCase() + record.first_name.slice(1).toLowerCase()} {record.last_name.charAt(0).toUpperCase() + record.last_name.slice(1).toLowerCase()}
           </h3>
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            {age && <span>{age} years old</span>}
-            {record.is_former_student && (
+            {expirationDate && (
+              <div className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                <span>{expirationDate}</span>
+              </div>
+            )}
+            {!record.is_current_student && (
               <Badge className="bg-status-former text-white text-xs font-medium">
                 <span className="hidden sm:inline">Former Student</span>
                 <span className="sm:hidden">Former</span>

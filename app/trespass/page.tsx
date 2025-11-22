@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 export default async function TrespassPage() {
   const supabase = await createServerClient();
 
-  // Fetch records server-side
+  // Fetch records server-side - RLS handles tenant filtering automatically
   const { data: records, error } = await supabase
     .from('trespass_records')
     .select('*')

@@ -17,10 +17,22 @@ export type AuditEventType =
   | 'user.updated'
   | 'user.deleted'
   | 'user.invited'
+  | 'user.bulk_invited'
   | 'invitation.revoked'
   | 'record.created'
   | 'record.updated'
-  | 'record.deleted';
+  | 'record.deleted'
+  | 'record.restored'
+  | 'record.permanently_deleted'
+  | 'record.viewed'
+  | 'record.exported'
+  | 'campus.created'
+  | 'campus.updated'
+  | 'campus.activated'
+  | 'campus.deactivated'
+  | 'campus.users_exported'
+  | 'campus.records_exported'
+  | 'tenant.switched';
 
 interface AuditLogEntry {
   eventType: AuditEventType;
@@ -30,6 +42,9 @@ interface AuditLogEntry {
   targetId?: string;
   action: string;
   details?: Record<string, any>;
+  recordSubjectName?: string;  // Student/record name for FERPA searches
+  recordSchoolId?: string;      // The actual student ID from school system
+  tenantId?: string;            // Tenant ID for filtering
 }
 
 /**
@@ -47,6 +62,9 @@ export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
       target_id: entry.targetId,
       action: entry.action,
       details: entry.details,
+      record_subject_name: entry.recordSubjectName,
+      record_school_id: entry.recordSchoolId,
+      tenant_id: entry.tenantId,
     });
 
     if (error) {

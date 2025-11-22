@@ -77,7 +77,15 @@ coverage/
 *.bolt.backup
 
 # Security audit files (may contain sensitive information)
-.agents/doc/audit/
+.agents/
+.claude/
+.specify/
+.docs/
 
 # Planning documents (internal use only)
 adminsettings.md
+docs/sessions/
+docs/planning/CUSTOMER_FACING_FEATURES*.md
+CHANGELOG.md
+CLAUDE.md
+TODO.md

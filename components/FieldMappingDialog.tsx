@@ -26,18 +26,18 @@ const DATABASE_FIELDS = [
   { value: 'aka', label: 'Also Known As (AKA)', required: false },
   { value: 'date_of_birth', label: 'Date of Birth', required: false },
   { value: 'incident_date', label: 'Incident Date', required: false },
-  { value: 'location', label: 'Location', required: false },
+  { value: 'incident_location', label: 'Incident Location', required: false },
   { value: 'description', label: 'Description', required: false },
   { value: 'status', label: 'Status', required: false },
-  { value: 'is_former_student', label: 'Is Former Student', required: false },
-  { value: 'known_associates', label: 'Known Associates', required: false },
+  { value: 'is_current_student', label: 'Former Student', required: false },
+  { value: 'affiliation', label: 'Known Associates / Affiliation', required: false },
   { value: 'current_school', label: 'Current School', required: false },
   { value: 'guardian_first_name', label: 'Guardian First Name', required: false },
   { value: 'guardian_last_name', label: 'Guardian Last Name', required: false },
   { value: 'guardian_phone', label: 'Guardian Phone', required: false },
-  { value: 'contact_info', label: 'Contact Info', required: false },
+  { value: 'school_contact', label: 'School Contact', required: false },
   { value: 'notes', label: 'Notes', required: false },
-  { value: 'photo_url', label: 'Photo URL', required: false },
+  { value: 'photo', label: 'Photo', required: false },
 ];
 
 // Simple fuzzy matching using Levenshtein distance
