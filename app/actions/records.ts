@@ -212,13 +212,14 @@ export async function deleteRecord(id: string) {
     .eq('id', id)
     .single();
 
-  const { error } = await supabase
+  // Soft delete record (FERPA compliant - 5 year retention)
+  const { error} = await supabase
     .from('trespass_records')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', id);
 
   if (error) {
-    console.error('Error deleting record:', error);
+    console.error('Error soft-deleting record:', error);
     throw new Error(error.message);
   }
 
