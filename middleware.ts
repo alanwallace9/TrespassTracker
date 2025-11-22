@@ -39,8 +39,8 @@ function getSubdomainFromHostname(hostname: string): string | null {
 
   const subdomain = parts[0];
 
-  // staging is a development domain - don't map to any tenant
-  if (subdomain === 'staging') {
+  // staging and app are special domains - don't map to any tenant
+  if (subdomain === 'staging' || subdomain === 'app') {
     return null;
   }
 

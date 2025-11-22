@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useSignIn } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { Shield, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const { isLoaded, signIn, setActive } = useSignIn();
@@ -35,13 +36,36 @@ export default function LoginPage() {
         // Wait briefly to ensure session cookie is fully written to browser
         await new Promise(resolve => setTimeout(resolve, 50));
 
+        // Check if logging in from app.districttracker.com
+        const hostname = window.location.hostname;
+        const isAppSubdomain = hostname.startsWith('app.');
+
+        if (isAppSubdomain) {
+          // Fetch user's tenant_id to redirect to their subdomain
+          try {
+            const response = await fetch('/api/auth/user-tenant');
+            const data = await response.json();
+
+            if (data.tenant_id) {
+              // Redirect to user's tenant subdomain
+              const protocol = window.location.protocol;
+              const domain = hostname.replace('app.', '');
+              window.location.href = `${protocol}//${data.tenant_id}.${domain}/modules`;
+              return;
+            }
+          } catch (err) {
+            console.error('Failed to fetch user tenant:', err);
+            // Fallback to /modules on current domain
+          }
+        }
+
         // Use window.location.href for full page reload
         // This is necessary because:
         // 1. Clerk's session cookie must be sent with the next HTTP request
         // 2. Client-side navigation (router.push) doesn't reliably include the new cookie
         // 3. Middleware needs to see the cookie to authorize access
         // Security: Safe because URL is hardcoded internal path (no user input)
-        window.location.href = '/trespass';
+        window.location.href = '/modules';
         // Keep loading state active during redirect (don't set to false)
         return;
       }
@@ -56,10 +80,16 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white border border-slate-200 shadow-sm rounded-2xl">
         {/* Header */}
         <div className="text-center pt-8 pb-6 px-8">
-          <div className="w-16 h-16 mx-auto bg-blue-50 rounded-xl flex items-center justify-center mb-4">
-            <Shield className="w-8 h-8 text-blue-600" />
+          <div className="w-16 h-16 mx-auto flex items-center justify-center mb-4">
+            <Image
+              src="/assets/logo1.svg"
+              alt="District Tracker Logo"
+              width={64}
+              height={64}
+              priority
+            />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">BISD Trespass Management</h1>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">District Tracker</h1>
           <p className="text-slate-600">Please sign in to your account</p>
         </div>
 
