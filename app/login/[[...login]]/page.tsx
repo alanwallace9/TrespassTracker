@@ -49,8 +49,12 @@ export default function LoginPage() {
             if (data.tenant_id) {
               // Redirect to user's tenant subdomain
               const protocol = window.location.protocol;
-              const domain = hostname.replace('app.', '');
-              window.location.href = `${protocol}//${data.tenant_id}.${domain}/modules`;
+
+              // Extract base domain (e.g., districttracker.com from app.districttracker.com)
+              const parts = hostname.split('.');
+              const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : hostname;
+
+              window.location.href = `${protocol}//${data.tenant_id}.${baseDomain}/modules`;
               return;
             }
           } catch (err) {
@@ -83,8 +87,12 @@ export default function LoginPage() {
           if (data.tenant_id) {
             const protocol = window.location.protocol;
             const hostname = window.location.hostname;
-            const domain = hostname.replace('app.', '').replace(/^[^.]+\./, '');
-            window.location.href = `${protocol}//${data.tenant_id}.${domain}/modules`;
+
+            // Extract base domain (e.g., districttracker.com from any subdomain)
+            const parts = hostname.split('.');
+            const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : hostname;
+
+            window.location.href = `${protocol}//${data.tenant_id}.${baseDomain}/modules`;
             return;
           }
         } catch (fetchErr) {

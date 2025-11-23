@@ -42,8 +42,11 @@ export default function ModulesPage() {
           if (data.tenant_id) {
             // Redirect to tenant subdomain
             const protocol = window.location.protocol;
-            const domain = hostname.replace('www.', '');
-            window.location.href = `${protocol}//${data.tenant_id}.${domain}/modules`;
+
+            // Extract base domain (e.g., districttracker.com from www.districttracker.com)
+            const baseDomain = parts.length >= 2 ? parts.slice(-2).join('.') : hostname;
+
+            window.location.href = `${protocol}//${data.tenant_id}.${baseDomain}/modules`;
           }
         } catch (error) {
           console.error('Failed to fetch user tenant:', error);
