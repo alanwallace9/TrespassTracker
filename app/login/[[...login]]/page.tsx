@@ -70,7 +70,32 @@ export default function LoginPage() {
         return;
       }
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Invalid email or password');
+      // Check if session already exists
+      const errorMessage = err.errors?.[0]?.message || '';
+      const errorCode = err.errors?.[0]?.code || '';
+
+      if (errorMessage.includes('session') || errorCode === 'session_exists') {
+        // User already has an active session, redirect them to their tenant
+        try {
+          const response = await fetch('/api/auth/user-tenant');
+          const data = await response.json();
+
+          if (data.tenant_id) {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            const domain = hostname.replace('app.', '').replace(/^[^.]+\./, '');
+            window.location.href = `${protocol}//${data.tenant_id}.${domain}/modules`;
+            return;
+          }
+        } catch (fetchErr) {
+          console.error('Failed to fetch user tenant:', fetchErr);
+          // Fallback to modules on current domain
+          window.location.href = '/modules';
+          return;
+        }
+      }
+
+      setError(errorMessage || 'Invalid email or password');
       setIsLoading(false);
     }
   };

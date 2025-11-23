@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Shield, GraduationCap, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 
@@ -16,6 +17,43 @@ interface Module {
 
 export default function ModulesPage() {
   const router = useRouter();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  // Check if user is on base domain and redirect to their tenant subdomain
+  useEffect(() => {
+    const checkAndRedirect = async () => {
+      if (typeof window === 'undefined') return;
+
+      const hostname = window.location.hostname;
+      const parts = hostname.split('.');
+
+      // Check if we're on base domain (districttracker.com or www.districttracker.com)
+      // Not on a subdomain like demo.districttracker.com
+      const isBaseDomain = parts.length < 3 || parts[0] === 'www';
+      const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
+
+      if (isBaseDomain && !isLocalhost) {
+        setIsRedirecting(true);
+        try {
+          // Fetch user's tenant_id
+          const response = await fetch('/api/auth/user-tenant');
+          const data = await response.json();
+
+          if (data.tenant_id) {
+            // Redirect to tenant subdomain
+            const protocol = window.location.protocol;
+            const domain = hostname.replace('www.', '');
+            window.location.href = `${protocol}//${data.tenant_id}.${domain}/modules`;
+          }
+        } catch (error) {
+          console.error('Failed to fetch user tenant:', error);
+          setIsRedirecting(false);
+        }
+      }
+    };
+
+    checkAndRedirect();
+  }, []);
 
   const modules: Module[] = [
     {
@@ -41,6 +79,18 @@ export default function ModulesPage() {
   const handleModuleClick = (module: Module) => {
     router.push(module.href);
   };
+
+  // Show loading state while redirecting to tenant subdomain
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-sm text-slate-600">Redirecting to your workspace...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
