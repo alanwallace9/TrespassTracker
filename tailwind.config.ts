@@ -9,6 +9,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        'nav': '1085px', // Custom breakpoint for navigation menu
+        'demo-btn': '635px', // Custom breakpoint for demo button text wrapping
+      },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic':

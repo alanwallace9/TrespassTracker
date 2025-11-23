@@ -150,15 +150,15 @@ export function RecordCard({ record, onViewRecord }: RecordCardProps) {
           <h3 className="font-semibold text-base text-foreground">
             {record.first_name.charAt(0).toUpperCase() + record.first_name.slice(1).toLowerCase()} {record.last_name.charAt(0).toUpperCase() + record.last_name.slice(1).toLowerCase()}
           </h3>
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
             {expirationDate && (
-              <div className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                <span>{expirationDate}</span>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Calendar className="w-3 h-3 flex-shrink-0 hidden sm:inline-block" />
+                <span className="whitespace-nowrap">{expirationDate}</span>
               </div>
             )}
             {!record.is_current_student && (
-              <Badge className="bg-status-former text-white text-xs font-medium">
+              <Badge className="bg-status-former text-white text-xs font-medium flex-shrink-0">
                 <span className="hidden sm:inline">Former Student</span>
                 <span className="sm:hidden">Former</span>
               </Badge>

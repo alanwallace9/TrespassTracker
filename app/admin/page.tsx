@@ -259,18 +259,21 @@ export default function AdminOverview() {
                   <Button
                     onClick={handleUpdateDemoSnapshot}
                     disabled={updatingSnapshot || resettingDemo}
-                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center h-auto py-2"
                     size="sm"
                   >
                     {updatingSnapshot ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Updating...
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin flex-shrink-0" />
+                        <span className="text-xs">Updating...</span>
                       </>
                     ) : (
                       <>
-                        <Database className="w-4 h-4 mr-2" />
-                        Update Snapshot
+                        <Database className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span className="text-xs flex flex-col demo-btn:flex-row demo-btn:gap-1 leading-tight">
+                          <span>Update</span>
+                          <span>Snapshot</span>
+                        </span>
                       </>
                     )}
                   </Button>
@@ -278,18 +281,21 @@ export default function AdminOverview() {
                     onClick={() => setShowResetDialog(true)}
                     disabled={updatingSnapshot || resettingDemo}
                     variant="destructive"
-                    className="flex-1"
+                    className="flex-1 flex items-center justify-center h-auto py-2"
                     size="sm"
                   >
                     {resettingDemo ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Resetting...
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin flex-shrink-0" />
+                        <span className="text-xs">Resetting...</span>
                       </>
                     ) : (
                       <>
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Reset Records
+                        <RotateCcw className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span className="text-xs flex flex-col demo-btn:flex-row demo-btn:gap-1 leading-tight">
+                          <span>Reset</span>
+                          <span>Records</span>
+                        </span>
                       </>
                     )}
                   </Button>

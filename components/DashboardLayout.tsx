@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Shield, LogOut, Settings, User, ChevronDown, Search, Plus, Upload, LayoutGrid, List, FileText, Power, History, MessageSquare, Bell, BookOpen } from 'lucide-react';
+import { Shield, LogOut, Settings, User, ChevronDown, Search, Plus, Upload, LayoutGrid, List, FileText, Power, History, MessageSquare, Bell, BookOpen, Menu, X } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { AddRecordDialog } from '@/components/AddRecordDialog';
@@ -69,6 +69,8 @@ export function DashboardLayout({
   const [tenantShortName, setTenantShortName] = useState<string>('');
   const [appVersion, setAppVersion] = useState<string>('');
   const [notificationDismissed, setNotificationDismissed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMenuClosing, setIsMenuClosing] = useState(false);
   // Initialize theme state directly from localStorage (no useEffect delay)
   // The blocking script in layout.tsx already set the data-theme attribute
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -203,6 +205,22 @@ export function DashboardLayout({
     localStorage.setItem('theme', newTheme);
   };
 
+  const closeMobileMenu = () => {
+    setIsMenuClosing(true);
+    setTimeout(() => {
+      setMobileMenuOpen(false);
+      setIsMenuClosing(false);
+    }, 200); // Match animation duration
+  };
+
+  const toggleMobileMenu = () => {
+    if (mobileMenuOpen) {
+      closeMobileMenu();
+    } else {
+      setMobileMenuOpen(true);
+    }
+  };
+
   // Show loading state while auth is initializing
   // Middleware protects the route, so we know user will be authenticated
   if (loading || !user) {
@@ -226,39 +244,32 @@ export function DashboardLayout({
     <div className="min-h-screen bg-background">
       <header className="bg-background sticky top-0 z-50 shadow-sm backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center space-x-3">
-              <Image
-                src="/assets/logo1.svg"
-                alt="DistrictTracker"
-                width={40}
-                height={40}
-                className="w-10 h-10"
-              />
-              <div className="flex flex-col">
-                <h1 className="text-xl font-bold text-foreground">
-                  {isDemoMode ? 'DEMO' : (tenantShortName || 'BISD')} Trespass Tracker
-                </h1>
-                <p className="text-xs text-muted-foreground">
-                  powered by <a href="https://DistrictTracker.com" className="underline hover:no-underline">DistrictTracker.com</a>
-                  {appVersion && <span className="ml-2">• v{appVersion}</span>}
-                </p>
+          {/* Mobile & Desktop Header */}
+          <div className="flex flex-col">
+            {/* Top row: Logo, Title, Hamburger */}
+            <div className="flex justify-between items-center h-16 sm:h-20">
+              {/* Left: Logo + Title */}
+              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                <Image
+                  src="/assets/logo1.svg"
+                  alt="DistrictTracker"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0"
+                />
+                <div className="flex flex-col min-w-0">
+                  <h1 className="text-sm sm:text-xl font-bold text-foreground truncate">
+                    {isDemoMode ? 'DEMO' : (tenantShortName || 'BISD')} Trespass Tracker
+                  </h1>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">
+                    powered by <a href="https://DistrictTracker.com" className="underline hover:no-underline">DistrictTracker.com</a>
+                    {appVersion && <span className="ml-2">• v{appVersion}</span>}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Demo Environment Warning - Between title and role switcher */}
-            {isDemoMode && (
-              <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30">
-                <svg className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <span className="text-xs font-medium text-amber-900 dark:text-amber-200 whitespace-nowrap">
-                  Demo environment resets at least every 6 hours
-                </span>
-              </div>
-            )}
-
-            <div className="flex items-center space-x-4">
+              {/* Right: Desktop controls (hidden on mobile) */}
+              <div className="hidden nav:flex items-center space-x-4">
               {/* Demo Guide Button - Only visible in demo mode */}
               {isDemoMode && (
                 <Button
@@ -436,7 +447,203 @@ export function DashboardLayout({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
+
+              {/* Mobile: Hamburger Menu Button */}
+              <button
+                onClick={toggleMobileMenu}
+                className="nav:hidden h-10 w-10 flex items-center justify-center rounded-lg border border-border bg-input hover:bg-input/80"
+                aria-label="Menu"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
             </div>
+
+            {/* Demo Environment Warning Banner - Stacked below on mobile */}
+            {isDemoMode && (
+              <div className="flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 mb-2">
+                <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-[10px] sm:text-xs font-medium text-amber-900 dark:text-amber-200">
+                  Demo environment resets at least every 6 hours
+                </span>
+              </div>
+            )}
+
+            {/* Mobile Menu Dropdown */}
+            {mobileMenuOpen && (
+              <div className={`nav:hidden bg-background border-t border-border py-3 space-y-3 ${
+                isMenuClosing ? 'animate-out slide-out-to-top duration-200' : 'animate-in slide-in-from-top duration-200'
+              }`}>
+                {/* User Info */}
+                <div className="px-4 pb-2 border-b border-border">
+                  <p className="text-sm font-medium text-foreground">{displayName || 'User'}</p>
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                  {stats && (
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Total:</span>{' '}
+                        <span className="font-semibold text-foreground">{stats.total}</span>
+                      </div>
+                      <div>
+                        <span className="text-green-600">Active:</span>{' '}
+                        <span className="font-semibold text-green-600">{stats.active}</span>
+                      </div>
+                      <div>
+                        <span className="text-orange-600">Inactive:</span>{' '}
+                        <span className="font-semibold text-orange-600">{stats.inactive}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mobile Controls */}
+                <div className="px-4 space-y-2">
+                  {/* Demo Guide Button */}
+                  {isDemoMode && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        router.push('/demo-guide');
+                        closeMobileMenu();
+                      }}
+                      className="w-full justify-start gap-2 bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-700"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      Demo Guide
+                    </Button>
+                  )}
+
+                  {/* Demo Role Switcher */}
+                  {isDemoMode && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Demo Role</p>
+                      <Select value={demoRole} onValueChange={(value) => setDemoRole(value as any)}>
+                        <SelectTrigger className="w-full bg-input border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableRoles.map((role) => (
+                            <SelectItem key={role.value} value={role.value}>
+                              {role.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Theme Toggle */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleTheme}
+                    className="w-full justify-start gap-2 bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Power className="w-4 h-4" />
+                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                  </Button>
+
+                  {/* Notifications */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      handleBellClick();
+                      closeMobileMenu();
+                    }}
+                    className="w-full justify-start gap-2 relative bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Bell className="w-4 h-4" />
+                    Notifications
+                    {expiringCount > 0 && !notificationDismissed && (
+                      <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {expiringCount > 99 ? '99+' : expiringCount}
+                      </span>
+                    )}
+                  </Button>
+
+                  {/* Action Buttons */}
+                  {canEdit && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setCSVDialogOpen(true);
+                          closeMobileMenu();
+                        }}
+                        className="w-full justify-start gap-2 bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Upload CSV
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAddDialogOpen(true);
+                          closeMobileMenu();
+                        }}
+                        className="w-full justify-start gap-2 bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Record
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Other Actions */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      window.open('https://districttracker.com/feedback/changelog', '_blank');
+                      closeMobileMenu();
+                    }}
+                    className="w-full justify-start gap-2 bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <History className="w-4 h-4" />
+                    Changelog
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      window.open('https://districttracker.com/feedback', '_blank');
+                      closeMobileMenu();
+                    }}
+                    className="w-full justify-start gap-2 bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Send Feedback
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSettingsOpen(true);
+                      closeMobileMenu();
+                    }}
+                    className="w-full justify-start gap-2 bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Settings
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="w-full justify-start gap-2 bg-background text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950 border-red-200 dark:border-red-900"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
           {onSearchChange && onStatusFilterChange && onViewModeChange && (
               <div className="flex flex-row gap-2 items-center pt-4 pb-2 border-t" style={{ borderColor: 'var(--birdville-light-gold)' }}>
