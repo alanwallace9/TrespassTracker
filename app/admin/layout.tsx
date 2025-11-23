@@ -174,7 +174,14 @@ function AdminLayoutInner({
                 className="w-8 h-8 sm:w-10 sm:h-10"
               />
               <div>
-                <h1 className="text-base sm:text-xl font-bold text-foreground">District Tracker</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base sm:text-xl font-bold text-foreground">District Tracker</h1>
+                  {selectedTenantId === 'demo' && userRole && (
+                    <span className="px-2 py-0.5 text-[10px] sm:text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-700 whitespace-nowrap">
+                      {userRole.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground hidden sm:block">Admin Panel</p>
               </div>
             </div>

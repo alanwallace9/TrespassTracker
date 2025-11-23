@@ -258,9 +258,16 @@ export function DashboardLayout({
                   className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0"
                 />
                 <div className="flex flex-col min-w-0">
-                  <h1 className="text-sm sm:text-xl font-bold text-foreground truncate">
-                    {isDemoMode ? 'DEMO' : (tenantShortName || 'BISD')} Trespass Tracker
-                  </h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-sm sm:text-xl font-bold text-foreground truncate">
+                      {isDemoMode ? 'DEMO' : (tenantShortName || 'BISD')} Trespass Tracker
+                    </h1>
+                    {isDemoMode && demoRole && (
+                      <span className="px-2 py-0.5 text-[10px] sm:text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-700 whitespace-nowrap">
+                        {demoRole.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">
                     powered by <a href="https://DistrictTracker.com" className="underline hover:no-underline">DistrictTracker.com</a>
                     {appVersion && <span className="ml-2">• v{appVersion}</span>}
